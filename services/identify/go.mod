@@ -130,6 +130,6 @@ require (
 replace (
 	wibusystem/pkg/common => ../../pkg/common
 	wibusystem/pkg/database => ../../pkg/database
-	wibusystem/pkg/grpc => ../../../pkg/grpc
+	wibusystem/pkg/grpc => ../../pkg/grpc
 	wibusystem/pkg/i18n => ../../pkg/i18n
 )
