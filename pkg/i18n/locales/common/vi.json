@@ -1,0 +1,30 @@
+{
+  "common.validation.required": "Trường này là bắt buộc",
+  "common.validation.invalid_email": "Vui lòng nhập địa chỉ email hợp lệ",
+  "common.validation.invalid_format": "Định dạng không hợp lệ",
+  "common.validation.too_short": "Trường này quá ngắn",
+  "common.validation.too_long": "Trường này quá dài",
+  "common.validation.invalid_password": "Mật khẩu phải có ít nhất 8 ký tự bao gồm chữ hoa, chữ thường, số và ký tự đặc biệt",
+
+  "common.error.internal_server": "Lỗi máy chủ nội bộ",
+  "common.error.not_found": "Không tìm thấy tài nguyên",
+  "common.error.unauthorized": "Truy cập không được phép",
+  "common.error.forbidden": "Truy cập bị cấm",
+  "common.error.bad_request": "Yêu cầu không hợp lệ",
+  "common.error.conflict": "Xung đột tài nguyên",
+  "common.error.service_unavailable": "Dịch vụ tạm thời không khả dụng",
+
+  "common.success.created": "Tạo thành công",
+  "common.success.updated": "Cập nhật thành công",
+  "common.success.deleted": "Xóa thành công",
+  "common.success.retrieved": "Lấy dữ liệu thành công",
+
+  "common.pagination.page": "Trang",
+  "common.pagination.of": "của",
+  "common.pagination.total": "Tổng cộng",
+  "common.pagination.per_page": "Mỗi trang",
+  "common.pagination.first": "Đầu tiên",
+  "common.pagination.last": "Cuối cùng",
+  "common.pagination.next": "Tiếp theo",
+  "common.pagination.previous": "Trước đó"
+}

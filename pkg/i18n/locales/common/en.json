@@ -1,0 +1,30 @@
+{
+  "common.validation.required": "This field is required",
+  "common.validation.invalid_email": "Please enter a valid email address",
+  "common.validation.invalid_format": "Invalid format",
+  "common.validation.too_short": "This field is too short",
+  "common.validation.too_long": "This field is too long",
+  "common.validation.invalid_password": "Password must be at least 8 characters with uppercase, lowercase, number and special character",
+
+  "common.error.internal_server": "Internal server error",
+  "common.error.not_found": "Resource not found",
+  "common.error.unauthorized": "Unauthorized access",
+  "common.error.forbidden": "Access forbidden",
+  "common.error.bad_request": "Invalid request",
+  "common.error.conflict": "Resource conflict",
+  "common.error.service_unavailable": "Service temporarily unavailable",
+
+  "common.success.created": "Successfully created",
+  "common.success.updated": "Successfully updated",
+  "common.success.deleted": "Successfully deleted",
+  "common.success.retrieved": "Successfully retrieved",
+
+  "common.pagination.page": "Page",
+  "common.pagination.of": "of",
+  "common.pagination.total": "Total",
+  "common.pagination.per_page": "Per page",
+  "common.pagination.first": "First",
+  "common.pagination.last": "Last",
+  "common.pagination.next": "Next",
+  "common.pagination.previous": "Previous"
+}

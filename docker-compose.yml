@@ -1,0 +1,144 @@
+version: "3.8"
+
+services:
+    # Account Service Database
+    identify-db:
+        image: postgres:18rc1
+        container_name: identify-db
+        restart: unless-stopped
+        environment:
+            POSTGRES_DB: identify_service
+            POSTGRES_USER: identify_service
+            POSTGRES_PASSWORD: c2f960ed5f802b6acac2d4d928f21ada
+        ports:
+            - "5432:5432"
+        volumes:
+            - account_db_data:/var/lib/postgresql/data
+        healthcheck:
+            test:
+                [
+                    "CMD-SHELL",
+                    "pg_isready -U identify_service -d identify_service",
+                ]
+            interval: 10s
+            timeout: 5s
+            retries: 5
+        networks:
+            - wibusystem_backend
+
+    # Catalog Service Database
+    catalog-db:
+        image: postgres:17.6-alpine
+        container_name: catalog-db
+        restart: unless-stopped
+        environment:
+            POSTGRES_DB: catalog_service
+            POSTGRES_USER: catalog_service
+            POSTGRES_PASSWORD: b75d0500ccfecacb1fcc891e16382e14
+        ports:
+            - "5433:5432"
+        volumes:
+            - catalog_db_data:/var/lib/postgresql/data
+        healthcheck:
+            test:
+                [
+                    "CMD-SHELL",
+                    "pg_isready -U catalog_service -d catalog_service",
+                ]
+            interval: 10s
+            timeout: 5s
+            retries: 5
+        networks:
+            - wibusystem_backend
+
+    # Community Service Database (TimescaleDB for real-time analytics)
+    community-db:
+        image: timescale/timescaledb:2.21.3-pg17
+        container_name: community-db
+        restart: unless-stopped
+        command: postgres -c shared_preload_libraries=timescaledb
+        environment:
+            POSTGRES_DB: community_service
+            POSTGRES_USER: community_service
+            POSTGRES_PASSWORD: 02f6398db1873bb893733ed86266f156
+            # TimescaleDB specific configurations
+            TIMESCALEDB_TELEMETRY: "off"
+            TS_TUNE_MEMORY: "1GB"
+            TS_TUNE_NUM_CPUS: "2"
+        ports:
+            - "5434:5432"
+        volumes:
+            - community_db_data:/var/lib/postgresql/data
+        healthcheck:
+            test:
+                [
+                    "CMD-SHELL",
+                    "pg_isready -U community_service -d community_service",
+                ]
+            interval: 10s
+            timeout: 5s
+            retries: 5
+        networks:
+            - wibusystem_backend
+        # Add shared memory for TimescaleDB performance
+        shm_size: 256mb
+
+    # Payment Service Database
+    payment-db:
+        image: postgres:17.6-alpine
+        container_name: payment-db
+        restart: unless-stopped
+        environment:
+            POSTGRES_DB: payment_service
+            POSTGRES_USER: payment_service
+            POSTGRES_PASSWORD: 69318874e4a16087086be2a2caa2010e
+        ports:
+            - "5435:5432"
+        volumes:
+            - payment_db_data:/var/lib/postgresql/data
+        healthcheck:
+            test:
+                [
+                    "CMD-SHELL",
+                    "pg_isready -U payment_service -d payment_service",
+                ]
+            interval: 10s
+            timeout: 5s
+            retries: 5
+        networks:
+            - wibusystem_backend
+
+    # Redis for caching and message queue
+    redis:
+        image: redis:8.2.1-alpine
+        container_name: redis
+        restart: unless-stopped
+        command: redis-server --appendonly yes --requirepass 8767375c91873d04626c73c8aed8ce01
+        ports:
+            - "6379:6379"
+        volumes:
+            - redis_data:/data
+        healthcheck:
+            test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+            interval: 10s
+            timeout: 5s
+            retries: 5
+        networks:
+            - wibusystem_backend
+
+volumes:
+    account_db_data:
+        driver: local
+    catalog_db_data:
+        driver: local
+    community_db_data:
+        driver: local
+    payment_db_data:
+        driver: local
+    redis_data:
+        driver: local
+
+networks:
+    wibusystem_backend:
+        driver: bridge
+        name: wibusystem-backend
