@@ -16,6 +16,7 @@ import (
 	"wibusystem/services/catalog/handlers"
 	"wibusystem/services/catalog/middleware"
 	"wibusystem/services/catalog/repositories"
+	"wibusystem/services/catalog/services"
 	v1 "wibusystem/services/catalog/routes/api/v1"
 )
 
@@ -27,6 +28,7 @@ type Dependencies struct {
 	Handlers     *handlers.Handlers
 	Middleware   *middleware.Manager
 	Repositories *repositories.Repositories
+	Services     *services.Services
 }
 
 // SetupRouter initializes a Gin engine with middlewares and versioned routes.
@@ -79,7 +81,8 @@ func NewDependencies(dbManager *factory.DatabaseManager, cfg *config.Config, tra
 	}
 
 	repos := repositories.NewRepositories(pool)
-	h := handlers.NewHandlers(repos, translator)
+	services := services.NewServices(repos)
+	h := handlers.NewHandlers(repos, services, translator)
 	m := middleware.NewManager(cfg, translator)
 
 	return &Dependencies{
@@ -89,6 +92,7 @@ func NewDependencies(dbManager *factory.DatabaseManager, cfg *config.Config, tra
 		Handlers:     h,
 		Middleware:   m,
 		Repositories: repos,
+		Services:     services,
 	}, nil
 }
 

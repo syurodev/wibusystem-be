@@ -2,7 +2,8 @@ go 1.25.1
 
 use (
 	.
-	./services/identify
-	./services/catalog
 	./pkg/grpc
+	./pkg/middleware
+	./services/catalog
+	./services/identify
 )

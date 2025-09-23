@@ -13,6 +13,7 @@ import (
 type Manager struct {
 	Locale    *LocaleMiddleware
 	RateLimit *RateLimiter
+	Auth      *AuthMiddleware
 	Config    *config.Config
 }
 
@@ -23,6 +24,14 @@ func NewManager(cfg *config.Config, translator *i18n.Translator) *Manager {
 		locale = NewLocaleMiddleware(translator)
 	}
 
+	// Initialize auth middleware
+	auth, err := NewAuthMiddleware(cfg)
+	if err != nil {
+		// Log error but don't fail - allow service to start without auth middleware
+		// This is useful for development/testing scenarios
+		auth = nil
+	}
+
 	limit := 120
 	if cfg.Server.Environment == "production" {
 		limit = 60
@@ -31,6 +40,7 @@ func NewManager(cfg *config.Config, translator *i18n.Translator) *Manager {
 	return &Manager{
 		Locale:    locale,
 		RateLimit: NewRateLimiter(limit, time.Minute),
+		Auth:      auth,
 		Config:    cfg,
 	}
 }
@@ -65,4 +75,30 @@ func (m *Manager) SetupInternalAPIMiddleware() []gin.HandlerFunc {
 		ValidateContentType(),
 		NewRateLimiter(60, time.Minute).RateLimit(),
 	}
+}
+
+// SetupProtectedAPIMiddleware returns middleware for protected API routes.
+func (m *Manager) SetupProtectedAPIMiddleware() []gin.HandlerFunc {
+	middleware := []gin.HandlerFunc{
+		ValidateContentType(),
+	}
+
+	if m.Auth != nil {
+		middleware = append(middleware, m.Auth.SetupProtectedAPIMiddleware()...)
+	}
+
+	return middleware
+}
+
+// SetupAdminAPIMiddleware returns middleware for admin API routes.
+func (m *Manager) SetupAdminAPIMiddleware() []gin.HandlerFunc {
+	middleware := []gin.HandlerFunc{
+		ValidateContentType(),
+	}
+
+	if m.Auth != nil {
+		middleware = append(middleware, m.Auth.SetupAdminAPIMiddleware()...)
+	}
+
+	return middleware
 }

@@ -15,4 +15,9 @@ func SetupRoutes(router *gin.Engine, cfg *config.Config, h *handlers.Handlers, m
 
 	// Health endpoint for API consumers (mirrors /healthz but versioned).
 	api.GET("/health", h.Health.Status)
+
+	// Setup master data routes
+	SetupGenreRoutes(api, h, m)
+	SetupCharacterRoutes(api, h, m)
+	SetupCreatorRoutes(api, h, m)
 }
