@@ -111,7 +111,7 @@ INSERT INTO oauth2_clients (
   scopes, audience, public, client_name, token_endpoint_auth_method
 ) VALUES (
   'wibutime_web_client',
-  '$2a$12$h0h8WxmtgAS6JqxoDkoKzu7ID5lFK2UbUKdJTKSP1dPvGVAcbALvi',
+  '$2a$12$fYfdxMRUzZAaMAraOq6xS.h0qD4JuPilURg4kavI4gJPFpRlcCrjq',
   ARRAY['http://localhost:3000/api/auth/callback/oidc'],
   ARRAY['authorization_code','refresh_token'],
   ARRAY['code'],

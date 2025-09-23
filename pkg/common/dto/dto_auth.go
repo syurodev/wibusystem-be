@@ -29,3 +29,20 @@ type UserInfo struct {
 	PreferredUsername string `json:"preferred_username,omitempty"`
 	UpdatedAt         int64  `json:"updated_at"`
 }
+
+// ChangePasswordRequest represents a password change request
+type ChangePasswordRequest struct {
+	CurrentPassword string `json:"current_password" validate:"required"`
+	NewPassword     string `json:"new_password" validate:"required,min=8"`
+}
+
+// ResetPasswordRequest represents a password reset request
+type ResetPasswordRequest struct {
+	Token       string `json:"token" validate:"required"`
+	NewPassword string `json:"new_password" validate:"required,min=8"`
+}
+
+// ForgotPasswordRequest represents a forgot password request
+type ForgotPasswordRequest struct {
+	Email string `json:"email" validate:"required,email"`
+}

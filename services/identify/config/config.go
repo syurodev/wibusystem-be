@@ -106,6 +106,8 @@ type GRPCConfig struct {
 // Load reads configuration from environment variables with defaults suitable
 // for local development. Override via env for staging/production.
 func Load() *Config {
+	migrationsPath := getEnv("DB_MIGRATIONS_PATH", "../../pkg/database/migrations/postgres/identify")
+
 	return &Config{
 		Server: ServerConfig{
 			Host:         getEnv("SERVER_HOST", "localhost"),
@@ -144,11 +146,10 @@ func Load() *Config {
 					MaxConnLifetime: getEnvAsDuration("DB_MAX_CONN_LIFETIME", time.Hour),
 					MaxConnIdleTime: getEnvAsDuration("DB_MAX_CONN_IDLE_TIME", 30*time.Minute),
 					SSLMode:         getEnv("DB_SSL_MODE", "disable"),
-					MigrationsPath:  getEnv("DB_MIGRATIONS_PATH", "../../pkg/database/migrations"),
 				},
 				// Cache, Document, and TimeSeries can be added later as needed
 			},
-			MigrationsPath: getEnv("DB_MIGRATIONS_PATH", "../../pkg/database/migrations"),
+			MigrationsPath: migrationsPath,
 		},
 		OAuth2: OAuth2Config{
 			Issuer:                 getEnv("OAUTH2_ISSUER", "http://localhost:8080"),

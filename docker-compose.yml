@@ -28,7 +28,7 @@ services:
 
     # Catalog Service Database
     catalog-db:
-        image: postgres:17.6-alpine
+        image: postgres:18rc1
         container_name: catalog-db
         restart: unless-stopped
         environment:

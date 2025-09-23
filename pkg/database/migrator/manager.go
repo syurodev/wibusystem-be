@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"os"
 	"path/filepath"
 
 	"wibusystem/pkg/database/interfaces"
@@ -29,43 +30,74 @@ func (m *Manager) SetupMigrations(ctx context.Context, dbManager interfaces.Data
 	// Setup migrations for primary database if it exists
 	if primary := dbManager.GetPrimary(); primary != nil {
 		dbConfig := dbManager.GetConfigInterface()
-		if primaryConfig := dbConfig.GetPrimary(); primaryConfig != nil {
-			migrationConfig := &MigrationConfig{
-				SourceURL:       fmt.Sprintf("file://%s", filepath.Join(migrationsBasePath, "postgres")),
-				DatabaseName:    "postgres",
-				MigrationsTable: "schema_migrations",
-				Verbose:         true,
-			}
+		if dbConfig != nil {
+			if primaryConfig := dbConfig.GetPrimary(); primaryConfig != nil {
+				primaryPath := resolveMigrationPath(migrationsBasePath, primaryConfig.GetMigrationsPath())
+				if primaryPath == "" {
+					log.Printf("Skipping migrations for primary database %s: no migrations path provided", primary.GetType())
+				} else {
+					if !directoryExists(primaryPath) {
+						return fmt.Errorf("primary migrations path does not exist: %s", primaryPath)
+					}
 
-			migrator, err := m.factory.CreateMigrator(primary.GetType(), primaryConfig, migrationConfig)
-			if err != nil {
-				return fmt.Errorf("failed to create migrator for primary database: %w", err)
-			}
+					migrationConfig := &MigrationConfig{
+						SourceURL:       fmt.Sprintf("file://%s", primaryPath),
+						DatabaseName:    "postgres",
+						MigrationsTable: "schema_migrations",
+						Verbose:         true,
+					}
 
-			m.migrators[primary.GetType()] = migrator
-			log.Printf("Migration setup completed for primary database: %s", primary.GetType())
+					migrator, err := m.factory.CreateMigrator(primary.GetType(), primaryConfig, migrationConfig)
+					if err != nil {
+						return fmt.Errorf("failed to create migrator for primary database: %w", err)
+					}
+
+					m.migrators[primary.GetType()] = migrator
+					log.Printf("Migration setup completed for primary database: %s", primary.GetType())
+				}
+			}
 		}
 	}
 
 	// Setup migrations for TimescaleDB if it exists
 	if timeseries := dbManager.GetTimeSeries(); timeseries != nil {
 		dbConfig := dbManager.GetConfigInterface()
-		if timeseriesConfig := dbConfig.GetTimeSeries(); timeseriesConfig != nil {
-			migrationConfig := &MigrationConfig{
-				SourceURL:       fmt.Sprintf("file://%s", filepath.Join(migrationsBasePath, "timescale")),
-				DatabaseName:    "postgres", // TimescaleDB uses postgres driver
-				MigrationsTable: "timescale_migrations",
-				Verbose:         true,
-			}
+		if dbConfig != nil {
+			if timeseriesConfig := dbConfig.GetTimeSeries(); timeseriesConfig != nil {
+				relationalConfig := timeseriesConfig.GetRelationalConfig()
+				if relationalConfig == nil {
+					log.Printf("Skipping migrations for TimescaleDB: relational config missing")
+				} else {
+					timescalePath := resolveMigrationPath(migrationsBasePath, relationalConfig.GetMigrationsPath())
+					if timescalePath == "" && migrationsBasePath != "" {
+						candidate := filepath.Join(migrationsBasePath, "timescale")
+						if directoryExists(candidate) {
+							timescalePath = candidate
+						}
+					}
 
-			relationalConfig := timeseriesConfig.GetRelationalConfig()
-			migrator, err := m.factory.CreateMigrator(timeseries.GetType(), relationalConfig, migrationConfig)
-			if err != nil {
-				return fmt.Errorf("failed to create migrator for TimescaleDB: %w", err)
-			}
+					if timescalePath == "" {
+						log.Printf("Skipping migrations for TimescaleDB: no migrations path provided")
+					} else if !directoryExists(timescalePath) {
+						return fmt.Errorf("TimescaleDB migrations path does not exist: %s", timescalePath)
+					} else {
+						migrationConfig := &MigrationConfig{
+							SourceURL:       fmt.Sprintf("file://%s", timescalePath),
+							DatabaseName:    "postgres", // TimescaleDB uses postgres driver
+							MigrationsTable: "timescale_migrations",
+							Verbose:         true,
+						}
 
-			m.migrators[interfaces.TimescaleDB] = migrator
-			log.Printf("Migration setup completed for TimescaleDB")
+						migrator, err := m.factory.CreateMigrator(timeseries.GetType(), relationalConfig, migrationConfig)
+						if err != nil {
+							return fmt.Errorf("failed to create migrator for TimescaleDB: %w", err)
+						}
+
+						m.migrators[interfaces.TimescaleDB] = migrator
+						log.Printf("Migration setup completed for TimescaleDB")
+					}
+				}
+			}
 		}
 	}
 
@@ -157,4 +189,40 @@ type MigrationStatus struct {
 	Version uint
 	Dirty   bool
 	Error   error
+}
+
+func resolveMigrationPath(basePath, override string) string {
+	clean := func(path string) string {
+		if path == "" {
+			return ""
+		}
+		cleaned := filepath.Clean(path)
+		if cleaned == "." {
+			return ""
+		}
+		return cleaned
+	}
+
+	if override != "" {
+		if filepath.IsAbs(override) {
+			return clean(override)
+		}
+		if basePath != "" {
+			return clean(filepath.Join(basePath, override))
+		}
+		return clean(override)
+	}
+
+	return clean(basePath)
+}
+
+func directoryExists(path string) bool {
+	if path == "" {
+		return false
+	}
+	info, err := os.Stat(path)
+	if err != nil {
+		return false
+	}
+	return info.IsDir()
 }
