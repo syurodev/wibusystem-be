@@ -123,10 +123,9 @@ func (v *FositeTokenValidator) ValidateToken(ctx context.Context, req *oauth.Val
 }
 
 // argumentsToStringSlice converts fosite.Arguments to []string
+// argumentsToStringSlice converts fosite.Arguments to []string
 func argumentsToStringSlice(args fosite.Arguments) []string {
 	result := make([]string, len(args))
-	for i, arg := range args {
-		result[i] = arg
-	}
+	copy(result, args)
 	return result
 }
