@@ -24,6 +24,7 @@ func setupUserRoutes(v1 *gin.RouterGroup, h *handlers.Handlers, m *middleware.Ma
 		users.DELETE("/:id", m.Auth.RequireAuth(), h.User.DeleteUser)
 
 		// User tenant relationships
-		users.GET("/:id/tenants", h.User.GetUserTenants)
+		// TODO: Implement GetUserTenants handler
+		// users.GET("/:id/tenants", h.User.GetUserTenants)
 	}
 }

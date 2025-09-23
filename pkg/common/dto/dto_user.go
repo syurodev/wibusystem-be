@@ -17,6 +17,7 @@ type CreateUserRequest struct {
 
 // UpdateUserRequest represents the request to update a user
 type UpdateUserRequest struct {
+	Email         *string          `json:"email,omitempty" validate:"omitempty,email"`
 	Username      *string          `json:"username,omitempty" validate:"omitempty,max=100"`
 	DisplayName   *string          `json:"display_name,omitempty" validate:"omitempty,max=100"`
 	AvatarURL     *string          `json:"avatar_url,omitempty" validate:"omitempty,url"`

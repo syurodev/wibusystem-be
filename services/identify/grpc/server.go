@@ -8,10 +8,11 @@ import (
 	"wibusystem/pkg/grpc/config"
 	grpcserver "wibusystem/pkg/grpc/server"
 	"wibusystem/services/identify/oauth2"
+	"wibusystem/services/identify/services/interfaces"
 )
 
-// SetupGRPCServer creates and configures a gRPC server for token validation
-func SetupGRPCServer(provider *oauth2.Provider, cfg *config.ServerConfig) (*grpcserver.Server, error) {
+// SetupGRPCServer creates and configures a gRPC server with both token validation and user services
+func SetupGRPCServer(provider *oauth2.Provider, userService interfaces.UserServiceInterface, cfg *config.ServerConfig) (*grpcserver.Server, error) {
 	// Create fosite token validator
 	validator := NewFositeTokenValidator(provider)
 
@@ -21,7 +22,10 @@ func SetupGRPCServer(provider *oauth2.Provider, cfg *config.ServerConfig) (*grpc
 		return nil, fmt.Errorf("failed to create gRPC server: %w", err)
 	}
 
-	log.Printf("gRPC server configured on %s", server.GetAddress())
+	// Register UserService on the same gRPC server
+	RegisterUserServiceOnExistingServer(server.GetGRPCServer(), userService)
+
+	log.Printf("gRPC server configured with TokenValidation and UserService on %s", server.GetAddress())
 	return server, nil
 }
 

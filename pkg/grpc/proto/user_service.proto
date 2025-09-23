@@ -1,0 +1,51 @@
+syntax = "proto3";
+
+package userservice;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "wibusystem/pkg/grpc/proto/userservice";
+
+// UserService provides methods for retrieving user information
+service UserService {
+  // GetUser retrieves a single user by ID
+  rpc GetUser(GetUserRequest) returns (GetUserResponse);
+
+  // GetUsers retrieves multiple users by their IDs
+  rpc GetUsers(GetUsersRequest) returns (GetUsersResponse);
+}
+
+// User represents user information
+message User {
+  string id = 1;
+  string display_name = 2;
+  string username = 3;
+  string email = 4;
+  string avatar_url = 5;
+  google.protobuf.Timestamp created_at = 6;
+}
+
+// GetUserRequest contains the user ID to retrieve
+message GetUserRequest {
+  string user_id = 1;
+}
+
+// GetUserResponse contains the user data or error information
+message GetUserResponse {
+  oneof result {
+    User user = 1;
+    string error = 2;
+  }
+}
+
+// GetUsersRequest contains multiple user IDs to retrieve
+message GetUsersRequest {
+  repeated string user_ids = 1;
+}
+
+// GetUsersResponse contains the list of users or error information
+message GetUsersResponse {
+  repeated User users = 1;
+  string error = 2; // Global error if request fails completely
+  repeated string missing_user_ids = 3; // IDs that were not found
+}

@@ -117,7 +117,7 @@ func (h *Handlers) AuthorizeHandler(c *gin.Context) {
 	fmt.Printf("DEBUG AUTHORIZE: Dev mode, auto-approving consent\n")
 
 	// Create OIDC session with user information
-	session := h.provider.CreateCustomSession(userID, user.Username, user.Email)
+	session := h.provider.CreateCustomSession(userID, user.Username, user.Email, user.AvatarURL)
 	// Ensure audience includes the client ID for ID Token
 	if session.Claims != nil {
 		session.Claims.Audience = []string{ar.GetClient().GetID()}
@@ -717,7 +717,7 @@ func (h *Handlers) handleRefreshTokenGrant(_ context.Context, _ fosite.AccessReq
 func (h *Handlers) handleClientCredentialsGrant(_ context.Context, ar fosite.AccessRequester) error {
 	// For client credentials, we create a session with the client as the subject
 	clientID := ar.GetClient().GetID()
-	session := h.provider.CreateCustomSession(clientID, clientID, "")
+	session := h.provider.CreateCustomSession(clientID, clientID, "", nil)
 	ar.SetSession(session)
 	return nil
 }
@@ -742,6 +742,7 @@ func (h *Handlers) handlePasswordGrant(ctx context.Context, ar fosite.AccessRequ
 		user.ID.String(),
 		user.Username,
 		user.Email,
+		user.AvatarURL,
 	)
 	ar.SetSession(session)
 
@@ -861,6 +862,11 @@ func (h *Handlers) UserInfoHandler(c *gin.Context) {
 		"preferred_username": session.Claims.Extra["preferred_username"],
 		"name":               session.Claims.Extra["name"],
 		"updated_at":         session.Claims.IssuedAt.Unix(),
+	}
+
+	// Add image field if picture is available in claims
+	if picture, exists := session.Claims.Extra["picture"]; exists && picture != nil {
+		userInfo["image"] = picture
 	}
 
 	c.JSON(http.StatusOK, userInfo)

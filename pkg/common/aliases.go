@@ -123,5 +123,4 @@ type StandardResponse = r.StandardResponse
 // Deprecated passthroughs
 type APIResponse = r.APIResponse
 type ErrorResponse = r.ErrorResponse
-type PaginatedResponse = r.PaginatedResponse
 type Pagination = r.Pagination

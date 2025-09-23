@@ -1,0 +1,50 @@
+syntax = "proto3";
+
+package tokenvalidation;
+
+option go_package = "wibusystem/pkg/grpc/tokenvalidation";
+
+// TokenValidationService provides token validation for OAuth2/OIDC tokens
+service TokenValidationService {
+  // ValidateToken validates an OAuth2 access token or refresh token
+  rpc ValidateToken(ValidateTokenRequest) returns (ValidateTokenResponse);
+}
+
+// ValidateTokenRequest contains the token to validate
+message ValidateTokenRequest {
+  string token = 1;
+  string token_type = 2; // "access_token" or "refresh_token", defaults to "access_token"
+  repeated string required_scopes = 3; // Optional scopes that must be present
+}
+
+// ValidateTokenResponse contains the validation result
+message ValidateTokenResponse {
+  bool valid = 1;
+  string error = 2; // Error message if validation failed
+  TokenInfo token_info = 3; // Token metadata if valid
+  UserInfo user_info = 4; // User information if available
+}
+
+// TokenInfo contains metadata about the validated token
+message TokenInfo {
+  bool active = 1;
+  string token_type = 2;
+  repeated string scope = 3;
+  string client_id = 4;
+  repeated string audience = 5;
+  string issuer = 6;
+  string subject = 7;
+  int64 expires_at = 8; // Unix timestamp
+  int64 issued_at = 9; // Unix timestamp
+}
+
+// UserInfo contains user information extracted from the token
+message UserInfo {
+  string subject = 1;
+  string username = 2;
+  string email = 3;
+  string name = 4;
+  bool email_verified = 5;
+  map<string, string> extra = 6; // Additional user claims
+  int64 updated_at = 7; // Unix timestamp
+}

@@ -4,4 +4,5 @@ use (
 	.
 	./services/identify
 	./services/catalog
+	./pkg/grpc
 )

@@ -9,14 +9,12 @@ import (
 	"time"
 
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/reflection"
-	"google.golang.org/grpc/status"
-	"google.golang.org/protobuf/types/known/structpb"
 
 	"wibusystem/pkg/common/oauth"
 	"wibusystem/pkg/grpc/config"
+	pb "wibusystem/pkg/grpc/tokenvalidation"
 )
 
 // TokenValidator represents a component capable of validating OAuth tokens and
@@ -67,7 +65,7 @@ func NewServer(cfg *config.ServerConfig, validator TokenValidator) (*Server, err
 
 	grpcServer := grpc.NewServer(opts...)
 	service := &tokenValidationService{validator: validator}
-	RegisterTokenValidationServiceServer(grpcServer, service)
+	pb.RegisterTokenValidationServiceServer(grpcServer, service)
 
 	if effectiveCfg.EnableReflection {
 		reflection.Register(grpcServer)
@@ -140,189 +138,80 @@ func (s *Server) GetAddress() string {
 	return s.cfg.Address()
 }
 
-const (
-	serviceName             = "wibusystem.grpc.TokenValidationService"
-	fullMethodValidateToken = "/" + serviceName + "/ValidateToken"
-)
-
-// TokenValidationServiceServer defines the gRPC surface area exposed to other
-// services. We intentionally keep the request/response types dynamic via
-// structpb.Struct to avoid requiring generated protobuf code at this stage.
-type TokenValidationServiceServer interface {
-	ValidateToken(context.Context, *structpb.Struct) (*structpb.Struct, error)
+// GetGRPCServer returns the underlying gRPC server instance for registering additional services
+func (s *Server) GetGRPCServer() *grpc.Server {
+	if s == nil {
+		return nil
+	}
+	return s.grpcServer
 }
 
-// tokenValidationService adapts a TokenValidator to the gRPC transport.
+// tokenValidationService adapts a TokenValidator to the gRPC transport using proto types.
 type tokenValidationService struct {
+	pb.UnimplementedTokenValidationServiceServer
 	validator TokenValidator
 }
 
-func (s *tokenValidationService) ValidateToken(ctx context.Context, req *structpb.Struct) (*structpb.Struct, error) {
-	validationReq, err := structToValidationRequest(req)
-	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, err.Error())
+func (s *tokenValidationService) ValidateToken(ctx context.Context, req *pb.ValidateTokenRequest) (*pb.ValidateTokenResponse, error) {
+	// Convert proto request to internal validation request
+	validationReq := &oauth.ValidationRequest{
+		Token:     req.Token,
+		TokenType: req.TokenType,
+		Scopes:    req.RequiredScopes,
 	}
 
+	// Validate token using internal validator
 	result, err := s.validator.ValidateToken(ctx, validationReq)
 	if err != nil {
-		return nil, status.Error(codes.Internal, err.Error())
+		return &pb.ValidateTokenResponse{
+			Valid: false,
+			Error: err.Error(),
+		}, nil
 	}
+
 	if result == nil {
-		return nil, status.Error(codes.Internal, "validator returned nil result")
+		return &pb.ValidateTokenResponse{
+			Valid: false,
+			Error: "validator returned nil result",
+		}, nil
 	}
 
-	respMap := validationResultToMap(result)
-	respStruct, err := structpb.NewStruct(respMap)
-	if err != nil {
-		return nil, status.Error(codes.Internal, fmt.Sprintf("failed to encode response: %v", err))
+	// Convert internal result to proto response
+	response := &pb.ValidateTokenResponse{
+		Valid: result.Valid,
+		Error: result.Error,
 	}
 
-	return respStruct, nil
+	// Convert token info if available
+	if result.TokenInfo != nil {
+		response.TokenInfo = &pb.TokenInfo{
+			Active:    result.TokenInfo.Active,
+			TokenType: result.TokenInfo.TokenType,
+			Scope:     result.TokenInfo.Scope,
+			ClientId:  result.TokenInfo.ClientID,
+			Audience:  result.TokenInfo.Audience,
+			Issuer:    result.TokenInfo.Issuer,
+			Subject:   result.TokenInfo.Subject,
+			ExpiresAt: result.TokenInfo.ExpiresAt.Unix(),
+			IssuedAt:  result.TokenInfo.IssuedAt.Unix(),
+		}
+	}
+
+	// Convert user info if available
+	if result.UserInfo != nil {
+		response.UserInfo = &pb.UserInfo{
+			Subject:       result.UserInfo.Subject,
+			Username:      result.UserInfo.Username,
+			Email:         result.UserInfo.Email,
+			Name:          result.UserInfo.Name,
+			EmailVerified: result.UserInfo.Verified,
+			Extra:         result.UserInfo.Extra,
+		}
+		if result.UserInfo.UpdatedAt != nil {
+			response.UserInfo.UpdatedAt = result.UserInfo.UpdatedAt.Unix()
+		}
+	}
+
+	return response, nil
 }
 
-// RegisterTokenValidationServiceServer registers the service implementation
-// with the provided gRPC server registrar.
-func RegisterTokenValidationServiceServer(s grpc.ServiceRegistrar, srv TokenValidationServiceServer) {
-	s.RegisterService(&tokenValidationServiceDesc, srv)
-}
-
-var tokenValidationServiceDesc = grpc.ServiceDesc{
-	ServiceName: serviceName,
-	HandlerType: (*TokenValidationServiceServer)(nil),
-	Methods: []grpc.MethodDesc{
-		{
-			MethodName: "ValidateToken",
-			Handler:    _TokenValidationService_ValidateToken_Handler,
-		},
-	},
-	Streams:  []grpc.StreamDesc{},
-	Metadata: "token_validation",
-}
-
-func _TokenValidationService_ValidateToken_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(structpb.Struct)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(TokenValidationServiceServer).ValidateToken(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: fullMethodValidateToken,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(TokenValidationServiceServer).ValidateToken(ctx, req.(*structpb.Struct))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-// structToValidationRequest converts a dynamic protobuf Struct into our shared
-// ValidationRequest type, performing basic input validation.
-func structToValidationRequest(st *structpb.Struct) (*oauth.ValidationRequest, error) {
-	if st == nil {
-		return nil, oauth.ErrTokenRequired
-	}
-
-	fields := st.GetFields()
-	tokenValue, ok := fields["token"]
-	if !ok || tokenValue.GetStringValue() == "" {
-		return nil, oauth.ErrTokenRequired
-	}
-
-	req := &oauth.ValidationRequest{
-		Token: tokenValue.GetStringValue(),
-	}
-
-	if tokenTypeValue, ok := fields["token_type"]; ok {
-		req.TokenType = tokenTypeValue.GetStringValue()
-	}
-
-	if scopesValue, ok := fields["scopes"]; ok {
-		list := scopesValue.GetListValue()
-		if list != nil {
-			for _, v := range list.GetValues() {
-				req.Scopes = append(req.Scopes, v.GetStringValue())
-			}
-		}
-	}
-
-	return req, nil
-}
-
-// validationResultToMap prepares a ValidationResult for transport by converting
-// it into a map compatible with structpb.NewStruct.
-func validationResultToMap(result *oauth.ValidationResult) map[string]interface{} {
-	output := map[string]interface{}{
-		"valid": result.Valid,
-	}
-
-	if result.Error != "" {
-		output["error"] = result.Error
-	}
-
-	if info := result.TokenInfo; info != nil {
-		tokenInfo := map[string]interface{}{
-			"active": info.Active,
-		}
-		if info.TokenType != "" {
-			tokenInfo["token_type"] = info.TokenType
-		}
-		if len(info.Scope) > 0 {
-			tokenInfo["scope"] = info.Scope
-		}
-		if info.ClientID != "" {
-			tokenInfo["client_id"] = info.ClientID
-		}
-		if len(info.Audience) > 0 {
-			tokenInfo["audience"] = info.Audience
-		}
-		if info.Issuer != "" {
-			tokenInfo["issuer"] = info.Issuer
-		}
-		if info.Subject != "" {
-			tokenInfo["subject"] = info.Subject
-		}
-		if !info.ExpiresAt.IsZero() {
-			tokenInfo["expires_at"] = info.ExpiresAt.Format(time.RFC3339Nano)
-		}
-		if !info.IssuedAt.IsZero() {
-			tokenInfo["issued_at"] = info.IssuedAt.Format(time.RFC3339Nano)
-		}
-
-		output["token_info"] = tokenInfo
-	}
-
-	if user := result.UserInfo; user != nil {
-		userInfo := map[string]interface{}{}
-		if user.Subject != "" {
-			userInfo["subject"] = user.Subject
-		}
-		if user.Username != "" {
-			userInfo["username"] = user.Username
-		}
-		if user.Email != "" {
-			userInfo["email"] = user.Email
-		}
-		if user.Name != "" {
-			userInfo["name"] = user.Name
-		}
-		if user.Verified {
-			userInfo["verified"] = user.Verified
-		}
-		if len(user.Extra) > 0 {
-			extra := make(map[string]interface{}, len(user.Extra))
-			for k, v := range user.Extra {
-				extra[k] = v
-			}
-			userInfo["extra"] = extra
-		}
-		if user.UpdatedAt != nil && !user.UpdatedAt.IsZero() {
-			userInfo["updated_at"] = user.UpdatedAt.Format(time.RFC3339Nano)
-		}
-
-		output["user_info"] = userInfo
-	}
-
-	return output
-}

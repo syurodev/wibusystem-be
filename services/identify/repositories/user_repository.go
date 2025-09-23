@@ -64,7 +64,7 @@ func (r *userRepository) Create(ctx context.Context, user *m.User) error {
 // GetByID returns a user by ID or an error if not found.
 func (r *userRepository) GetByID(ctx context.Context, id uuid.UUID) (*m.User, error) {
 	query := `
-		SELECT id, email, username, display_name, created_at, last_login_at
+		SELECT id, email, username, display_name, avatar_url, cover_image_url, bio, is_blocked, created_at, updated_at, last_login_at
 		FROM users
 		WHERE id = $1
 	`
@@ -78,7 +78,12 @@ func (r *userRepository) GetByID(ctx context.Context, id uuid.UUID) (*m.User, er
 		&user.Email,
 		&username,
 		&displayName,
+		&user.AvatarURL,
+		&user.CoverImageURL,
+		&user.Bio,
+		&user.IsBlocked,
 		&user.CreatedAt,
+		&user.UpdatedAt,
 		&lastLoginAt,
 	)
 
@@ -103,7 +108,7 @@ func (r *userRepository) GetByID(ctx context.Context, id uuid.UUID) (*m.User, er
 // GetByEmail returns a user by email.
 func (r *userRepository) GetByEmail(ctx context.Context, email string) (*m.User, error) {
 	query := `
-		SELECT id, email, username, display_name, created_at, last_login_at
+		SELECT id, email, username, display_name, avatar_url, cover_image_url, bio, is_blocked, created_at, updated_at, last_login_at
 		FROM users
 		WHERE email = $1
 	`
@@ -117,7 +122,12 @@ func (r *userRepository) GetByEmail(ctx context.Context, email string) (*m.User,
 		&user.Email,
 		&username,
 		&displayName,
+		&user.AvatarURL,
+		&user.CoverImageURL,
+		&user.Bio,
+		&user.IsBlocked,
 		&user.CreatedAt,
+		&user.UpdatedAt,
 		&lastLoginAt,
 	)
 
@@ -142,7 +152,7 @@ func (r *userRepository) GetByEmail(ctx context.Context, email string) (*m.User,
 // GetByUsername returns a user by username.
 func (r *userRepository) GetByUsername(ctx context.Context, username string) (*m.User, error) {
 	query := `
-		SELECT id, email, username, display_name, created_at, last_login_at
+		SELECT id, email, username, display_name, avatar_url, cover_image_url, bio, is_blocked, created_at, updated_at, last_login_at
 		FROM users
 		WHERE username = $1
 	`
@@ -156,7 +166,12 @@ func (r *userRepository) GetByUsername(ctx context.Context, username string) (*m
 		&user.Email,
 		&usernameResult,
 		&displayName,
+		&user.AvatarURL,
+		&user.CoverImageURL,
+		&user.Bio,
+		&user.IsBlocked,
 		&user.CreatedAt,
+		&user.UpdatedAt,
 		&lastLoginAt,
 	)
 
@@ -178,11 +193,11 @@ func (r *userRepository) GetByUsername(ctx context.Context, username string) (*m
 	return user, nil
 }
 
-// Update modifies username/display_name for a user by ID.
+// Update modifies user fields by ID.
 func (r *userRepository) Update(ctx context.Context, user *m.User) error {
 	query := `
 		UPDATE users
-		SET username = $2, display_name = $3
+		SET username = $2, display_name = $3, avatar_url = $4, cover_image_url = $5, bio = $6, updated_at = NOW()
 		WHERE id = $1
 	`
 
@@ -194,7 +209,7 @@ func (r *userRepository) Update(ctx context.Context, user *m.User) error {
 		displayName = &user.DisplayName
 	}
 
-	result, err := r.pool.Exec(ctx, query, user.ID, username, displayName)
+	result, err := r.pool.Exec(ctx, query, user.ID, username, displayName, user.AvatarURL, user.CoverImageURL, user.Bio)
 	if err != nil {
 		return fmt.Errorf("failed to update user: %w", err)
 	}
@@ -234,7 +249,7 @@ func (r *userRepository) List(ctx context.Context, limit, offset int) ([]*m.User
 
 	// Get users with pagination
 	query := `
-		SELECT id, email, username, display_name, created_at, last_login_at
+		SELECT id, email, username, display_name, avatar_url, cover_image_url, bio, is_blocked, created_at, updated_at, last_login_at
 		FROM users
 		ORDER BY created_at DESC
 		LIMIT $1 OFFSET $2
@@ -257,7 +272,12 @@ func (r *userRepository) List(ctx context.Context, limit, offset int) ([]*m.User
 			&user.Email,
 			&username,
 			&displayName,
+			&user.AvatarURL,
+			&user.CoverImageURL,
+			&user.Bio,
+			&user.IsBlocked,
 			&user.CreatedAt,
+			&user.UpdatedAt,
 			&lastLoginAt,
 		)
 		if err != nil {
@@ -287,7 +307,7 @@ func (r *userRepository) List(ctx context.Context, limit, offset int) ([]*m.User
 
 // UpdateLastLogin sets the last_login_at timestamp to NOW() for the given user.
 func (r *userRepository) UpdateLastLogin(ctx context.Context, id uuid.UUID) error {
-	query := `UPDATE users SET last_login_at = NOW() WHERE id = $1`
+	query := `UPDATE users SET last_login_at = NOW(), updated_at = NOW() WHERE id = $1`
 
 	result, err := r.pool.Exec(ctx, query, id)
 	if err != nil {

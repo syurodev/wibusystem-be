@@ -96,13 +96,13 @@ func main() {
 	// Setup router with all routes and middleware
 	router := routes.SetupRouter(deps)
 
-	// Setup gRPC server
-	grpcServer, err := identitygrpc.SetupGRPCServer(deps.Provider, cfg.GRPC.ServerConfig)
+	// Setup gRPC server with both token validation and user services
+	grpcServer, err := identitygrpc.SetupGRPCServer(deps.Provider, deps.UserService, cfg.GRPC.ServerConfig)
 	if err != nil {
 		log.Fatalf("Failed to setup gRPC server: %v", err)
 	}
 
-	// Start gRPC server
+	// Start gRPC server (contains both services)
 	identitygrpc.StartGRPCServer(grpcServer)
 
 	// Create an HTTP server

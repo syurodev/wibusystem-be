@@ -34,8 +34,9 @@ func setupGeneralTenantRoutes(v1 *gin.RouterGroup, h *handlers.Handlers, m *midd
 
 		// Tenant member management
 		tenants.GET("/:id/members", h.Tenant.GetTenantMembers)
-		tenants.POST("/:id/members", h.Tenant.AddTenantMember)
-		tenants.DELETE("/:id/members/:user_id", h.Tenant.RemoveTenantMember)
+		// TODO: Implement AddTenantMember and RemoveTenantMember handlers
+		// tenants.POST("/:id/members", h.Tenant.AddTenantMember)
+		// tenants.DELETE("/:id/members/:user_id", h.Tenant.RemoveTenantMember)
 	}
 }
 

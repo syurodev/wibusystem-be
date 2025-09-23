@@ -48,7 +48,7 @@ type User struct {
 	Email         string           `json:"email" db:"email" validate:"required,email"`
 	Username      string           `json:"username,omitempty" db:"username"`
 	DisplayName   string           `json:"display_name,omitempty" db:"display_name"`
-	AvatarURL     *string          `json:"avatar_url,omitempty" db:"avatar_url"`
+	AvatarURL     *string          `json:"avatar_url" db:"avatar_url"`
 	CoverImageURL *string          `json:"cover_image_url,omitempty" db:"cover_image_url"`
 	Bio           *json.RawMessage `json:"bio,omitempty" db:"bio"` // Plate editor JSON data
 	IsBlocked     bool             `json:"is_blocked" db:"is_blocked"`

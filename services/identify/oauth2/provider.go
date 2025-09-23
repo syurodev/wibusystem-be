@@ -202,7 +202,7 @@ func (p *Provider) ValidateToken(_ string) (*openid.DefaultSession, error) {
 
 // CreateCustomSession creates a session embedding basic user info as OIDC
 // claims; add/adjust claims to fit your profile needs.
-func (p *Provider) CreateCustomSession(userID string, username string, email string) *openid.DefaultSession {
+func (p *Provider) CreateCustomSession(userID string, username string, email string, avatarURL *string) *openid.DefaultSession {
 	session := &openid.DefaultSession{
 		Claims: &jwt.IDTokenClaims{
 			Issuer:      p.Config.IDTokenIssuer,
@@ -228,6 +228,11 @@ func (p *Provider) CreateCustomSession(userID string, username string, email str
 		"email_verified":     true,
 		"preferred_username": username,
 		"name":               username,
+	}
+
+	// Add avatar_url as picture claim if available
+	if avatarURL != nil && *avatarURL != "" {
+		session.Claims.Extra["picture"] = *avatarURL
 	}
 
 	return session

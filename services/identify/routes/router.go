@@ -18,17 +18,20 @@ import (
 	"wibusystem/services/identify/oauth2"
 	"wibusystem/services/identify/repositories"
 	v1 "wibusystem/services/identify/routes/api/v1"
+	"wibusystem/services/identify/services"
+	"wibusystem/services/identify/services/interfaces"
 	"wibusystem/services/identify/session"
 )
 
 // Dependencies holds all the dependencies needed for setting up routes
 type Dependencies struct {
-	DBManager  *factory.DatabaseManager
-	Config     *config.Config
-	Translator *i18n.Translator
-	Handlers   *handlers.Handlers
-	Middleware *middleware.Manager
-	Provider   *oauth2.Provider
+	DBManager   *factory.DatabaseManager
+	Config      *config.Config
+	Translator  *i18n.Translator
+	Handlers    *handlers.Handlers
+	Middleware  *middleware.Manager
+	Provider    *oauth2.Provider
+	UserService interfaces.UserServiceInterface
 }
 
 // SetupRouter initializes and configures the main Gin router with all routes and middleware
@@ -99,18 +102,25 @@ func NewDependencies(dbManager *factory.DatabaseManager, cfg *config.Config, tra
 	// Initialize session manager
 	sess := session.New(cfg.Security.JWTSecret, "idsess", cfg.Security.SessionDuration, cfg.Server.Environment == "production")
 
-	// Initialize handlers
-	h := handlers.NewHandlers(repos, provider, sess, translator, cfg.Server.Environment != "production", cfg.Security.Registration.RegistrationAccessTokenSecret, cfg.Security.LoginPageURL)
+	// Initialize services (extract them so we can use them in gRPC as well)
+	credentialService := services.NewCredentialService(repos, cfg.Security.BCryptCost)
+	userService := services.NewUserService(repos)
+	tenantService := services.NewTenantService(repos)
+	authService := services.NewAuthService(repos, userService, credentialService, tenantService, sess)
+
+	// Initialize handlers with services
+	h := handlers.NewHandlersWithServices(authService, userService, tenantService, provider, repos, sess, translator, cfg.Server.Environment != "production", cfg.Security.Registration.RegistrationAccessTokenSecret, cfg.Security.LoginPageURL)
 
 	// Initialize middleware manager
 	m := middleware.NewManager(cfg, provider, repos, translator)
 
 	return &Dependencies{
-		DBManager:  dbManager,
-		Config:     cfg,
-		Translator: translator,
-		Handlers:   h,
-		Middleware: m,
-		Provider:   provider,
+		DBManager:   dbManager,
+		Config:      cfg,
+		Translator:  translator,
+		Handlers:    h,
+		Middleware:  m,
+		Provider:    provider,
+		UserService: userService,
 	}, nil
 }
