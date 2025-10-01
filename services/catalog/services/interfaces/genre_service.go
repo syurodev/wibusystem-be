@@ -3,9 +3,10 @@ package interfaces
 import (
 	"context"
 
-	"github.com/google/uuid"
 	d "wibusystem/pkg/common/dto"
 	m "wibusystem/pkg/common/model"
+
+	"github.com/google/uuid"
 )
 
 // GenreServiceInterface defines the contract for genre operations

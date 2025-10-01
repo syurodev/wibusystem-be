@@ -12,6 +12,9 @@ type UserContext struct {
 	// User ID extracted from token
 	UserID uuid.UUID `json:"user_id"`
 
+	// TenantID for multi-tenant support (current tenant for the user)
+	TenantID *uuid.UUID `json:"tenant_id,omitempty"`
+
 	// Username of the authenticated user
 	Username string `json:"username"`
 

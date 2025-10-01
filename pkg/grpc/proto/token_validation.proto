@@ -47,4 +47,5 @@ message UserInfo {
   bool email_verified = 5;
   map<string, string> extra = 6; // Additional user claims
   int64 updated_at = 7; // Unix timestamp
+  string tenant_id = 8; // Current tenant ID for the user (UUID)
 }

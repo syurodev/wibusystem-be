@@ -3,14 +3,17 @@
 package routes
 
 import (
+	"context"
 	"fmt"
 	"time"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 
+	commonHandlers "wibusystem/pkg/common/handlers"
 	"wibusystem/pkg/database/factory"
 	"wibusystem/pkg/database/providers/postgres"
+	seedidentify "wibusystem/pkg/database/seed/identify"
 	"wibusystem/pkg/i18n"
 	"wibusystem/services/identify/config"
 	"wibusystem/services/identify/handlers"
@@ -25,13 +28,14 @@ import (
 
 // Dependencies holds all the dependencies needed for setting up routes
 type Dependencies struct {
-	DBManager   *factory.DatabaseManager
-	Config      *config.Config
-	Translator  *i18n.Translator
-	Handlers    *handlers.Handlers
-	Middleware  *middleware.Manager
-	Provider    *oauth2.Provider
-	UserService interfaces.UserServiceInterface
+	DBManager     *factory.DatabaseManager
+	Config        *config.Config
+	Translator    *i18n.Translator
+	Handlers      *handlers.Handlers
+	Middleware    *middleware.Manager
+	Provider      *oauth2.Provider
+	UserService   interfaces.UserServiceInterface
+	TenantService interfaces.TenantServiceInterface
 }
 
 // SetupRouter initializes and configures the main Gin router with all routes and middleware
@@ -60,6 +64,9 @@ func SetupRouter(deps *Dependencies) *gin.Engine {
 
 	// Setup API versioned routes
 	v1.SetupV1Routes(router, deps.DBManager, deps.Config, deps.Translator, deps.Handlers, deps.Middleware)
+
+	// Setup 404 handler for non-existent routes
+	router.NoRoute(commonHandlers.NoRouteHandler())
 
 	return router
 }
@@ -93,6 +100,10 @@ func NewDependencies(dbManager *factory.DatabaseManager, cfg *config.Config, tra
 		return nil, err
 	}
 
+	if err := seedidentify.SeedAllRolesAndPermissions(context.Background(), pool); err != nil {
+		return nil, fmt.Errorf("failed to seed roles/permissions: %w", err)
+	}
+
 	// Seed default OAuth2 clients in non-production environments
 	if cfg.Server.Environment != "production" {
 		oauth2.SeedDefaultClients(pool, cfg.OAuth2.Issuer)
@@ -115,12 +126,13 @@ func NewDependencies(dbManager *factory.DatabaseManager, cfg *config.Config, tra
 	m := middleware.NewManager(cfg, provider, repos, translator)
 
 	return &Dependencies{
-		DBManager:   dbManager,
-		Config:      cfg,
-		Translator:  translator,
-		Handlers:    h,
-		Middleware:  m,
-		Provider:    provider,
-		UserService: userService,
+		DBManager:     dbManager,
+		Config:        cfg,
+		Translator:    translator,
+		Handlers:      h,
+		Middleware:    m,
+		Provider:      provider,
+		UserService:   userService,
+		TenantService: tenantService,
 	}, nil
 }

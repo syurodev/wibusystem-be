@@ -9,15 +9,17 @@ import (
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 
+	commonHandlers "wibusystem/pkg/common/handlers"
 	"wibusystem/pkg/database/factory"
 	"wibusystem/pkg/database/providers/postgres"
 	"wibusystem/pkg/i18n"
 	"wibusystem/services/catalog/config"
+	"wibusystem/services/catalog/grpc"
 	"wibusystem/services/catalog/handlers"
 	"wibusystem/services/catalog/middleware"
 	"wibusystem/services/catalog/repositories"
-	"wibusystem/services/catalog/services"
 	v1 "wibusystem/services/catalog/routes/api/v1"
+	"wibusystem/services/catalog/services"
 )
 
 // Dependencies groups runtime dependencies required to setup routes.
@@ -29,6 +31,7 @@ type Dependencies struct {
 	Middleware   *middleware.Manager
 	Repositories *repositories.Repositories
 	Services     *services.Services
+	GRPCClients  *grpc.ClientManager
 }
 
 // SetupRouter initializes a Gin engine with middlewares and versioned routes.
@@ -60,6 +63,9 @@ func SetupRouter(deps *Dependencies) *gin.Engine {
 
 	v1.SetupRoutes(router, deps.Config, deps.Handlers, deps.Middleware)
 
+	// Setup 404 handler for non-existent routes
+	router.NoRoute(commonHandlers.NoRouteHandler())
+
 	return router
 }
 
@@ -80,8 +86,14 @@ func NewDependencies(dbManager *factory.DatabaseManager, cfg *config.Config, tra
 		return nil, fmt.Errorf("postgres connection pool is unavailable")
 	}
 
+	// Create gRPC client manager
+	grpcClients, err := grpc.NewClientManager(cfg.Integrations.IdentifyGRPCURL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create gRPC client manager: %w", err)
+	}
+
 	repos := repositories.NewRepositories(pool)
-	services := services.NewServices(repos)
+	services := services.NewServices(repos, grpcClients)
 	h := handlers.NewHandlers(repos, services, translator)
 	m := middleware.NewManager(cfg, translator)
 
@@ -93,6 +105,7 @@ func NewDependencies(dbManager *factory.DatabaseManager, cfg *config.Config, tra
 		Middleware:   m,
 		Repositories: repos,
 		Services:     services,
+		GRPCClients:  grpcClients,
 	}, nil
 }
 

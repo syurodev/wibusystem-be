@@ -20,6 +20,10 @@ type CreatorRepository interface {
 	Update(ctx context.Context, creator *m.Creator) error
 	Delete(ctx context.Context, id uuid.UUID) error
 	List(ctx context.Context, limit, offset int, search string) ([]*m.Creator, int64, error)
+
+	// Query methods for novel relations
+	GetCreatorsByNovelID(ctx context.Context, novelID uuid.UUID) ([]m.CreatorWithRole, error)
+	GetCreatorsByNovelIDs(ctx context.Context, novelIDs []uuid.UUID) (map[uuid.UUID][]m.CreatorWithRole, error)
 }
 
 type creatorRepository struct {
@@ -199,4 +203,91 @@ func (r *creatorRepository) List(ctx context.Context, limit, offset int, search 
 	}
 
 	return creators, total, nil
+}
+
+// GetCreatorsByNovelID retrieves all creators associated with a specific novel, including their roles
+func (r *creatorRepository) GetCreatorsByNovelID(ctx context.Context, novelID uuid.UUID) ([]m.CreatorWithRole, error) {
+	query := `
+		SELECT c.id, c.name, c.description, c.created_at, c.updated_at, nc.role
+		FROM creator c
+		INNER JOIN novel_creator nc ON c.id = nc.creator_id
+		WHERE nc.novel_id = $1
+		ORDER BY nc.role, c.name ASC
+	`
+
+	rows, err := r.pool.Query(ctx, query, novelID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get creators by novel ID: %w", err)
+	}
+	defer rows.Close()
+
+	var creators []m.CreatorWithRole
+	for rows.Next() {
+		var creator m.CreatorWithRole
+		err := rows.Scan(
+			&creator.ID,
+			&creator.Name,
+			&creator.Description,
+			&creator.CreatedAt,
+			&creator.UpdatedAt,
+			&creator.Role,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan creator: %w", err)
+		}
+		creators = append(creators, creator)
+	}
+
+	if rows.Err() != nil {
+		return nil, fmt.Errorf("failed to iterate creators: %w", rows.Err())
+	}
+
+	return creators, nil
+}
+
+// GetCreatorsByNovelIDs retrieves creators for multiple novels in a single query (batch loading)
+// Returns a map where key is novel_id and value is the list of creators with roles for that novel
+func (r *creatorRepository) GetCreatorsByNovelIDs(ctx context.Context, novelIDs []uuid.UUID) (map[uuid.UUID][]m.CreatorWithRole, error) {
+	if len(novelIDs) == 0 {
+		return make(map[uuid.UUID][]m.CreatorWithRole), nil
+	}
+
+	query := `
+		SELECT nc.novel_id, c.id, c.name, c.description, c.created_at, c.updated_at, nc.role
+		FROM creator c
+		INNER JOIN novel_creator nc ON c.id = nc.creator_id
+		WHERE nc.novel_id = ANY($1)
+		ORDER BY nc.novel_id, nc.role, c.name ASC
+	`
+
+	rows, err := r.pool.Query(ctx, query, novelIDs)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get creators by novel IDs: %w", err)
+	}
+	defer rows.Close()
+
+	result := make(map[uuid.UUID][]m.CreatorWithRole)
+	for rows.Next() {
+		var novelID uuid.UUID
+		var creator m.CreatorWithRole
+		err := rows.Scan(
+			&novelID,
+			&creator.ID,
+			&creator.Name,
+			&creator.Description,
+			&creator.CreatedAt,
+			&creator.UpdatedAt,
+			&creator.Role,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan creator: %w", err)
+		}
+		result[novelID] = append(result[novelID], creator)
+	}
+
+	if rows.Err() != nil {
+		return nil, fmt.Errorf("failed to iterate creators: %w", rows.Err())
+	}
+
+	return result, nil
 }

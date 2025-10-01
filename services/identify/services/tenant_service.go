@@ -34,7 +34,7 @@ func (s *TenantService) CreateTenant(ctx context.Context, req d.CreateTenantRequ
 
 	// Check if slug already exists
 	if req.Slug != "" {
-		exists, err := s.CheckSlugExists(ctx, req.Slug)
+		exists, err := s.repos.Tenant.SlugExists(ctx, req.Slug)
 		if err != nil {
 			return nil, fmt.Errorf("failed to check slug existence: %w", err)
 		}
@@ -86,8 +86,12 @@ func (s *TenantService) GetTenantBySlug(ctx context.Context, slug string) (*m.Te
 		return nil, fmt.Errorf("slug cannot be empty")
 	}
 
-	// TODO: Implement GetBySlug in repository when needed
-	return nil, fmt.Errorf("GetBySlug method not implemented in repository")
+	tenant, err := s.repos.Tenant.GetBySlug(ctx, slug)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get tenant by slug: %w", err)
+	}
+
+	return tenant, nil
 }
 
 // ListTenants retrieves paginated list of all tenants (admin only)
@@ -149,7 +153,7 @@ func (s *TenantService) UpdateTenant(ctx context.Context, tenantID uuid.UUID, re
 		if err := s.validateTenantSlug(*req.Slug); err != nil {
 			return nil, err
 		}
-		exists, err := s.CheckSlugExists(ctx, *req.Slug)
+		exists, err := s.repos.Tenant.SlugExists(ctx, *req.Slug)
 		if err != nil {
 			return nil, fmt.Errorf("failed to check slug existence: %w", err)
 		}
@@ -259,9 +263,7 @@ func (s *TenantService) CheckSlugExists(ctx context.Context, slug string) (bool,
 		return false, fmt.Errorf("slug cannot be empty")
 	}
 
-	// TODO: Implement GetBySlug in repository when needed
-	// For now, always return false (slug doesn't exist)
-	return false, nil
+	return s.repos.Tenant.SlugExists(ctx, slug)
 }
 
 // CheckUserTenantAccess checks if user has access to a tenant

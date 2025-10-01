@@ -20,6 +20,20 @@ func setupAdminRoutes(router *gin.Engine, h *handlers.Handlers, m *middleware.Ma
 		admin.GET("/stats", adminStatsHandler)
 		admin.GET("/system", adminSystemHandler)
 
+		// Global role management
+		admin.GET("/global-roles", h.Admin.ListGlobalRoles)
+		admin.POST("/global-roles/assign", h.Admin.AssignGlobalRole)
+		admin.DELETE("/global-roles/:role_id/users/:user_id", h.Admin.RemoveGlobalRole)
+
+		// Tenant permissions and role configuration
+		admin.GET("/tenant-permissions", h.Admin.ListTenantPermissions)
+		admin.GET("/tenants/:tenant_id/roles", h.Admin.ListTenantRoles)
+		admin.POST("/tenants/:tenant_id/roles", h.Admin.CreateTenantRole)
+		admin.PUT("/tenants/:tenant_id/roles/:role_id", h.Admin.UpdateTenantRole)
+		admin.DELETE("/tenants/:tenant_id/roles/:role_id", h.Admin.DeleteTenantRole)
+		admin.POST("/tenants/:tenant_id/roles/:role_id/assign", h.Admin.AssignTenantRole)
+		admin.DELETE("/tenants/:tenant_id/roles/:role_id/users/:user_id", h.Admin.RemoveTenantRole)
+
 		// Dynamic Client Registration (DCR) Initial Access Token management
 		// These endpoints control the issuance of tokens for OAuth2 client registration
 		admin.POST("/registration/iat", h.OAuth2.AdminCreateIAT)

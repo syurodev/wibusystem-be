@@ -206,6 +206,7 @@ func (s *tokenValidationService) ValidateToken(ctx context.Context, req *pb.Vali
 			Name:          result.UserInfo.Name,
 			EmailVerified: result.UserInfo.Verified,
 			Extra:         result.UserInfo.Extra,
+			TenantId:      result.UserInfo.TenantID, // Add TenantID to gRPC response
 		}
 		if result.UserInfo.UpdatedAt != nil {
 			response.UserInfo.UpdatedAt = result.UserInfo.UpdatedAt.Unix()

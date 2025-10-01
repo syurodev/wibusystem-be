@@ -24,17 +24,3 @@ type StandardResponse struct {
 	Error   *ErrorDetail           `json:"error"`
 	Meta    map[string]interface{} `json:"meta"`
 }
-
-// Deprecated: use StandardResponse instead.
-type APIResponse struct {
-	Success bool        `json:"success"`
-	Data    interface{} `json:"data,omitempty"`
-	Error   string      `json:"error,omitempty"`
-	Message string      `json:"message,omitempty"`
-}
-
-// Deprecated: use StandardResponse.Error instead.
-type ErrorResponse struct {
-	Error            string `json:"error"`
-	ErrorDescription string `json:"error_description,omitempty"`
-}

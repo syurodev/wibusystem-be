@@ -1,46 +1,11 @@
 package model
 
 import (
-	"database/sql/driver"
 	"encoding/json"
-	"fmt"
 	"time"
 
 	"github.com/google/uuid"
 )
-
-// UserBio represents structured bio information stored as JSONB
-type UserBio struct {
-	Text     string            `json:"text,omitempty"`
-	Links    []UserBioLink     `json:"links,omitempty"`
-	Metadata map[string]string `json:"metadata,omitempty"`
-}
-
-// UserBioLink represents a link in user bio
-type UserBioLink struct {
-	Title string `json:"title"`
-	URL   string `json:"url"`
-	Type  string `json:"type,omitempty"` // website, social, portfolio, etc.
-}
-
-// Value implements driver.Valuer interface for database storage
-func (ub UserBio) Value() (driver.Value, error) {
-	return json.Marshal(ub)
-}
-
-// Scan implements sql.Scanner interface for database retrieval
-func (ub *UserBio) Scan(value interface{}) error {
-	if value == nil {
-		return nil
-	}
-
-	bytes, ok := value.([]byte)
-	if !ok {
-		return fmt.Errorf("cannot scan %T into UserBio", value)
-	}
-
-	return json.Unmarshal(bytes, ub)
-}
 
 // User represents a global user identify and profile info
 type User struct {

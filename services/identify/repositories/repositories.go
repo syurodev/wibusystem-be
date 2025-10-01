@@ -12,6 +12,8 @@ type Repositories struct {
 	Credential CredentialRepository
 	Tenant     TenantRepository
 	Membership MembershipRepository
+	GlobalRole GlobalRoleRepository
+	TenantRole TenantRoleRepository
 }
 
 // NewRepositories creates and returns all repositories using the given
@@ -22,5 +24,7 @@ func NewRepositories(pool *pgxpool.Pool) *Repositories {
 		Credential: NewCredentialRepository(pool),
 		Tenant:     NewTenantRepository(pool),
 		Membership: NewMembershipRepository(pool),
+		GlobalRole: NewGlobalRoleRepository(pool),
+		TenantRole: NewTenantRoleRepository(pool),
 	}
 }

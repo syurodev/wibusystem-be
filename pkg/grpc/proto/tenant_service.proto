@@ -1,0 +1,60 @@
+syntax = "proto3";
+
+package tenantservice;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "wibusystem/pkg/grpc/proto/tenantservice";
+
+// TenantService provides methods for retrieving tenant information
+service TenantService {
+  // GetTenant retrieves a single tenant by ID
+  rpc GetTenant(GetTenantRequest) returns (GetTenantResponse);
+
+  // GetTenants retrieves multiple tenants by their IDs
+  rpc GetTenants(GetTenantsRequest) returns (GetTenantsResponse);
+
+  // GetTenantBySlug retrieves a tenant by slug
+  rpc GetTenantBySlug(GetTenantBySlugRequest) returns (GetTenantResponse);
+}
+
+// Tenant represents tenant information
+message Tenant {
+  string id = 1;
+  string name = 2;
+  string slug = 3;
+  string description = 4;
+  string status = 5;
+  google.protobuf.Timestamp created_at = 6;
+  google.protobuf.Timestamp updated_at = 7;
+}
+
+// GetTenantRequest contains the tenant ID to retrieve
+message GetTenantRequest {
+  string tenant_id = 1;
+}
+
+// GetTenantResponse contains the tenant data or error information
+message GetTenantResponse {
+  oneof result {
+    Tenant tenant = 1;
+    string error = 2;
+  }
+}
+
+// GetTenantsRequest contains multiple tenant IDs to retrieve
+message GetTenantsRequest {
+  repeated string tenant_ids = 1;
+}
+
+// GetTenantsResponse contains the list of tenants or error information
+message GetTenantsResponse {
+  repeated Tenant tenants = 1;
+  string error = 2; // Global error if request fails completely
+  repeated string missing_tenant_ids = 3; // IDs that were not found
+}
+
+// GetTenantBySlugRequest contains the tenant slug to retrieve
+message GetTenantBySlugRequest {
+  string slug = 1;
+}

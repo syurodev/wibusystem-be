@@ -83,6 +83,10 @@ func (v *FositeTokenValidator) ValidateToken(ctx context.Context, req *oauth.Val
 			if preferredUsername, ok := session.Claims.Extra["preferred_username"].(string); ok && result.UserInfo.Username == "" {
 				result.UserInfo.Username = preferredUsername
 			}
+			// Extract tenant_id from extra claims
+			if tenantID, ok := session.Claims.Extra["tenant_id"].(string); ok {
+				result.UserInfo.TenantID = tenantID
+			}
 		}
 
 		// Set issued at and expires at times

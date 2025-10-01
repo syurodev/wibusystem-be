@@ -119,8 +119,3 @@ type UserInfo = d.UserInfo
 // Responses
 type ErrorDetail = r.ErrorDetail
 type StandardResponse = r.StandardResponse
-
-// Deprecated passthroughs
-type APIResponse = r.APIResponse
-type ErrorResponse = r.ErrorResponse
-type Pagination = r.Pagination

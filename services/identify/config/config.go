@@ -108,6 +108,13 @@ type GRPCConfig struct {
 func Load() *Config {
 	migrationsPath := getEnv("DB_MIGRATIONS_PATH", "../../pkg/database/migrations/postgres/identify")
 
+	jwtSigningKey := getEnv("OAUTH2_JWT_SIGNING_KEY", "")
+	if jwtSigningKey == "" {
+		if keyFromFile, err := os.ReadFile("oidc-signing.pem"); err == nil {
+			jwtSigningKey = string(keyFromFile)
+		}
+	}
+
 	return &Config{
 		Server: ServerConfig{
 			Host:         getEnv("SERVER_HOST", "localhost"),
@@ -157,7 +164,7 @@ func Load() *Config {
 			RefreshTokenLifespan:   getEnvAsDuration("OAUTH2_REFRESH_TOKEN_LIFESPAN", 24*time.Hour),
 			AuthorizeCodeLifespan:  getEnvAsDuration("OAUTH2_AUTHORIZE_CODE_LIFESPAN", 10*time.Minute),
 			IDTokenLifespan:        getEnvAsDuration("OAUTH2_ID_TOKEN_LIFESPAN", 1*time.Hour),
-			JWTSigningKey:          getEnv("OAUTH2_JWT_SIGNING_KEY", "wibusystem-jwt-signing-key-change-in-production"),
+			JWTSigningKey:          jwtSigningKey,
 			AllowInsecureEndpoints: getEnvAsBool("OAUTH2_ALLOW_INSECURE_ENDPOINTS", true),
 		},
 		Security: SecurityConfig{

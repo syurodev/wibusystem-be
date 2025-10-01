@@ -1,39 +1,59 @@
 package oauth2
 
 import (
-    "context"
-    "crypto/rsa"
-    "encoding/json"
-    "fmt"
-    "log"
-    "strings"
-    "time"
-    "net/url"
+	"context"
+	"crypto/rsa"
+	"encoding/json"
+	"fmt"
+	"log"
+	"net/url"
+	"strings"
+	"sync"
+	"time"
 
-    "github.com/jackc/pgx/v5/pgxpool"
-    "github.com/ory/fosite"
-    "github.com/ory/fosite/handler/oauth2"
-    "github.com/ory/fosite/handler/openid"
+	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/ory/fosite"
+	"github.com/ory/fosite/handler/oauth2"
+	"github.com/ory/fosite/handler/openid"
+	"golang.org/x/crypto/bcrypt"
 )
+
+// Client decorates fosite.DefaultClient with internal metadata so we can
+// distinguish trusted first-party applications without losing fosite behavior.
+type Client struct {
+	*fosite.DefaultClient
+	Internal bool
+}
+
+// IsInternal reports whether this OAuth client is considered an internal
+// first-party application.
+func (c *Client) IsInternal() bool {
+	if c == nil {
+		return false
+	}
+	return c.Internal
+}
 
 // Store implements all Fosite storage interfaces
 type Store struct {
-    pool       *pgxpool.Pool
-    clients    map[string]*fosite.DefaultClient
-    publicKey  *rsa.PublicKey
-    privateKey *rsa.PrivateKey
-    accessTokenLifespan time.Duration
+	pool                *pgxpool.Pool
+	clients             map[string]*Client
+	mu                  sync.RWMutex
+	publicKey           *rsa.PublicKey
+	privateKey          *rsa.PrivateKey
+	accessTokenLifespan time.Duration
 }
 
 // NewStore creates a new OAuth2 store
 func NewStore(pool *pgxpool.Pool, privateKey *rsa.PrivateKey, accessTokenLifespan time.Duration) *Store {
-    store := &Store{
-        pool:       pool,
-        clients:    make(map[string]*fosite.DefaultClient),
-        privateKey: privateKey,
-        publicKey:  &privateKey.PublicKey,
-        accessTokenLifespan: accessTokenLifespan,
-    }
+	store := &Store{
+		pool:                pool,
+		clients:             make(map[string]*Client),
+		privateKey:          privateKey,
+		publicKey:           &privateKey.PublicKey,
+		accessTokenLifespan: accessTokenLifespan,
+	}
 
 	// Health check database connection
 	if err := store.healthCheck(); err != nil {
@@ -83,48 +103,48 @@ func (s *Store) healthCheck() error {
 
 // helpers to avoid inserting NULL into NOT NULL TEXT[] columns
 func toStringSlice(args fosite.Arguments) []string {
-    if len(args) == 0 {
-        return []string{}
-    }
-    return []string(args)
+	if len(args) == 0 {
+		return []string{}
+	}
+	return []string(args)
 }
 
 // toURLValues parses a JSON-serialized url.Values back to url.Values
 func toURLValues(formJSON string) url.Values {
-    if formJSON == "" {
-        return url.Values{}
-    }
-    var m map[string][]string
-    if err := json.Unmarshal([]byte(formJSON), &m); err != nil {
-        return url.Values{}
-    }
-    v := url.Values{}
-    for k, vals := range m {
-        for _, s := range vals {
-            v.Add(k, s)
-        }
-    }
-    return v
+	if formJSON == "" {
+		return url.Values{}
+	}
+	var m map[string][]string
+	if err := json.Unmarshal([]byte(formJSON), &m); err != nil {
+		return url.Values{}
+	}
+	v := url.Values{}
+	for k, vals := range m {
+		for _, s := range vals {
+			v.Add(k, s)
+		}
+	}
+	return v
 }
 
 // decodeOIDCSession reconstructs an openid.DefaultSession from stored JSON
 func decodeOIDCSession(sessionJSON string) *openid.DefaultSession {
-    if sessionJSON == "" {
-        return &openid.DefaultSession{}
-    }
-    var s openid.DefaultSession
-    if err := json.Unmarshal([]byte(sessionJSON), &s); err != nil {
-        // Fallback to empty session to avoid panics
-        return &openid.DefaultSession{}
-    }
-    return &s
+	if sessionJSON == "" {
+		return &openid.DefaultSession{}
+	}
+	var s openid.DefaultSession
+	if err := json.Unmarshal([]byte(sessionJSON), &s); err != nil {
+		// Fallback to empty session to avoid panics
+		return &openid.DefaultSession{}
+	}
+	return &s
 }
 
 func (s *Store) loadClientsFromDatabase() {
 	ctx := context.Background()
 	query := `
         SELECT id, client_secret_hash, redirect_uris, grant_types, response_types,
-               scopes, audience, public, client_name
+               scopes, audience, public, client_name, internal
         FROM oauth2_clients
     `
 
@@ -137,35 +157,13 @@ func (s *Store) loadClientsFromDatabase() {
 
 	loaded := 0
 	for rows.Next() {
-		var client fosite.DefaultClient
-		var redirectURIs, grantTypes, responseTypes, scopes, audience []string
-		var public bool
-		var clientName *string
-
-		err := rows.Scan(
-			&client.ID,
-			&client.Secret,
-			&redirectURIs,
-			&grantTypes,
-			&responseTypes,
-			&scopes,
-			&audience,
-			&public,
-			&clientName,
-		)
+		client, err := s.scanClient(rows)
 		if err != nil {
 			log.Printf("oauth2.store: scan client row failed: %v", err)
 			continue
 		}
 
-        client.RedirectURIs = redirectURIs
-        client.GrantTypes = fosite.Arguments(grantTypes)
-        client.ResponseTypes = fosite.Arguments(responseTypes)
-        client.Scopes = fosite.Arguments(scopes)
-        client.Audience = fosite.Arguments(audience)
-		client.Public = public
-
-		s.clients[client.ID] = &client
+		s.setClient(client)
 		loaded++
 		log.Printf("oauth2.store: loaded client id=%s public=%t grants=%v", client.ID, client.Public, client.GrantTypes)
 	}
@@ -173,119 +171,223 @@ func (s *Store) loadClientsFromDatabase() {
 	log.Printf("oauth2.store: total clients loaded: %d", loaded)
 }
 
+// scanClient builds an internal-aware client from a query row
+func (s *Store) scanClient(row interface{ Scan(...any) error }) (*Client, error) {
+	var (
+		id            string
+		secret        pgtype.Text
+		redirectURIs  []string
+		grantTypes    []string
+		responseTypes []string
+		scopes        []string
+		audience      []string
+		public        bool
+		clientName    pgtype.Text // currently unused, reserved for future metadata
+		internal      bool
+	)
+
+	if err := row.Scan(
+		&id,
+		&secret,
+		&redirectURIs,
+		&grantTypes,
+		&responseTypes,
+		&scopes,
+		&audience,
+		&public,
+		&clientName,
+		&internal,
+	); err != nil {
+		return nil, err
+	}
+
+	defaultClient := &fosite.DefaultClient{
+		ID:            id,
+		RedirectURIs:  redirectURIs,
+		GrantTypes:    grantTypes,
+		ResponseTypes: responseTypes,
+		Scopes:        scopes,
+		Audience:      audience,
+		Public:        public,
+	}
+
+	if secret.Valid {
+		defaultClient.Secret = []byte(secret.String)
+	}
+
+	return &Client{DefaultClient: defaultClient, Internal: internal}, nil
+}
+
+func (s *Store) setClient(client *Client) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.clients[client.ID] = client
+}
+
+func (s *Store) deleteClient(id string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	delete(s.clients, id)
+}
+
+// ReloadClient refreshes a single client from the database and updates the in-memory cache.
+func (s *Store) ReloadClient(ctx context.Context, id string) error {
+	if s.pool == nil {
+		return fmt.Errorf("database pool unavailable for reloading client")
+	}
+
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
+	query := `
+		SELECT id, client_secret_hash, redirect_uris, grant_types, response_types,
+		       scopes, audience, public, client_name, internal
+		FROM oauth2_clients
+		WHERE id = $1
+	`
+
+	row := s.pool.QueryRow(ctx, query, id)
+	client, err := s.scanClient(row)
+	if err != nil {
+		return err
+	}
+
+	s.setClient(client)
+	return nil
+}
+
+// DeleteClient removes a client from the in-memory cache.
+func (s *Store) DeleteClient(id string) {
+	s.deleteClient(id)
+}
+
 // Client management methods
 
-func (s *Store) GetClient(_ context.Context, id string) (fosite.Client, error) {
-	if client, ok := s.clients[id]; ok {
+func (s *Store) GetClient(ctx context.Context, id string) (fosite.Client, error) {
+	s.mu.RLock()
+	client, ok := s.clients[id]
+	s.mu.RUnlock()
+	if ok {
 		return client, nil
 	}
-	log.Printf("oauth2.store: GetClient miss for id=%s (cached=%d)", id, len(s.clients))
+
+	log.Printf("oauth2.store: GetClient miss for id=%s (cached=%d) - attempting reload", id, len(s.clients))
+	if err := s.ReloadClient(ctx, id); err == nil {
+		s.mu.RLock()
+		client = s.clients[id]
+		s.mu.RUnlock()
+		if client != nil {
+			return client, nil
+		}
+	}
+
 	return nil, fosite.ErrNotFound
 }
 
 // Authorization Code methods
 
 func (s *Store) CreateAuthorizeCodeSession(ctx context.Context, code string, req fosite.Requester) error {
-    start := time.Now()
-    fmt.Printf("DEBUG STORE: CreateAuthorizeCodeSession called\n")
-    fmt.Printf("DEBUG STORE: Code: %s\n", code)
-    fmt.Printf("DEBUG STORE: Request ID: %s\n", req.GetID())
-    fmt.Printf("DEBUG STORE: Client ID: %s\n", req.GetClient().GetID())
-    fmt.Printf("DEBUG STORE: Subject: %s\n", req.GetSession().GetSubject())
+	start := time.Now()
+	fmt.Printf("DEBUG STORE: CreateAuthorizeCodeSession called\n")
+	fmt.Printf("DEBUG STORE: Code: %s\n", code)
+	fmt.Printf("DEBUG STORE: Request ID: %s\n", req.GetID())
+	fmt.Printf("DEBUG STORE: Client ID: %s\n", req.GetClient().GetID())
+	fmt.Printf("DEBUG STORE: Subject: %s\n", req.GetSession().GetSubject())
 
-    defer func() {
-        duration := time.Since(start)
-        fmt.Printf("DEBUG STORE: CreateAuthorizeCodeSession took %v\n", duration)
-        if duration > 2*time.Second {
-            fmt.Printf("DEBUG STORE: WARNING - Slow operation detected: %v\n", duration)
-        }
-    }()
+	defer func() {
+		duration := time.Since(start)
+		fmt.Printf("DEBUG STORE: CreateAuthorizeCodeSession took %v\n", duration)
+		if duration > 2*time.Second {
+			fmt.Printf("DEBUG STORE: WARNING - Slow operation detected: %v\n", duration)
+		}
+	}()
 
-    // Create a new context with timeout for database operations
-    dbCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-    defer cancel()
+	// Create a new context with timeout for database operations
+	dbCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
 
-    sessionData, sessionErr := json.Marshal(req.GetSession())
-    if sessionErr != nil {
-        fmt.Printf("DEBUG STORE: Failed to marshal session data: %v\n", sessionErr)
-        return sessionErr
-    }
+	sessionData, sessionErr := json.Marshal(req.GetSession())
+	if sessionErr != nil {
+		fmt.Printf("DEBUG STORE: Failed to marshal session data: %v\n", sessionErr)
+		return sessionErr
+	}
 
-    formData, formErr := json.Marshal(req.GetRequestForm())
-    if formErr != nil {
-        fmt.Printf("DEBUG STORE: Failed to marshal form data: %v\n", formErr)
-        return formErr
-    }
+	formData, formErr := json.Marshal(req.GetRequestForm())
+	if formErr != nil {
+		fmt.Printf("DEBUG STORE: Failed to marshal form data: %v\n", formErr)
+		return formErr
+	}
 
-    query := `
+	query := `
         INSERT INTO oauth2_authorization_codes (
             signature, request_id, requested_at, client_id, scopes, granted_scopes,
             form_data, session_data, subject, requested_audience, granted_audience
         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
     `
 
-    // Log connection pool stats before operation
-    stats := s.pool.Stat()
-    fmt.Printf("DEBUG STORE: Pool stats - Total: %d, Idle: %d, Used: %d\n",
-        stats.TotalConns(), stats.IdleConns(), stats.TotalConns()-stats.IdleConns())
+	// Log connection pool stats before operation
+	stats := s.pool.Stat()
+	fmt.Printf("DEBUG STORE: Pool stats - Total: %d, Idle: %d, Used: %d\n",
+		stats.TotalConns(), stats.IdleConns(), stats.TotalConns()-stats.IdleConns())
 
-    // Use the new database context with timeout instead of the original context
-    execStart := time.Now()
-    _, err := s.pool.Exec(dbCtx, query,
-        code,
-        req.GetID(),
-        req.GetRequestedAt(),
-        req.GetClient().GetID(),
-        toStringSlice(req.GetRequestedScopes()),
-        toStringSlice(req.GetGrantedScopes()),
-        string(formData),
-        string(sessionData),
-        req.GetSession().GetSubject(),
-        toStringSlice(req.GetRequestedAudience()),
-        toStringSlice(req.GetGrantedAudience()),
-    )
-    execDuration := time.Since(execStart)
-    fmt.Printf("DEBUG STORE: Database exec took %v\n", execDuration)
+	// Use the new database context with timeout instead of the original context
+	execStart := time.Now()
+	_, err := s.pool.Exec(dbCtx, query,
+		code,
+		req.GetID(),
+		req.GetRequestedAt(),
+		req.GetClient().GetID(),
+		toStringSlice(req.GetRequestedScopes()),
+		toStringSlice(req.GetGrantedScopes()),
+		string(formData),
+		string(sessionData),
+		req.GetSession().GetSubject(),
+		toStringSlice(req.GetRequestedAudience()),
+		toStringSlice(req.GetGrantedAudience()),
+	)
+	execDuration := time.Since(execStart)
+	fmt.Printf("DEBUG STORE: Database exec took %v\n", execDuration)
 
-    if err != nil {
-        fmt.Printf("DEBUG STORE: Failed to insert authorization code: %v\n", err)
-        fmt.Printf("DEBUG STORE: Error type: %T\n", err)
-        // Add retry logic for transient errors
-        if isRetryableError(err) {
-            fmt.Printf("DEBUG STORE: Retrying with new context...\n")
-            retryCtx, retryCancel := context.WithTimeout(context.Background(), 5*time.Second)
-            defer retryCancel()
+	if err != nil {
+		fmt.Printf("DEBUG STORE: Failed to insert authorization code: %v\n", err)
+		fmt.Printf("DEBUG STORE: Error type: %T\n", err)
+		// Add retry logic for transient errors
+		if isRetryableError(err) {
+			fmt.Printf("DEBUG STORE: Retrying with new context...\n")
+			retryCtx, retryCancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer retryCancel()
 
-            _, retryErr := s.pool.Exec(retryCtx, query,
-                code, req.GetID(), req.GetRequestedAt(), req.GetClient().GetID(),
-                toStringSlice(req.GetRequestedScopes()), toStringSlice(req.GetGrantedScopes()),
-                string(formData), string(sessionData), req.GetSession().GetSubject(),
-                toStringSlice(req.GetRequestedAudience()), toStringSlice(req.GetGrantedAudience()),
-            )
-            if retryErr == nil {
-                fmt.Printf("DEBUG STORE: Authorization code inserted successfully on retry\n")
-                return nil
-            } else {
-                fmt.Printf("DEBUG STORE: Retry also failed: %v\n", retryErr)
-            }
-        }
-    } else {
-        fmt.Printf("DEBUG STORE: Authorization code inserted successfully\n")
-    }
+			_, retryErr := s.pool.Exec(retryCtx, query,
+				code, req.GetID(), req.GetRequestedAt(), req.GetClient().GetID(),
+				toStringSlice(req.GetRequestedScopes()), toStringSlice(req.GetGrantedScopes()),
+				string(formData), string(sessionData), req.GetSession().GetSubject(),
+				toStringSlice(req.GetRequestedAudience()), toStringSlice(req.GetGrantedAudience()),
+			)
+			if retryErr == nil {
+				fmt.Printf("DEBUG STORE: Authorization code inserted successfully on retry\n")
+				return nil
+			} else {
+				fmt.Printf("DEBUG STORE: Retry also failed: %v\n", retryErr)
+			}
+		}
+	} else {
+		fmt.Printf("DEBUG STORE: Authorization code inserted successfully\n")
+	}
 
-    return err
+	return err
 }
 
 // isRetryableError checks if the error is retryable (e.g., connection issues, timeouts)
 func isRetryableError(err error) bool {
-    if err == nil {
-        return false
-    }
-    errStr := err.Error()
-    return strings.Contains(errStr, "context canceled") ||
-           strings.Contains(errStr, "context deadline exceeded") ||
-           strings.Contains(errStr, "connection") ||
-           strings.Contains(errStr, "timeout")
+	if err == nil {
+		return false
+	}
+	errStr := err.Error()
+	return strings.Contains(errStr, "context canceled") ||
+		strings.Contains(errStr, "context deadline exceeded") ||
+		strings.Contains(errStr, "connection") ||
+		strings.Contains(errStr, "timeout")
 }
 
 func (s *Store) GetAuthorizeCodeSession(ctx context.Context, code string, session fosite.Session) (fosite.Requester, error) {
@@ -300,7 +402,7 @@ func (s *Store) GetAuthorizeCodeSession(ctx context.Context, code string, sessio
 	var requestedAt time.Time
 	var clientID string
 	var scopes, grantedScopes []string
-    var formData, sessionData string
+	var formData, sessionData string
 	var subject string
 	var requestedAudience, grantedAudience []string
 
@@ -317,17 +419,17 @@ func (s *Store) GetAuthorizeCodeSession(ctx context.Context, code string, sessio
 		return nil, err
 	}
 
-    req := fosite.NewRequest()
-    req.ID = requestID
-    req.RequestedAt = requestedAt
-    req.Client = client
-    req.RequestedScope = []string(scopes)
-    req.GrantedScope = []string(grantedScopes)
-    req.RequestedAudience = []string(requestedAudience)
-    req.GrantedAudience = []string(grantedAudience)
-    // Replace with stored session for OIDC (contains claims)
-    req.Session = decodeOIDCSession(sessionData)
-    req.Form = toURLValues(formData)
+	req := fosite.NewRequest()
+	req.ID = requestID
+	req.RequestedAt = requestedAt
+	req.Client = client
+	req.RequestedScope = []string(scopes)
+	req.GrantedScope = []string(grantedScopes)
+	req.RequestedAudience = []string(requestedAudience)
+	req.GrantedAudience = []string(grantedAudience)
+	// Replace with stored session for OIDC (contains claims)
+	req.Session = decodeOIDCSession(sessionData)
+	req.Form = toURLValues(formData)
 
 	return req, nil
 }
@@ -341,9 +443,9 @@ func (s *Store) InvalidateAuthorizeCodeSession(ctx context.Context, code string)
 // Access Token methods
 
 func (s *Store) CreateAccessTokenSession(ctx context.Context, signature string, req fosite.Requester) error {
-    sessionData, _ := json.Marshal(req.GetSession())
-    formData, _ := json.Marshal(req.GetRequestForm())
-    expiresAt := req.GetRequestedAt().Add(s.accessTokenLifespan)
+	sessionData, _ := json.Marshal(req.GetSession())
+	formData, _ := json.Marshal(req.GetRequestForm())
+	expiresAt := req.GetRequestedAt().Add(s.accessTokenLifespan)
 
 	query := `
 		INSERT INTO oauth2_access_tokens (
@@ -357,17 +459,17 @@ func (s *Store) CreateAccessTokenSession(ctx context.Context, signature string, 
 		req.GetID(),
 		req.GetRequestedAt(),
 		req.GetClient().GetID(),
-        toStringSlice(req.GetRequestedScopes()),
-        toStringSlice(req.GetGrantedScopes()),
-        string(formData),
-        string(sessionData),
-        req.GetSession().GetSubject(),
-        toStringSlice(req.GetRequestedAudience()),
-        toStringSlice(req.GetGrantedAudience()),
-        expiresAt,
-    )
+		toStringSlice(req.GetRequestedScopes()),
+		toStringSlice(req.GetGrantedScopes()),
+		string(formData),
+		string(sessionData),
+		req.GetSession().GetSubject(),
+		toStringSlice(req.GetRequestedAudience()),
+		toStringSlice(req.GetGrantedAudience()),
+		expiresAt,
+	)
 
-    return err
+	return err
 }
 
 func (s *Store) GetAccessTokenSession(ctx context.Context, signature string, session fosite.Session) (fosite.Requester, error) {
@@ -382,7 +484,7 @@ func (s *Store) GetAccessTokenSession(ctx context.Context, signature string, ses
 	var requestedAt time.Time
 	var clientID string
 	var scopes, grantedScopes []string
-    var formData, sessionData string
+	var formData, sessionData string
 	var subject string
 	var requestedAudience, grantedAudience []string
 
@@ -399,16 +501,16 @@ func (s *Store) GetAccessTokenSession(ctx context.Context, signature string, ses
 		return nil, err
 	}
 
-    req := fosite.NewRequest()
-    req.ID = requestID
-    req.RequestedAt = requestedAt
-    req.Client = client
-    req.RequestedScope = []string(scopes)
-    req.GrantedScope = []string(grantedScopes)
-    req.RequestedAudience = []string(requestedAudience)
-    req.GrantedAudience = []string(grantedAudience)
-    req.Session = decodeOIDCSession(sessionData)
-    req.Form = toURLValues(formData)
+	req := fosite.NewRequest()
+	req.ID = requestID
+	req.RequestedAt = requestedAt
+	req.Client = client
+	req.RequestedScope = []string(scopes)
+	req.GrantedScope = []string(grantedScopes)
+	req.RequestedAudience = []string(requestedAudience)
+	req.GrantedAudience = []string(grantedAudience)
+	req.Session = decodeOIDCSession(sessionData)
+	req.Form = toURLValues(formData)
 
 	return req, nil
 }
@@ -422,8 +524,8 @@ func (s *Store) DeleteAccessTokenSession(ctx context.Context, signature string) 
 // Refresh Token methods
 
 func (s *Store) CreateRefreshTokenSession(ctx context.Context, signature string, requestID string, req fosite.Requester) error {
-    sessionData, _ := json.Marshal(req.GetSession())
-    formData, _ := json.Marshal(req.GetRequestForm())
+	sessionData, _ := json.Marshal(req.GetSession())
+	formData, _ := json.Marshal(req.GetRequestForm())
 
 	query := `
 		INSERT INTO oauth2_refresh_tokens (
@@ -437,16 +539,16 @@ func (s *Store) CreateRefreshTokenSession(ctx context.Context, signature string,
 		req.GetID(),
 		req.GetRequestedAt(),
 		req.GetClient().GetID(),
-        toStringSlice(req.GetRequestedScopes()),
-        toStringSlice(req.GetGrantedScopes()),
-        string(formData),
-        string(sessionData),
-        req.GetSession().GetSubject(),
-        toStringSlice(req.GetRequestedAudience()),
-        toStringSlice(req.GetGrantedAudience()),
-    )
+		toStringSlice(req.GetRequestedScopes()),
+		toStringSlice(req.GetGrantedScopes()),
+		string(formData),
+		string(sessionData),
+		req.GetSession().GetSubject(),
+		toStringSlice(req.GetRequestedAudience()),
+		toStringSlice(req.GetGrantedAudience()),
+	)
 
-    return err
+	return err
 }
 
 func (s *Store) GetRefreshTokenSession(ctx context.Context, signature string, session fosite.Session) (fosite.Requester, error) {
@@ -461,7 +563,7 @@ func (s *Store) GetRefreshTokenSession(ctx context.Context, signature string, se
 	var requestedAt time.Time
 	var clientID string
 	var scopes, grantedScopes []string
-    var formData, sessionData string
+	var formData, sessionData string
 	var subject string
 	var requestedAudience, grantedAudience []string
 
@@ -478,16 +580,16 @@ func (s *Store) GetRefreshTokenSession(ctx context.Context, signature string, se
 		return nil, err
 	}
 
-    req := fosite.NewRequest()
-    req.ID = requestID
-    req.RequestedAt = requestedAt
-    req.Client = client
-    req.RequestedScope = []string(scopes)
-    req.GrantedScope = []string(grantedScopes)
-    req.RequestedAudience = []string(requestedAudience)
-    req.GrantedAudience = []string(grantedAudience)
-    req.Session = decodeOIDCSession(sessionData)
-    req.Form = toURLValues(formData)
+	req := fosite.NewRequest()
+	req.ID = requestID
+	req.RequestedAt = requestedAt
+	req.Client = client
+	req.RequestedScope = []string(scopes)
+	req.GrantedScope = []string(grantedScopes)
+	req.RequestedAudience = []string(requestedAudience)
+	req.GrantedAudience = []string(grantedAudience)
+	req.Session = decodeOIDCSession(sessionData)
+	req.Form = toURLValues(formData)
 
 	return req, nil
 }
@@ -509,8 +611,8 @@ func (s *Store) RotateRefreshToken(ctx context.Context, requestID string, newSig
 // PKCE methods
 
 func (s *Store) CreatePKCERequestSession(ctx context.Context, signature string, req fosite.Requester) error {
-    sessionData, _ := json.Marshal(req.GetSession())
-    formData, _ := json.Marshal(req.GetRequestForm())
+	sessionData, _ := json.Marshal(req.GetSession())
+	formData, _ := json.Marshal(req.GetRequestForm())
 
 	query := `
 		INSERT INTO oauth2_pkce (
@@ -524,16 +626,16 @@ func (s *Store) CreatePKCERequestSession(ctx context.Context, signature string, 
 		req.GetID(),
 		req.GetRequestedAt(),
 		req.GetClient().GetID(),
-        toStringSlice(req.GetRequestedScopes()),
-        toStringSlice(req.GetGrantedScopes()),
-        string(formData),
-        string(sessionData),
-        req.GetSession().GetSubject(),
-        toStringSlice(req.GetRequestedAudience()),
-        toStringSlice(req.GetGrantedAudience()),
-    )
+		toStringSlice(req.GetRequestedScopes()),
+		toStringSlice(req.GetGrantedScopes()),
+		string(formData),
+		string(sessionData),
+		req.GetSession().GetSubject(),
+		toStringSlice(req.GetRequestedAudience()),
+		toStringSlice(req.GetGrantedAudience()),
+	)
 
-    return err
+	return err
 }
 
 func (s *Store) GetPKCERequestSession(ctx context.Context, signature string, session fosite.Session) (fosite.Requester, error) {
@@ -548,7 +650,7 @@ func (s *Store) GetPKCERequestSession(ctx context.Context, signature string, ses
 	var requestedAt time.Time
 	var clientID string
 	var scopes, grantedScopes []string
-    var formData, sessionData string
+	var formData, sessionData string
 	var subject string
 	var requestedAudience, grantedAudience []string
 
@@ -565,16 +667,16 @@ func (s *Store) GetPKCERequestSession(ctx context.Context, signature string, ses
 		return nil, err
 	}
 
-    req := fosite.NewRequest()
-    req.ID = requestID
-    req.RequestedAt = requestedAt
-    req.Client = client
-    req.RequestedScope = []string(scopes)
-    req.GrantedScope = []string(grantedScopes)
-    req.RequestedAudience = []string(requestedAudience)
-    req.GrantedAudience = []string(grantedAudience)
-    req.Session = decodeOIDCSession(sessionData)
-    req.Form = toURLValues(formData)
+	req := fosite.NewRequest()
+	req.ID = requestID
+	req.RequestedAt = requestedAt
+	req.Client = client
+	req.RequestedScope = []string(scopes)
+	req.GrantedScope = []string(grantedScopes)
+	req.RequestedAudience = []string(requestedAudience)
+	req.GrantedAudience = []string(grantedAudience)
+	req.Session = decodeOIDCSession(sessionData)
+	req.Form = toURLValues(formData)
 
 	return req, nil
 }
@@ -588,8 +690,8 @@ func (s *Store) DeletePKCERequestSession(ctx context.Context, signature string) 
 // OpenID Connect methods
 
 func (s *Store) CreateOpenIDConnectSession(ctx context.Context, authorizeCode string, req fosite.Requester) error {
-    sessionData, _ := json.Marshal(req.GetSession())
-    formData, _ := json.Marshal(req.GetRequestForm())
+	sessionData, _ := json.Marshal(req.GetSession())
+	formData, _ := json.Marshal(req.GetRequestForm())
 
 	query := `
 		INSERT INTO oauth2_oidc_sessions (
@@ -603,16 +705,16 @@ func (s *Store) CreateOpenIDConnectSession(ctx context.Context, authorizeCode st
 		req.GetID(),
 		req.GetRequestedAt(),
 		req.GetClient().GetID(),
-        toStringSlice(req.GetRequestedScopes()),
-        toStringSlice(req.GetGrantedScopes()),
-        string(formData),
-        string(sessionData),
-        req.GetSession().GetSubject(),
-        toStringSlice(req.GetRequestedAudience()),
-        toStringSlice(req.GetGrantedAudience()),
-    )
+		toStringSlice(req.GetRequestedScopes()),
+		toStringSlice(req.GetGrantedScopes()),
+		string(formData),
+		string(sessionData),
+		req.GetSession().GetSubject(),
+		toStringSlice(req.GetRequestedAudience()),
+		toStringSlice(req.GetGrantedAudience()),
+	)
 
-    return err
+	return err
 }
 
 func (s *Store) GetOpenIDConnectSession(ctx context.Context, authorizeCode string, req fosite.Requester) (fosite.Requester, error) {
@@ -626,10 +728,10 @@ func (s *Store) GetOpenIDConnectSession(ctx context.Context, authorizeCode strin
 	var requestID string
 	var requestedAt time.Time
 	var clientID string
-    var scopes, grantedScopes []string
-    var formData, sessionData string
+	var scopes, grantedScopes []string
+	var formData, sessionData string
 	var subject string
-    var requestedAudience, grantedAudience []string
+	var requestedAudience, grantedAudience []string
 
 	err := s.pool.QueryRow(ctx, query, authorizeCode).Scan(
 		&requestID, &requestedAt, &clientID, &scopes, &grantedScopes,
@@ -644,16 +746,16 @@ func (s *Store) GetOpenIDConnectSession(ctx context.Context, authorizeCode strin
 		return nil, err
 	}
 
-    request := fosite.NewRequest()
-    request.ID = requestID
-    request.RequestedAt = requestedAt
-    request.Client = client
-    request.RequestedScope = []string(scopes)
-    request.GrantedScope = []string(grantedScopes)
-    request.RequestedAudience = []string(requestedAudience)
-    request.GrantedAudience = []string(grantedAudience)
-    request.Session = decodeOIDCSession(sessionData)
-    request.Form = toURLValues(formData)
+	request := fosite.NewRequest()
+	request.ID = requestID
+	request.RequestedAt = requestedAt
+	request.Client = client
+	request.RequestedScope = []string(scopes)
+	request.GrantedScope = []string(grantedScopes)
+	request.RequestedAudience = []string(requestedAudience)
+	request.GrantedAudience = []string(grantedAudience)
+	request.Session = decodeOIDCSession(sessionData)
+	request.Form = toURLValues(formData)
 
 	return request, nil
 }
@@ -697,12 +799,12 @@ func (s *Store) Authenticate(ctx context.Context, name string, secret string) er
 	}
 
 	// In a real implementation, you would hash and compare the secret
-	// For now, we'll just compare directly (this should use bcrypt in production)
-	defaultClient, ok := client.(*fosite.DefaultClient)
-	if !ok {
+	hashedSecret := client.GetHashedSecret()
+	if len(hashedSecret) == 0 {
 		return fosite.ErrInvalidClient
 	}
-	if string(defaultClient.Secret) != secret {
+
+	if err := bcrypt.CompareHashAndPassword(hashedSecret, []byte(secret)); err != nil {
 		return fosite.ErrInvalidClient
 	}
 

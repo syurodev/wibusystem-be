@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"sort"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -116,11 +117,96 @@ func (h *Handlers) AuthorizeHandler(c *gin.Context) {
 
 	fmt.Printf("DEBUG AUTHORIZE: Dev mode, auto-approving consent\n")
 
+	// Determine tenant_id for the session
+	// First, try to get tenant_id from request parameters
+	requestedTenantID := ar.GetRequestForm().Get("tenant_id")
+
+	// If no tenant_id is requested, we'll determine it from user's memberships
+	var currentTenantID string
+	if requestedTenantID != "" {
+		currentTenantID = requestedTenantID
+	} else {
+		// Load user's tenant memberships to determine a default tenant
+		tenantRoleInfos, err := h.repos.Membership.ListRolesWithPermissionsByUserID(dbCtx, userUUID)
+		if err == nil && len(tenantRoleInfos) > 0 {
+			// Use the first tenant as the default (could be enhanced with user preferences)
+			currentTenantID = tenantRoleInfos[0].TenantID.String()
+		}
+	}
+
 	// Create OIDC session with user information
-	session := h.provider.CreateCustomSession(userID, user.Username, user.Email, user.AvatarURL)
+	session := h.provider.CreateCustomSession(userID, user.Username, user.Email, user.AvatarURL, currentTenantID)
 	// Ensure audience includes the client ID for ID Token
 	if session.Claims != nil {
 		session.Claims.Audience = []string{ar.GetClient().GetID()}
+		if nonce := ar.GetRequestForm().Get("nonce"); nonce != "" {
+			session.Claims.Nonce = nonce
+		}
+	}
+
+	// Enrich claims with tenant/global roles + permissions for internal clients
+	if internalClient, ok := ar.GetClient().(interface{ IsInternal() bool }); ok && internalClient.IsInternal() && session.Claims != nil {
+		if session.Claims.Extra == nil {
+			session.Claims.Extra = map[string]interface{}{}
+		}
+
+		tenantRoleInfos, err := h.repos.Membership.ListRolesWithPermissionsByUserID(dbCtx, userUUID)
+		if err != nil {
+			log.Printf("oauth2.authorize: failed to load tenant roles for user %s: %v", userUUID, err)
+		} else {
+			tenantRoleNameSet := make(map[string]struct{})
+			tenantPermissionSet := make(map[string]struct{})
+			for _, info := range tenantRoleInfos {
+				if info.RoleName != nil {
+					tenantRoleNameSet[*info.RoleName] = struct{}{}
+				}
+				for _, perm := range info.Permissions {
+					tenantPermissionSet[perm] = struct{}{}
+				}
+			}
+
+			tenantRoleNames := make([]string, 0, len(tenantRoleNameSet))
+			for roleName := range tenantRoleNameSet {
+				tenantRoleNames = append(tenantRoleNames, roleName)
+			}
+			sort.Strings(tenantRoleNames)
+			session.Claims.Extra["tenant_role_names"] = tenantRoleNames
+
+			tenantPermissions := make([]string, 0, len(tenantPermissionSet))
+			for perm := range tenantPermissionSet {
+				tenantPermissions = append(tenantPermissions, perm)
+			}
+			sort.Strings(tenantPermissions)
+			session.Claims.Extra["tenant_permissions"] = tenantPermissions
+		}
+
+		globalRoleInfos, err := h.repos.GlobalRole.ListByUserID(dbCtx, userUUID)
+		if err != nil {
+			log.Printf("oauth2.authorize: failed to load global roles for user %s: %v", userUUID, err)
+		} else {
+			globalRoleNameSet := make(map[string]struct{})
+			globalPermissionSet := make(map[string]struct{})
+			for _, info := range globalRoleInfos {
+				globalRoleNameSet[info.RoleName] = struct{}{}
+				for _, perm := range info.Permissions {
+					globalPermissionSet[perm] = struct{}{}
+				}
+			}
+
+			globalRoleNames := make([]string, 0, len(globalRoleNameSet))
+			for roleName := range globalRoleNameSet {
+				globalRoleNames = append(globalRoleNames, roleName)
+			}
+			sort.Strings(globalRoleNames)
+			session.Claims.Extra["global_role_names"] = globalRoleNames
+
+			globalPermissions := make([]string, 0, len(globalPermissionSet))
+			for perm := range globalPermissionSet {
+				globalPermissions = append(globalPermissions, perm)
+			}
+			sort.Strings(globalPermissions)
+			session.Claims.Extra["global_permissions"] = globalPermissions
+		}
 	}
 
 	fmt.Printf("DEBUG AUTHORIZE: Session created for user: %s\n", user.Username)
@@ -264,6 +350,7 @@ type registerResponse struct {
 	Scope                   string   `json:"scope,omitempty"`
 	TokenEndpointAuthMethod string   `json:"token_endpoint_auth_method,omitempty"`
 	ClientName              string   `json:"client_name,omitempty"`
+	Internal                bool     `json:"internal"`
 }
 
 func (h *Handlers) RegisterClient(c *gin.Context) {
@@ -309,12 +396,16 @@ func (h *Handlers) RegisterClient(c *gin.Context) {
 	_, err := h.provider.Store.pool.Exec(c.Request.Context(), `
         INSERT INTO oauth2_clients (
             id, client_secret_hash, redirect_uris, grant_types, response_types,
-            scopes, audience, public, client_name
-        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
-    `, clientID, clientSecretHash, req.RedirectURIs, req.GrantTypes, req.ResponseTypes, scopes, []string{}, isPublic, req.ClientName)
+            scopes, audience, public, client_name, internal
+        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+    `, clientID, clientSecretHash, req.RedirectURIs, req.GrantTypes, req.ResponseTypes, scopes, []string{}, isPublic, req.ClientName, false)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "server_error"})
 		return
+	}
+
+	if err := h.provider.Store.ReloadClient(c.Request.Context(), clientID); err != nil {
+		log.Printf("oauth2.register: failed to refresh client cache for %s: %v", clientID, err)
 	}
 
 	// Build Registration Access Token (RAT)
@@ -338,6 +429,7 @@ func (h *Handlers) RegisterClient(c *gin.Context) {
 		Scope:                   scope,
 		TokenEndpointAuthMethod: req.TokenEndpointAuthMethod,
 		ClientName:              req.ClientName,
+		Internal:                false,
 	}
 	c.JSON(http.StatusCreated, resp)
 }
@@ -349,14 +441,15 @@ func (h *Handlers) GetRegisteredClient(c *gin.Context) {
 	}
 
 	row := h.provider.Store.pool.QueryRow(c.Request.Context(), `
-        SELECT id, redirect_uris, grant_types, response_types, scopes, public, client_name
+        SELECT id, redirect_uris, grant_types, response_types, scopes, public, client_name, internal
         FROM oauth2_clients WHERE id=$1
     `, clientID)
 	var id string
 	var redirectURIs, grantTypes, responseTypes, scopes []string
 	var public bool
 	var clientName *string
-	if err := row.Scan(&id, &redirectURIs, &grantTypes, &responseTypes, &scopes, &public, &clientName); err != nil {
+	var internal bool
+	if err := row.Scan(&id, &redirectURIs, &grantTypes, &responseTypes, &scopes, &public, &clientName, &internal); err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "not_found"})
 		return
 	}
@@ -379,6 +472,7 @@ func (h *Handlers) GetRegisteredClient(c *gin.Context) {
 		Scope:                   scope,
 		TokenEndpointAuthMethod: authMethod,
 		ClientName:              ptrStr(clientName),
+		Internal:                internal,
 	})
 }
 
@@ -404,6 +498,10 @@ func (h *Handlers) UpdateRegisteredClient(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "server_error"})
 		return
 	}
+
+	if err := h.provider.Store.ReloadClient(c.Request.Context(), clientID); err != nil {
+		log.Printf("oauth2.update: failed to refresh client cache for %s: %v", clientID, err)
+	}
 	h.GetRegisteredClient(c)
 }
 
@@ -417,6 +515,7 @@ func (h *Handlers) DeleteRegisteredClient(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "server_error"})
 		return
 	}
+	h.provider.Store.DeleteClient(clientID)
 	c.Status(http.StatusNoContent)
 }
 
@@ -717,7 +816,8 @@ func (h *Handlers) handleRefreshTokenGrant(_ context.Context, _ fosite.AccessReq
 func (h *Handlers) handleClientCredentialsGrant(_ context.Context, ar fosite.AccessRequester) error {
 	// For client credentials, we create a session with the client as the subject
 	clientID := ar.GetClient().GetID()
-	session := h.provider.CreateCustomSession(clientID, clientID, "", nil)
+	// Client credentials don't have a tenant context, so pass empty string
+	session := h.provider.CreateCustomSession(clientID, clientID, "", nil, "")
 	ar.SetSession(session)
 	return nil
 }
@@ -737,12 +837,27 @@ func (h *Handlers) handlePasswordGrant(ctx context.Context, ar fosite.AccessRequ
 		return fosite.ErrInvalidGrant.WithDescription("Invalid username or password")
 	}
 
+	// Determine tenant_id for password grant
+	requestedTenantID := ar.GetRequestForm().Get("tenant_id")
+	var currentTenantID string
+	if requestedTenantID != "" {
+		currentTenantID = requestedTenantID
+	} else {
+		// Load user's tenant memberships to determine a default tenant
+		tenantRoleInfos, err := h.repos.Membership.ListRolesWithPermissionsByUserID(ctx, user.ID)
+		if err == nil && len(tenantRoleInfos) > 0 {
+			// Use the first tenant as the default
+			currentTenantID = tenantRoleInfos[0].TenantID.String()
+		}
+	}
+
 	// Create session with user information
 	session := h.provider.CreateCustomSession(
 		user.ID.String(),
 		user.Username,
 		user.Email,
 		user.AvatarURL,
+		currentTenantID,
 	)
 	ar.SetSession(session)
 
@@ -867,6 +982,26 @@ func (h *Handlers) UserInfoHandler(c *gin.Context) {
 	// Add image field if picture is available in claims
 	if picture, exists := session.Claims.Extra["picture"]; exists && picture != nil {
 		userInfo["image"] = picture
+	}
+
+	if tenantRoles, exists := session.Claims.Extra["tenant_roles"]; exists {
+		userInfo["tenant_roles"] = tenantRoles
+	}
+
+	if tenantPerms, exists := session.Claims.Extra["tenant_permissions"]; exists {
+		userInfo["tenant_permissions"] = tenantPerms
+	}
+
+	if perms, exists := session.Claims.Extra["permissions"]; exists {
+		userInfo["permissions"] = perms
+	}
+
+	if globalRoles, exists := session.Claims.Extra["global_roles"]; exists {
+		userInfo["global_roles"] = globalRoles
+	}
+
+	if globalPerms, exists := session.Claims.Extra["global_permissions"]; exists {
+		userInfo["global_permissions"] = globalPerms
 	}
 
 	c.JSON(http.StatusOK, userInfo)

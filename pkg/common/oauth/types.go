@@ -11,6 +11,7 @@ type UserInfo struct {
 	Email     string            `json:"email,omitempty"`
 	Name      string            `json:"name,omitempty"`
 	Verified  bool              `json:"email_verified,omitempty"`
+	TenantID  string            `json:"tenant_id,omitempty"`  // Current tenant ID for the user
 	Extra     map[string]string `json:"extra,omitempty"`
 	UpdatedAt *time.Time        `json:"updated_at,omitempty"`
 }

@@ -16,6 +16,7 @@ type Handlers struct {
 	User   *UserHandler
 	Tenant *TenantHandler
 	OAuth2 *oauth2.Handlers
+	Admin  *AdminHandler
 }
 
 // NewHandlers creates a new handlers manager
@@ -25,12 +26,15 @@ func NewHandlers(repos *repositories.Repositories, provider *oauth2.Provider, se
 	userService := services.NewUserService(repos)
 	tenantService := services.NewTenantService(repos)
 	authService := services.NewAuthService(repos, userService, credentialService, tenantService, sess)
+	globalRoleService := services.NewGlobalRoleService(repos.GlobalRole)
+	tenantRoleService := services.NewTenantRoleService(repos.TenantRole, repos.Membership)
 
 	return &Handlers{
 		Auth:   NewAuthHandler(authService, provider, translator),
 		User:   NewUserHandler(userService, translator),
 		Tenant: NewTenantHandler(tenantService, translator),
 		OAuth2: oauth2.NewHandlers(provider, repos, sess, translator, devMode, regSecret, loginPageURL),
+		Admin:  NewAdminHandler(globalRoleService, tenantRoleService, translator),
 	}
 }
 
@@ -47,10 +51,14 @@ func NewHandlersWithServices(
 	regSecret string,
 	loginPageURL string,
 ) *Handlers {
+	globalRoleService := services.NewGlobalRoleService(repos.GlobalRole)
+	tenantRoleService := services.NewTenantRoleService(repos.TenantRole, repos.Membership)
+
 	return &Handlers{
 		Auth:   NewAuthHandler(authService, provider, translator),
 		User:   NewUserHandler(userService, translator),
 		Tenant: NewTenantHandler(tenantService, translator),
 		OAuth2: oauth2.NewHandlers(provider, repos, sess, translator, devMode, regSecret, loginPageURL),
+		Admin:  NewAdminHandler(globalRoleService, tenantRoleService, translator),
 	}
 }

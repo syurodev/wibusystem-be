@@ -49,6 +49,9 @@ export ENVIRONMENT="development"
 ```
 
 Run the service (from repo root):
+```bash
+  openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out oidc-signing.pem
+```
 
 ```bash
 go run ./services/identify

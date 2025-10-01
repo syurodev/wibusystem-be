@@ -270,6 +270,7 @@ type UserInfo struct {
 	EmailVerified bool                   `protobuf:"varint,5,opt,name=email_verified,json=emailVerified,proto3" json:"email_verified,omitempty"`
 	Extra         map[string]string      `protobuf:"bytes,6,rep,name=extra,proto3" json:"extra,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"` // Additional user claims
 	UpdatedAt     int64                  `protobuf:"varint,7,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`                                                 // Unix timestamp
+	TenantId      string                 `protobuf:"bytes,8,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`                                                     // Current tenant ID for the user (UUID)
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -351,6 +352,13 @@ func (x *UserInfo) GetUpdatedAt() int64 {
 		return x.UpdatedAt
 	}
 	return 0
+}
+
+func (x *UserInfo) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
 }
 
 var File_token_validation_proto protoreflect.FileDescriptor

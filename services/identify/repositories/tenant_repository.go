@@ -16,10 +16,12 @@ type TenantRepository interface {
 	Create(ctx context.Context, tenant *m.Tenant) error
 	GetByID(ctx context.Context, id uuid.UUID) (*m.Tenant, error)
 	GetByName(ctx context.Context, name string) (*m.Tenant, error)
+	GetBySlug(ctx context.Context, slug string) (*m.Tenant, error)
 	List(ctx context.Context, limit, offset int) ([]*m.Tenant, int64, error)
 	Update(ctx context.Context, tenant *m.Tenant) error
 	Delete(ctx context.Context, id uuid.UUID) error
 	GetByUserID(ctx context.Context, userID uuid.UUID) ([]*m.Tenant, error)
+	SlugExists(ctx context.Context, slug string) (bool, error)
 }
 
 type tenantRepository struct {
@@ -34,14 +36,21 @@ func NewTenantRepository(pool *pgxpool.Pool) TenantRepository {
 // Create inserts a new tenant.
 func (r *tenantRepository) Create(ctx context.Context, tenant *m.Tenant) error {
 	query := `
-		INSERT INTO tenants (name)
-		VALUES ($1)
-		RETURNING id, created_at
+		INSERT INTO tenants (name, slug, description, settings, status)
+		VALUES ($1, $2, $3, $4, $5)
+		RETURNING id, created_at, updated_at
 	`
 
-	err := r.pool.QueryRow(ctx, query, tenant.Name).Scan(
+	err := r.pool.QueryRow(ctx, query,
+		tenant.Name,
+		tenant.Slug,
+		tenant.Description,
+		tenant.Settings,
+		tenant.Status,
+	).Scan(
 		&tenant.ID,
 		&tenant.CreatedAt,
+		&tenant.UpdatedAt,
 	)
 
 	if err != nil {
@@ -54,7 +63,7 @@ func (r *tenantRepository) Create(ctx context.Context, tenant *m.Tenant) error {
 // GetByID returns a tenant by ID.
 func (r *tenantRepository) GetByID(ctx context.Context, id uuid.UUID) (*m.Tenant, error) {
 	query := `
-		SELECT id, name, created_at
+		SELECT id, name, slug, description, settings, status, created_at, updated_at
 		FROM tenants
 		WHERE id = $1
 	`
@@ -63,7 +72,12 @@ func (r *tenantRepository) GetByID(ctx context.Context, id uuid.UUID) (*m.Tenant
 	err := r.pool.QueryRow(ctx, query, id).Scan(
 		&tenant.ID,
 		&tenant.Name,
+		&tenant.Slug,
+		&tenant.Description,
+		&tenant.Settings,
+		&tenant.Status,
 		&tenant.CreatedAt,
+		&tenant.UpdatedAt,
 	)
 
 	if err != nil {
@@ -76,7 +90,7 @@ func (r *tenantRepository) GetByID(ctx context.Context, id uuid.UUID) (*m.Tenant
 // GetByName returns a tenant by its unique name.
 func (r *tenantRepository) GetByName(ctx context.Context, name string) (*m.Tenant, error) {
 	query := `
-		SELECT id, name, created_at
+		SELECT id, name, slug, description, settings, status, created_at, updated_at
 		FROM tenants
 		WHERE name = $1
 	`
@@ -85,7 +99,12 @@ func (r *tenantRepository) GetByName(ctx context.Context, name string) (*m.Tenan
 	err := r.pool.QueryRow(ctx, query, name).Scan(
 		&tenant.ID,
 		&tenant.Name,
+		&tenant.Slug,
+		&tenant.Description,
+		&tenant.Settings,
+		&tenant.Status,
 		&tenant.CreatedAt,
+		&tenant.UpdatedAt,
 	)
 
 	if err != nil {
@@ -93,6 +112,46 @@ func (r *tenantRepository) GetByName(ctx context.Context, name string) (*m.Tenan
 	}
 
 	return tenant, nil
+}
+
+// GetBySlug returns a tenant by its unique slug.
+func (r *tenantRepository) GetBySlug(ctx context.Context, slug string) (*m.Tenant, error) {
+	query := `
+		SELECT id, name, slug, description, settings, status, created_at, updated_at
+		FROM tenants
+		WHERE slug = $1
+	`
+
+	tenant := &m.Tenant{}
+	err := r.pool.QueryRow(ctx, query, slug).Scan(
+		&tenant.ID,
+		&tenant.Name,
+		&tenant.Slug,
+		&tenant.Description,
+		&tenant.Settings,
+		&tenant.Status,
+		&tenant.CreatedAt,
+		&tenant.UpdatedAt,
+	)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to get tenant by slug: %w", err)
+	}
+
+	return tenant, nil
+}
+
+// SlugExists checks if a slug is already taken.
+func (r *tenantRepository) SlugExists(ctx context.Context, slug string) (bool, error) {
+	query := `SELECT EXISTS(SELECT 1 FROM tenants WHERE slug = $1)`
+
+	var exists bool
+	err := r.pool.QueryRow(ctx, query, slug).Scan(&exists)
+	if err != nil {
+		return false, fmt.Errorf("failed to check slug existence: %w", err)
+	}
+
+	return exists, nil
 }
 
 // List returns paginated tenants and total count.
@@ -107,7 +166,7 @@ func (r *tenantRepository) List(ctx context.Context, limit, offset int) ([]*m.Te
 
 	// Get tenants with pagination
 	query := `
-		SELECT id, name, created_at
+		SELECT id, name, slug, description, settings, status, created_at, updated_at
 		FROM tenants
 		ORDER BY created_at DESC
 		LIMIT $1 OFFSET $2
@@ -125,7 +184,12 @@ func (r *tenantRepository) List(ctx context.Context, limit, offset int) ([]*m.Te
 		err := rows.Scan(
 			&tenant.ID,
 			&tenant.Name,
+			&tenant.Slug,
+			&tenant.Description,
+			&tenant.Settings,
+			&tenant.Status,
 			&tenant.CreatedAt,
+			&tenant.UpdatedAt,
 		)
 		if err != nil {
 			return nil, 0, fmt.Errorf("failed to scan tenant: %w", err)
@@ -141,21 +205,26 @@ func (r *tenantRepository) List(ctx context.Context, limit, offset int) ([]*m.Te
 	return tenants, total, nil
 }
 
-// Update modifies tenant fields (e.g., name).
+// Update modifies tenant fields.
 func (r *tenantRepository) Update(ctx context.Context, tenant *m.Tenant) error {
 	query := `
 		UPDATE tenants
-		SET name = $2
+		SET name = $2, slug = $3, description = $4, settings = $5, status = $6
 		WHERE id = $1
+		RETURNING updated_at
 	`
 
-	result, err := r.pool.Exec(ctx, query, tenant.ID, tenant.Name)
+	err := r.pool.QueryRow(ctx, query,
+		tenant.ID,
+		tenant.Name,
+		tenant.Slug,
+		tenant.Description,
+		tenant.Settings,
+		tenant.Status,
+	).Scan(&tenant.UpdatedAt)
+
 	if err != nil {
 		return fmt.Errorf("failed to update tenant: %w", err)
-	}
-
-	if result.RowsAffected() == 0 {
-		return fmt.Errorf("tenant with ID %d not found", tenant.ID)
 	}
 
 	return nil
@@ -180,7 +249,7 @@ func (r *tenantRepository) Delete(ctx context.Context, id uuid.UUID) error {
 // GetByUserID returns active tenants for a user via membership join.
 func (r *tenantRepository) GetByUserID(ctx context.Context, userID uuid.UUID) ([]*m.Tenant, error) {
 	query := `
-		SELECT t.id, t.name, t.created_at
+		SELECT t.id, t.name, t.slug, t.description, t.settings, t.status, t.created_at, t.updated_at
 		FROM tenants t
 		JOIN memberships m ON t.id = m.tenant_id
 		WHERE m.user_id = $1 AND m.status = 'active'
@@ -199,7 +268,12 @@ func (r *tenantRepository) GetByUserID(ctx context.Context, userID uuid.UUID) ([
 		err := rows.Scan(
 			&tenant.ID,
 			&tenant.Name,
+			&tenant.Slug,
+			&tenant.Description,
+			&tenant.Settings,
+			&tenant.Status,
 			&tenant.CreatedAt,
+			&tenant.UpdatedAt,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan tenant: %w", err)

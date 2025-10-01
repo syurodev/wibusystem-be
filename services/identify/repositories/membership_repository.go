@@ -7,7 +7,7 @@ import (
 	m "wibusystem/pkg/common/model"
 
 	"github.com/google/uuid"
-
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -21,6 +21,15 @@ type MembershipRepository interface {
 	Update(ctx context.Context, membership *m.Membership) error
 	Delete(ctx context.Context, id uuid.UUID) error
 	UpdateStatus(ctx context.Context, id uuid.UUID, status string) error
+	ListRolesWithPermissionsByUserID(ctx context.Context, userID uuid.UUID) ([]*MembershipRolePermissions, error)
+}
+
+// MembershipRolePermissions aggregates role metadata and permissions per tenant for a membership.
+type MembershipRolePermissions struct {
+	TenantID    uuid.UUID
+	RoleID      *uuid.UUID
+	RoleName    *string
+	Permissions []string
 }
 
 type membershipRepository struct {
@@ -243,4 +252,67 @@ func (r *membershipRepository) UpdateStatus(ctx context.Context, id uuid.UUID, s
 	}
 
 	return nil
+}
+
+// ListRolesWithPermissionsByUserID returns each tenant-role assignment with the associated permissions for the user.
+func (r *membershipRepository) ListRolesWithPermissionsByUserID(ctx context.Context, userID uuid.UUID) ([]*MembershipRolePermissions, error) {
+	query := `
+	WITH membership_roles AS (
+	    SELECT m.id AS membership_id,
+	           m.tenant_id,
+	           COALESCE(ra.role_id, m.role_id) AS role_id
+	    FROM memberships m
+	    LEFT JOIN role_assignments ra ON ra.membership_id = m.id
+	    WHERE m.user_id = $1 AND m.status = 'active'
+	)
+	SELECT mr.tenant_id,
+	       r.id,
+	       r.name,
+	       COALESCE(array_remove(array_agg(DISTINCT p.key), NULL), '{}') AS permissions
+	FROM membership_roles mr
+	LEFT JOIN roles r ON r.id = mr.role_id
+	LEFT JOIN role_permissions rp ON rp.role_id = r.id
+	LEFT JOIN permissions p ON p.id = rp.permission_id
+	GROUP BY mr.tenant_id, r.id, r.name
+	ORDER BY mr.tenant_id, r.name NULLS LAST
+	`
+
+	rows, err := r.pool.Query(ctx, query, userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list roles for user: %w", err)
+	}
+	defer rows.Close()
+
+	var results []*MembershipRolePermissions
+	for rows.Next() {
+		var (
+			tenantID    uuid.UUID
+			roleID      pgtype.UUID
+			roleName    *string
+			permissions []string
+		)
+
+		if err := rows.Scan(&tenantID, &roleID, &roleName, &permissions); err != nil {
+			return nil, fmt.Errorf("failed to scan membership role row: %w", err)
+		}
+
+		var roleIDPtr *uuid.UUID
+		if roleID.Valid {
+			id := uuid.UUID(roleID.Bytes)
+			roleIDPtr = &id
+		}
+
+		results = append(results, &MembershipRolePermissions{
+			TenantID:    tenantID,
+			RoleID:      roleIDPtr,
+			RoleName:    roleName,
+			Permissions: permissions,
+		})
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("failed to iterate membership roles: %w", err)
+	}
+
+	return results, nil
 }

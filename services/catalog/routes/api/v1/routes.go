@@ -20,4 +20,9 @@ func SetupRoutes(router *gin.Engine, cfg *config.Config, h *handlers.Handlers, m
 	SetupGenreRoutes(api, h, m)
 	SetupCharacterRoutes(api, h, m)
 	SetupCreatorRoutes(api, h, m)
+
+	// Setup content management routes
+	SetupNovelRoutes(api, h, m)
+	SetupVolumeRoutes(api, h, m)
+	SetupChapterRoutes(api, h, m)
 }

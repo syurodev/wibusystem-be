@@ -11,6 +11,8 @@ import (
 	"encoding/base64"
 	"encoding/pem"
 	"fmt"
+	"log"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -45,6 +47,9 @@ func NewProvider(cfg *config.Config, pool *pgxpool.Pool) (*Provider, error) {
 	privateKey, err := generateOrLoadRSAKey(cfg.OAuth2.JWTSigningKey)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create RSA key: %w", err)
+	}
+	if strings.TrimSpace(cfg.OAuth2.JWTSigningKey) == "" {
+		log.Printf("oauth2.provider: generated ephemeral RSA signing key; set OAUTH2_JWT_SIGNING_KEY to a PEM-encoded private key for stable ID tokens")
 	}
 
 	// Create fosite config
@@ -140,24 +145,31 @@ func NewProvider(cfg *config.Config, pool *pgxpool.Pool) (*Provider, error) {
 // generateOrLoadRSAKey generates a new RSA key pair or loads from a PEM/PKCS8
 // key string. Used for OIDC JWKS exposure.
 func generateOrLoadRSAKey(keyString string) (*rsa.PrivateKey, error) {
-	// Try to parse as PEM first
-	if block, _ := pem.Decode([]byte(keyString)); block != nil {
-		privateKey, err := x509.ParsePKCS1PrivateKey(block.Bytes)
-		if err == nil {
-			return privateKey, nil
-		}
-
-		// Try PKCS8 format
-		key, err := x509.ParsePKCS8PrivateKey(block.Bytes)
-		if err == nil {
-			if rsaKey, ok := key.(*rsa.PrivateKey); ok {
-				return rsaKey, nil
-			}
-		}
+	trimmed := strings.TrimSpace(keyString)
+	if trimmed == "" {
+		return generateRSAKey()
 	}
 
-	// Generate new key if parsing failed or no key provided
-	return generateRSAKey()
+	block, _ := pem.Decode([]byte(trimmed))
+	if block == nil {
+		return nil, fmt.Errorf("jwt signing key must be a PEM encoded RSA private key")
+	}
+
+	if privateKey, err := x509.ParsePKCS1PrivateKey(block.Bytes); err == nil {
+		return privateKey, nil
+	}
+
+	key, err := x509.ParsePKCS8PrivateKey(block.Bytes)
+	if err != nil {
+		return nil, fmt.Errorf("jwt signing key is not a valid PKCS#1 or PKCS#8 RSA private key: %w", err)
+	}
+
+	rsaKey, ok := key.(*rsa.PrivateKey)
+	if !ok {
+		return nil, fmt.Errorf("jwt signing key is not an RSA private key")
+	}
+
+	return rsaKey, nil
 }
 
 // generateRSAKey creates a 2048-bit RSA key for development.
@@ -202,7 +214,7 @@ func (p *Provider) ValidateToken(_ string) (*openid.DefaultSession, error) {
 
 // CreateCustomSession creates a session embedding basic user info as OIDC
 // claims; add/adjust claims to fit your profile needs.
-func (p *Provider) CreateCustomSession(userID string, username string, email string, avatarURL *string) *openid.DefaultSession {
+func (p *Provider) CreateCustomSession(userID string, username string, email string, avatarURL *string, tenantID string) *openid.DefaultSession {
 	session := &openid.DefaultSession{
 		Claims: &jwt.IDTokenClaims{
 			Issuer:      p.Config.IDTokenIssuer,
@@ -228,6 +240,11 @@ func (p *Provider) CreateCustomSession(userID string, username string, email str
 		"email_verified":     true,
 		"preferred_username": username,
 		"name":               username,
+	}
+
+	// Add tenant_id if provided
+	if tenantID != "" {
+		session.Claims.Extra["tenant_id"] = tenantID
 	}
 
 	// Add avatar_url as picture claim if available

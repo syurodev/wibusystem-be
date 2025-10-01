@@ -20,6 +20,10 @@ type CharacterRepository interface {
 	Update(ctx context.Context, character *m.Character) error
 	Delete(ctx context.Context, id uuid.UUID) error
 	List(ctx context.Context, limit, offset int, search string) ([]*m.Character, int64, error)
+
+	// Query methods for novel relations
+	GetCharactersByNovelID(ctx context.Context, novelID uuid.UUID) ([]m.Character, error)
+	GetCharactersByNovelIDs(ctx context.Context, novelIDs []uuid.UUID) (map[uuid.UUID][]m.Character, error)
 }
 
 type characterRepository struct {
@@ -202,4 +206,91 @@ func (r *characterRepository) List(ctx context.Context, limit, offset int, searc
 	}
 
 	return characters, total, nil
+}
+
+// GetCharactersByNovelID retrieves all characters associated with a specific novel
+func (r *characterRepository) GetCharactersByNovelID(ctx context.Context, novelID uuid.UUID) ([]m.Character, error) {
+	query := `
+		SELECT ch.id, ch.name, ch.description, ch.image_url, ch.created_at, ch.updated_at
+		FROM character ch
+		INNER JOIN novel_character nc ON ch.id = nc.character_id
+		WHERE nc.novel_id = $1
+		ORDER BY ch.name ASC
+	`
+
+	rows, err := r.pool.Query(ctx, query, novelID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get characters by novel ID: %w", err)
+	}
+	defer rows.Close()
+
+	var characters []m.Character
+	for rows.Next() {
+		var character m.Character
+		err := rows.Scan(
+			&character.ID,
+			&character.Name,
+			&character.Description,
+			&character.ImageURL,
+			&character.CreatedAt,
+			&character.UpdatedAt,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan character: %w", err)
+		}
+		characters = append(characters, character)
+	}
+
+	if rows.Err() != nil {
+		return nil, fmt.Errorf("failed to iterate characters: %w", rows.Err())
+	}
+
+	return characters, nil
+}
+
+// GetCharactersByNovelIDs retrieves characters for multiple novels in a single query (batch loading)
+// Returns a map where key is novel_id and value is the list of characters for that novel
+func (r *characterRepository) GetCharactersByNovelIDs(ctx context.Context, novelIDs []uuid.UUID) (map[uuid.UUID][]m.Character, error) {
+	if len(novelIDs) == 0 {
+		return make(map[uuid.UUID][]m.Character), nil
+	}
+
+	query := `
+		SELECT nc.novel_id, ch.id, ch.name, ch.description, ch.image_url, ch.created_at, ch.updated_at
+		FROM character ch
+		INNER JOIN novel_character nc ON ch.id = nc.character_id
+		WHERE nc.novel_id = ANY($1)
+		ORDER BY nc.novel_id, ch.name ASC
+	`
+
+	rows, err := r.pool.Query(ctx, query, novelIDs)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get characters by novel IDs: %w", err)
+	}
+	defer rows.Close()
+
+	result := make(map[uuid.UUID][]m.Character)
+	for rows.Next() {
+		var novelID uuid.UUID
+		var character m.Character
+		err := rows.Scan(
+			&novelID,
+			&character.ID,
+			&character.Name,
+			&character.Description,
+			&character.ImageURL,
+			&character.CreatedAt,
+			&character.UpdatedAt,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan character: %w", err)
+		}
+		result[novelID] = append(result[novelID], character)
+	}
+
+	if rows.Err() != nil {
+		return nil, fmt.Errorf("failed to iterate characters: %w", rows.Err())
+	}
+
+	return result, nil
 }

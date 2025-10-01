@@ -23,6 +23,7 @@ coverage.*
 .env
 .env.*
 !.env.example
+*.pem
 
 # Log files
 *.log

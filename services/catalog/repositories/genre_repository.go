@@ -20,6 +20,10 @@ type GenreRepository interface {
 	Update(ctx context.Context, genre *m.Genre) error
 	Delete(ctx context.Context, id uuid.UUID) error
 	List(ctx context.Context, limit, offset int, search string) ([]*m.Genre, int64, error)
+
+	// Query methods for novel relations
+	GetGenresByNovelID(ctx context.Context, novelID uuid.UUID) ([]m.Genre, error)
+	GetGenresByNovelIDs(ctx context.Context, novelIDs []uuid.UUID) (map[uuid.UUID][]m.Genre, error)
 }
 
 type genreRepository struct {
@@ -52,25 +56,59 @@ func (r *genreRepository) Create(ctx context.Context, genre *m.Genre) error {
 	return nil
 }
 
-// GetByID retrieves a genre by its ID
+// GetByID retrieves a genre by its ID with content counts
 func (r *genreRepository) GetByID(ctx context.Context, id uuid.UUID) (*m.Genre, error) {
 	query := `
-		SELECT id, name, created_at, updated_at
-		FROM genre
-		WHERE id = $1
+		SELECT
+			g.id,
+			g.name,
+			g.created_at,
+			g.updated_at,
+			COALESCE(ac.anime_count, 0) as anime_count,
+			COALESCE(mc.manga_count, 0) as manga_count,
+			COALESCE(nc.novel_count, 0) as novel_count
+		FROM genre g
+		LEFT JOIN (
+			SELECT genre_id, COUNT(*) as anime_count
+			FROM anime_genre
+			WHERE genre_id = $1
+			GROUP BY genre_id
+		) ac ON g.id = ac.genre_id
+		LEFT JOIN (
+			SELECT genre_id, COUNT(*) as manga_count
+			FROM manga_genre
+			WHERE genre_id = $1
+			GROUP BY genre_id
+		) mc ON g.id = mc.genre_id
+		LEFT JOIN (
+			SELECT genre_id, COUNT(*) as novel_count
+			FROM novel_genre
+			WHERE genre_id = $1
+			GROUP BY genre_id
+		) nc ON g.id = nc.genre_id
+		WHERE g.id = $1
 	`
 
 	var genre m.Genre
+	var animeCount, mangaCount, novelCount int
 	err := r.pool.QueryRow(ctx, query, id).Scan(
 		&genre.ID,
 		&genre.Name,
 		&genre.CreatedAt,
 		&genre.UpdatedAt,
+		&animeCount,
+		&mangaCount,
+		&novelCount,
 	)
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to get genre by ID: %w", err)
 	}
+
+	// Set counts
+	genre.AnimeCount = animeCount
+	genre.MangaCount = mangaCount
+	genre.NovelCount = novelCount
 
 	return &genre, nil
 }
@@ -162,12 +200,34 @@ func (r *genreRepository) List(ctx context.Context, limit, offset int, search st
 		return nil, 0, fmt.Errorf("failed to count genres: %w", err)
 	}
 
-	// Data query
+	// Data query with content counts
 	query := fmt.Sprintf(`
-		SELECT id, name, created_at, updated_at
-		FROM genre
+		SELECT
+			g.id,
+			g.name,
+			g.created_at,
+			g.updated_at,
+			COALESCE(ac.anime_count, 0) as anime_count,
+			COALESCE(mc.manga_count, 0) as manga_count,
+			COALESCE(nc.novel_count, 0) as novel_count
+		FROM genre g
+		LEFT JOIN (
+			SELECT genre_id, COUNT(*) as anime_count
+			FROM anime_genre
+			GROUP BY genre_id
+		) ac ON g.id = ac.genre_id
+		LEFT JOIN (
+			SELECT genre_id, COUNT(*) as manga_count
+			FROM manga_genre
+			GROUP BY genre_id
+		) mc ON g.id = mc.genre_id
+		LEFT JOIN (
+			SELECT genre_id, COUNT(*) as novel_count
+			FROM novel_genre
+			GROUP BY genre_id
+		) nc ON g.id = nc.genre_id
 		%s
-		ORDER BY name ASC
+		ORDER BY g.name ASC
 		LIMIT $1 OFFSET $2
 	`, whereClause)
 
@@ -179,15 +239,25 @@ func (r *genreRepository) List(ctx context.Context, limit, offset int, search st
 
 	for rows.Next() {
 		var genre m.Genre
+		var animeCount, mangaCount, novelCount int
 		err := rows.Scan(
 			&genre.ID,
 			&genre.Name,
 			&genre.CreatedAt,
 			&genre.UpdatedAt,
+			&animeCount,
+			&mangaCount,
+			&novelCount,
 		)
 		if err != nil {
 			return nil, 0, fmt.Errorf("failed to scan genre: %w", err)
 		}
+
+		// Set counts (assuming they're fields in the model)
+		genre.AnimeCount = animeCount
+		genre.MangaCount = mangaCount
+		genre.NovelCount = novelCount
+
 		genres = append(genres, &genre)
 	}
 
@@ -196,4 +266,87 @@ func (r *genreRepository) List(ctx context.Context, limit, offset int, search st
 	}
 
 	return genres, total, nil
+}
+
+// GetGenresByNovelID retrieves all genres associated with a specific novel
+func (r *genreRepository) GetGenresByNovelID(ctx context.Context, novelID uuid.UUID) ([]m.Genre, error) {
+	query := `
+		SELECT g.id, g.name, g.created_at, g.updated_at
+		FROM genre g
+		INNER JOIN novel_genre ng ON g.id = ng.genre_id
+		WHERE ng.novel_id = $1
+		ORDER BY g.name ASC
+	`
+
+	rows, err := r.pool.Query(ctx, query, novelID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get genres by novel ID: %w", err)
+	}
+	defer rows.Close()
+
+	var genres []m.Genre
+	for rows.Next() {
+		var genre m.Genre
+		err := rows.Scan(
+			&genre.ID,
+			&genre.Name,
+			&genre.CreatedAt,
+			&genre.UpdatedAt,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan genre: %w", err)
+		}
+		genres = append(genres, genre)
+	}
+
+	if rows.Err() != nil {
+		return nil, fmt.Errorf("failed to iterate genres: %w", rows.Err())
+	}
+
+	return genres, nil
+}
+
+// GetGenresByNovelIDs retrieves genres for multiple novels in a single query (batch loading)
+// Returns a map where key is novel_id and value is the list of genres for that novel
+func (r *genreRepository) GetGenresByNovelIDs(ctx context.Context, novelIDs []uuid.UUID) (map[uuid.UUID][]m.Genre, error) {
+	if len(novelIDs) == 0 {
+		return make(map[uuid.UUID][]m.Genre), nil
+	}
+
+	query := `
+		SELECT ng.novel_id, g.id, g.name, g.created_at, g.updated_at
+		FROM genre g
+		INNER JOIN novel_genre ng ON g.id = ng.genre_id
+		WHERE ng.novel_id = ANY($1)
+		ORDER BY ng.novel_id, g.name ASC
+	`
+
+	rows, err := r.pool.Query(ctx, query, novelIDs)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get genres by novel IDs: %w", err)
+	}
+	defer rows.Close()
+
+	result := make(map[uuid.UUID][]m.Genre)
+	for rows.Next() {
+		var novelID uuid.UUID
+		var genre m.Genre
+		err := rows.Scan(
+			&novelID,
+			&genre.ID,
+			&genre.Name,
+			&genre.CreatedAt,
+			&genre.UpdatedAt,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan genre: %w", err)
+		}
+		result[novelID] = append(result[novelID], genre)
+	}
+
+	if rows.Err() != nil {
+		return nil, fmt.Errorf("failed to iterate genres: %w", rows.Err())
+	}
+
+	return result, nil
 }

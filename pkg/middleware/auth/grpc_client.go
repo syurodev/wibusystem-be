@@ -152,6 +152,13 @@ func (g *GRPCClient) convertResponseToUserContext(resp *pb.ValidateTokenResponse
 			}
 		}
 
+		// Parse tenant ID
+		if resp.UserInfo.TenantId != "" {
+			if tenantID, err := uuid.Parse(resp.UserInfo.TenantId); err == nil {
+				userContext.TenantID = &tenantID
+			}
+		}
+
 		userContext.Username = resp.UserInfo.Username
 		userContext.Email = resp.UserInfo.Email
 		userContext.Name = resp.UserInfo.Name

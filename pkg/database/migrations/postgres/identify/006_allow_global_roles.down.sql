@@ -1,0 +1,3 @@
+DELETE FROM roles WHERE tenant_id IS NULL;
+ALTER TABLE roles
+    ALTER COLUMN tenant_id SET NOT NULL;

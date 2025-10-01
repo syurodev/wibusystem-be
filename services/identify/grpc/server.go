@@ -11,8 +11,8 @@ import (
 	"wibusystem/services/identify/services/interfaces"
 )
 
-// SetupGRPCServer creates and configures a gRPC server with both token validation and user services
-func SetupGRPCServer(provider *oauth2.Provider, userService interfaces.UserServiceInterface, cfg *config.ServerConfig) (*grpcserver.Server, error) {
+// SetupGRPCServer creates and configures a gRPC server with token validation, user, and tenant services
+func SetupGRPCServer(provider *oauth2.Provider, userService interfaces.UserServiceInterface, tenantService interfaces.TenantServiceInterface, cfg *config.ServerConfig) (*grpcserver.Server, error) {
 	// Create fosite token validator
 	validator := NewFositeTokenValidator(provider)
 
@@ -25,7 +25,10 @@ func SetupGRPCServer(provider *oauth2.Provider, userService interfaces.UserServi
 	// Register UserService on the same gRPC server
 	RegisterUserServiceOnExistingServer(server.GetGRPCServer(), userService)
 
-	log.Printf("gRPC server configured with TokenValidation and UserService on %s", server.GetAddress())
+	// Register TenantService on the same gRPC server
+	RegisterTenantServiceOnExistingServer(server.GetGRPCServer(), tenantService)
+
+	log.Printf("gRPC server configured with TokenValidation, UserService, and TenantService on %s", server.GetAddress())
 	return server, nil
 }
 
