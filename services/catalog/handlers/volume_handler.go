@@ -131,13 +131,24 @@ func (h *VolumeHandler) ListVolumesByNovelID(c *gin.Context) {
 		return
 	}
 
+	// Prepare response payload matching chapter list structure
+	data := make([]d.VolumeResponse, 0)
+	if response != nil {
+		data = response.Volumes
+	}
+
+	meta := map[string]interface{}{}
+	if response != nil {
+		meta["pagination"] = response.Pagination
+	}
+
 	// Return success response with volume list
 	c.JSON(http.StatusOK, r.StandardResponse{
 		Success: true,
 		Message: "Lấy danh sách volumes thành công",
-		Data:    response,
+		Data:    data,
 		Error:   nil,
-		Meta:    map[string]interface{}{},
+		Meta:    meta,
 	})
 }
 

@@ -66,27 +66,25 @@ GET /api/v1/novels
 {
   "success": true,
   "message": "Lấy danh sách tiểu thuyết thành công",
-  "data": {
-    "novels": [
-      {
-        "id": "123e4567-e89b-12d3-a456-426614174000",
-        "title": "Tên tiểu thuyết",
-        "cover_image": "https://example.com/cover.jpg",
-        "status": "ONGOING",
-        "original_language": "vi",
-        "is_featured": true,
-        "is_completed": false,
-        "view_count": 1500,
-        "rating_average": 4.5,
-        "rating_count": 150,
-        "total_chapters": 25,
-        "total_volumes": 3,
-        "published_at": "2024-01-01T00:00:00Z",
-        "created_at": "2024-01-01T00:00:00Z",
-        "updated_at": "2024-01-01T00:00:00Z"
-      }
-    ]
-  },
+  "data": [
+    {
+      "id": "123e4567-e89b-12d3-a456-426614174000",
+      "title": "Tên tiểu thuyết",
+      "cover_image": "https://example.com/cover.jpg",
+      "status": "ONGOING",
+      "original_language": "vi",
+      "is_featured": true,
+      "is_completed": false,
+      "view_count": 1500,
+      "rating_average": 4.5,
+      "rating_count": 150,
+      "total_chapters": 25,
+      "total_volumes": 3,
+      "published_at": "2024-01-01T00:00:00Z",
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-01T00:00:00Z"
+    }
+  ],
   "error": null,
   "meta": {
     "pagination": {
@@ -97,9 +95,7 @@ GET /api/v1/novels
       "has_next": true,
       "has_prev": false
     }
-  },
-  "error": null,
-  "meta": {}
+  }
 }
 ```
 
@@ -328,32 +324,31 @@ GET /api/v1/novels/{novel_id}/volumes
 {
   "success": true,
   "message": "Lấy danh sách volumes thành công",
-  "data": {
-    "volumes": [
-      {
-        "id": "volume-uuid",
-        "novel_id": "novel-uuid",
-        "volume_number": 1,
-        "title": "Tập 1: Khởi đầu",
-        "description": "Mô tả về tập 1",
-        "cover_image": "https://example.com/volume1.jpg",
-        "published_at": "2024-01-01T00:00:00Z",
-        "is_public": true,
-        "price_coins": 50,
-        "chapter_count": 10,
-        "created_at": "2024-01-01T00:00:00Z",
-        "updated_at": "2024-01-01T00:00:00Z"
-      }
-    ],
+  "data": [
+    {
+      "id": "volume-uuid",
+      "novel_id": "novel-uuid",
+      "volume_number": 1,
+      "title": "Tập 1: Khởi đầu",
+      "description": "Mô tả về tập 1",
+      "cover_image": "https://example.com/volume1.jpg",
+      "published_at": "2024-01-01T00:00:00Z",
+      "is_public": true,
+      "price_coins": 50,
+      "chapter_count": 10,
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-01T00:00:00Z"
+    }
+  ],
+  "error": null,
+  "meta": {
     "pagination": {
       "page": 1,
       "limit": 20,
       "total": 5,
       "total_pages": 1
     }
-  },
-  "error": null,
-  "meta": {}
+  }
 }
 ```
 
