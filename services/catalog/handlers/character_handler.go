@@ -33,9 +33,10 @@ func (h *CharacterHandler) ListCharacters(c *gin.Context) {
 	// Bind query parameters
 	var req d.ListCharactersRequest
 	if err := c.ShouldBindQuery(&req); err != nil {
+		message := i18n.Localize(c, "catalog.common.error.invalid_query_parameters", "Invalid query parameters")
 		c.JSON(http.StatusBadRequest, r.StandardResponse{
 			Success: false,
-			Message: "Invalid query parameters",
+			Message: message,
 			Data:    nil,
 			Error:   &r.ErrorDetail{Code: "validation_error", Description: err.Error()},
 			Meta:    map[string]interface{}{},
@@ -63,9 +64,10 @@ func (h *CharacterHandler) ListCharacters(c *gin.Context) {
 		totalPages++
 	}
 
+	successMessage := i18n.Localize(c, "catalog.characters.list.success", "Characters fetched successfully")
 	c.JSON(http.StatusOK, r.StandardResponse{
 		Success: true,
-		Message: "Characters fetched successfully",
+		Message: successMessage,
 		Data:    characters,
 		Error:   nil,
 		Meta: map[string]interface{}{
@@ -84,11 +86,13 @@ func (h *CharacterHandler) GetCharacter(c *gin.Context) {
 	// Parse character ID
 	characterID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
+		message := i18n.Localize(c, "catalog.characters.error.invalid_id", "Invalid character ID")
+		detail := i18n.Localize(c, "catalog.characters.error.invalid_id_detail", "Character ID must be a valid UUID")
 		c.JSON(http.StatusBadRequest, r.StandardResponse{
 			Success: false,
-			Message: "Invalid character ID",
+			Message: message,
 			Data:    nil,
-			Error:   &r.ErrorDetail{Code: "invalid_id", Description: "Character ID must be a valid UUID"},
+			Error:   &r.ErrorDetail{Code: "invalid_id", Description: detail},
 			Meta:    map[string]interface{}{},
 		})
 		return
@@ -108,9 +112,10 @@ func (h *CharacterHandler) GetCharacter(c *gin.Context) {
 		return
 	}
 
+	successMessage := i18n.Localize(c, "catalog.characters.get.success", "Character fetched successfully")
 	c.JSON(http.StatusOK, r.StandardResponse{
 		Success: true,
-		Message: "Character fetched successfully",
+		Message: successMessage,
 		Data:    character,
 		Error:   nil,
 		Meta:    map[string]interface{}{},
@@ -124,9 +129,10 @@ func (h *CharacterHandler) CreateCharacter(c *gin.Context) {
 	// Bind request body
 	var req d.CreateCharacterRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
+		message := i18n.Localize(c, "catalog.common.error.invalid_request_body", "Invalid request body")
 		c.JSON(http.StatusBadRequest, r.StandardResponse{
 			Success: false,
-			Message: "Invalid request body",
+			Message: message,
 			Data:    nil,
 			Error:   &r.ErrorDetail{Code: "validation_error", Description: err.Error()},
 			Meta:    map[string]interface{}{},
@@ -148,9 +154,10 @@ func (h *CharacterHandler) CreateCharacter(c *gin.Context) {
 		return
 	}
 
+	successMessage := i18n.Localize(c, "catalog.characters.create.success", "Character created successfully")
 	c.JSON(http.StatusCreated, r.StandardResponse{
 		Success: true,
-		Message: "Character created successfully",
+		Message: successMessage,
 		Data:    character,
 		Error:   nil,
 		Meta:    map[string]interface{}{},
@@ -164,11 +171,13 @@ func (h *CharacterHandler) UpdateCharacter(c *gin.Context) {
 	// Parse character ID
 	characterID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
+		message := i18n.Localize(c, "catalog.characters.error.invalid_id", "Invalid character ID")
+		detail := i18n.Localize(c, "catalog.characters.error.invalid_id_detail", "Character ID must be a valid UUID")
 		c.JSON(http.StatusBadRequest, r.StandardResponse{
 			Success: false,
-			Message: "Invalid character ID",
+			Message: message,
 			Data:    nil,
-			Error:   &r.ErrorDetail{Code: "invalid_id", Description: "Character ID must be a valid UUID"},
+			Error:   &r.ErrorDetail{Code: "invalid_id", Description: detail},
 			Meta:    map[string]interface{}{},
 		})
 		return
@@ -177,9 +186,10 @@ func (h *CharacterHandler) UpdateCharacter(c *gin.Context) {
 	// Bind request body
 	var req d.UpdateCharacterRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
+		message := i18n.Localize(c, "catalog.common.error.invalid_request_body", "Invalid request body")
 		c.JSON(http.StatusBadRequest, r.StandardResponse{
 			Success: false,
-			Message: "Invalid request body",
+			Message: message,
 			Data:    nil,
 			Error:   &r.ErrorDetail{Code: "validation_error", Description: err.Error()},
 			Meta:    map[string]interface{}{},
@@ -201,9 +211,10 @@ func (h *CharacterHandler) UpdateCharacter(c *gin.Context) {
 		return
 	}
 
+	successMessage := i18n.Localize(c, "catalog.characters.update.success", "Character updated successfully")
 	c.JSON(http.StatusOK, r.StandardResponse{
 		Success: true,
-		Message: "Character updated successfully",
+		Message: successMessage,
 		Data:    character,
 		Error:   nil,
 		Meta:    map[string]interface{}{},
@@ -217,11 +228,13 @@ func (h *CharacterHandler) DeleteCharacter(c *gin.Context) {
 	// Parse character ID
 	characterID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
+		message := i18n.Localize(c, "catalog.characters.error.invalid_id", "Invalid character ID")
+		detail := i18n.Localize(c, "catalog.characters.error.invalid_id_detail", "Character ID must be a valid UUID")
 		c.JSON(http.StatusBadRequest, r.StandardResponse{
 			Success: false,
-			Message: "Invalid character ID",
+			Message: message,
 			Data:    nil,
-			Error:   &r.ErrorDetail{Code: "invalid_id", Description: "Character ID must be a valid UUID"},
+			Error:   &r.ErrorDetail{Code: "invalid_id", Description: detail},
 			Meta:    map[string]interface{}{},
 		})
 		return
@@ -241,12 +254,12 @@ func (h *CharacterHandler) DeleteCharacter(c *gin.Context) {
 		return
 	}
 
+	successMessage := i18n.Localize(c, "catalog.characters.delete.success", "Character deleted successfully")
 	c.JSON(http.StatusOK, r.StandardResponse{
 		Success: true,
-		Message: "Character deleted successfully",
+		Message: successMessage,
 		Data:    nil,
 		Error:   nil,
 		Meta:    map[string]interface{}{},
 	})
 }
-

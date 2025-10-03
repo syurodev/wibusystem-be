@@ -1,9 +1,8 @@
 package handlers
 
 import (
-	"errors"
 	"net/http"
-	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 
@@ -35,9 +34,10 @@ func (h *ChapterHandler) CreateChapter(c *gin.Context) {
 
 	var req d.CreateChapterRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
+		message := i18n.Localize(c, "catalog.chapters.error.invalid_input", "Invalid chapter data")
 		c.JSON(http.StatusBadRequest, r.StandardResponse{
 			Success: false,
-			Message: "Dữ liệu không hợp lệ",
+			Message: message,
 			Data:    nil,
 			Error:   &r.ErrorDetail{Code: "INVALID_INPUT", Description: err.Error()},
 			Meta:    map[string]interface{}{},
@@ -58,9 +58,10 @@ func (h *ChapterHandler) CreateChapter(c *gin.Context) {
 		return
 	}
 
+	successMessage := i18n.Localize(c, "catalog.chapters.create.success", "Chapter created successfully")
 	c.JSON(http.StatusCreated, r.StandardResponse{
 		Success: true,
-		Message: "Tạo chapter thành công",
+		Message: successMessage,
 		Data:    chapter,
 		Error:   nil,
 		Meta:    map[string]interface{}{},
@@ -91,9 +92,10 @@ func (h *ChapterHandler) GetChapterByID(c *gin.Context) {
 		return
 	}
 
+	successMessage := i18n.Localize(c, "catalog.chapters.get.success", "Chapter retrieved successfully")
 	c.JSON(http.StatusOK, r.StandardResponse{
 		Success: true,
-		Message: "Lấy thông tin chapter thành công",
+		Message: successMessage,
 		Data:    chapter,
 		Error:   nil,
 		Meta:    map[string]interface{}{},
@@ -108,9 +110,10 @@ func (h *ChapterHandler) ListChaptersByVolumeID(c *gin.Context) {
 	// Parse query parameters
 	var req d.ListChaptersRequest
 	if err := c.ShouldBindQuery(&req); err != nil {
+		message := i18n.Localize(c, "catalog.chapters.error.invalid_query", "Invalid chapter query parameters")
 		c.JSON(http.StatusBadRequest, r.StandardResponse{
 			Success: false,
-			Message: "Tham số không hợp lệ",
+			Message: message,
 			Data:    nil,
 			Error:   &r.ErrorDetail{Code: "INVALID_QUERY_PARAMS", Description: err.Error()},
 			Meta:    map[string]interface{}{},
@@ -131,9 +134,10 @@ func (h *ChapterHandler) ListChaptersByVolumeID(c *gin.Context) {
 		return
 	}
 
+	successMessage := i18n.Localize(c, "catalog.chapters.list.success", "Chapters retrieved successfully")
 	c.JSON(http.StatusOK, r.StandardResponse{
 		Success: true,
-		Message: "Lấy danh sách chapter thành công",
+		Message: successMessage,
 		Data:    response.Chapters,
 		Error:   nil,
 		Meta: map[string]interface{}{
@@ -149,9 +153,10 @@ func (h *ChapterHandler) UpdateChapter(c *gin.Context) {
 
 	var req d.UpdateChapterRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
+		message := i18n.Localize(c, "catalog.chapters.error.invalid_input", "Invalid chapter data")
 		c.JSON(http.StatusBadRequest, r.StandardResponse{
 			Success: false,
-			Message: "Dữ liệu không hợp lệ",
+			Message: message,
 			Data:    nil,
 			Error:   &r.ErrorDetail{Code: "INVALID_INPUT", Description: err.Error()},
 			Meta:    map[string]interface{}{},
@@ -172,9 +177,10 @@ func (h *ChapterHandler) UpdateChapter(c *gin.Context) {
 		return
 	}
 
+	successMessage := i18n.Localize(c, "catalog.chapters.update.success", "Chapter updated successfully")
 	c.JSON(http.StatusOK, r.StandardResponse{
 		Success: true,
-		Message: "Cập nhật chapter thành công",
+		Message: successMessage,
 		Data:    chapter,
 		Error:   nil,
 		Meta:    map[string]interface{}{},
@@ -199,9 +205,10 @@ func (h *ChapterHandler) DeleteChapter(c *gin.Context) {
 		return
 	}
 
+	successMessage := i18n.Localize(c, "catalog.chapters.delete.success", "Chapter deleted successfully")
 	c.JSON(http.StatusOK, r.StandardResponse{
 		Success: true,
-		Message: "Xóa chapter thành công",
+		Message: successMessage,
 		Data:    nil,
 		Error:   nil,
 		Meta:    map[string]interface{}{},
@@ -215,9 +222,10 @@ func (h *ChapterHandler) PublishChapter(c *gin.Context) {
 
 	var req d.PublishChapterRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
+		message := i18n.Localize(c, "catalog.chapters.error.invalid_input", "Invalid chapter data")
 		c.JSON(http.StatusBadRequest, r.StandardResponse{
 			Success: false,
-			Message: "Dữ liệu không hợp lệ",
+			Message: message,
 			Data:    nil,
 			Error:   &r.ErrorDetail{Code: "INVALID_INPUT", Description: err.Error()},
 			Meta:    map[string]interface{}{},
@@ -238,9 +246,10 @@ func (h *ChapterHandler) PublishChapter(c *gin.Context) {
 		return
 	}
 
+	successMessage := i18n.Localize(c, "catalog.chapters.publish.success", "Chapter published successfully")
 	c.JSON(http.StatusOK, r.StandardResponse{
 		Success: true,
-		Message: "Xuất bản chapter thành công",
+		Message: successMessage,
 		Data:    chapter,
 		Error:   nil,
 		Meta:    map[string]interface{}{},
@@ -265,9 +274,10 @@ func (h *ChapterHandler) UnpublishChapter(c *gin.Context) {
 		return
 	}
 
+	successMessage := i18n.Localize(c, "catalog.chapters.unpublish.success", "Chapter unpublished successfully")
 	c.JSON(http.StatusOK, r.StandardResponse{
 		Success: true,
-		Message: "Hủy xuất bản chapter thành công",
+		Message: successMessage,
 		Data:    chapter,
 		Error:   nil,
 		Meta:    map[string]interface{}{},
@@ -276,40 +286,42 @@ func (h *ChapterHandler) UnpublishChapter(c *gin.Context) {
 
 // mapChapterServiceError maps service layer errors to HTTP status codes and error messages.
 // This centralizes error handling logic for consistent API responses.
+
 func mapChapterServiceError(c *gin.Context, err error, operation string) (status int, code string, message string, detail string) {
 	errMsg := err.Error()
+	lower := strings.ToLower(errMsg)
 
-	// Invalid ID format
-	if errors.Is(err, errors.New("invalid chapter ID format")) || errors.Is(err, errors.New("invalid volume ID format")) {
-		return http.StatusBadRequest, "INVALID_ID_FORMAT", "ID không hợp lệ", errMsg
-	}
+	switch {
+	case strings.Contains(lower, "invalid chapter id format") || strings.Contains(lower, "invalid volume id format"):
+		message := i18n.Localize(c, "catalog.chapters.error.invalid_id_format", "ID không hợp lệ")
+		return http.StatusBadRequest, "INVALID_ID_FORMAT", message, errMsg
 
-	// Not found errors
-	if errors.Is(err, errors.New("chapter not found")) {
-		return http.StatusNotFound, "CHAPTER_NOT_FOUND", "Không tìm thấy chapter", errMsg
-	}
-	if errors.Is(err, errors.New("volume not found")) {
-		return http.StatusNotFound, "VOLUME_NOT_FOUND", "Không tìm thấy volume", errMsg
-	}
+	case strings.Contains(lower, "chapter not found"):
+		message := i18n.Localize(c, "catalog.chapters.error.not_found", "Chapter not found")
+		return http.StatusNotFound, "CHAPTER_NOT_FOUND", message, errMsg
 
-	// Conflict errors
-	if errors.Is(err, errors.New("chapter number already exists in this volume")) {
-		return http.StatusConflict, "CHAPTER_NUMBER_EXISTS", "Số chapter đã tồn tại trong volume này", errMsg
-	}
-	if errors.Is(err, errors.New("cannot delete chapter with existing purchases")) {
-		return http.StatusConflict, "CHAPTER_HAS_PURCHASES", "Không thể xóa chapter đã có người mua", errMsg
-	}
+	case strings.Contains(lower, "volume not found"):
+		message := i18n.Localize(c, "catalog.volumes.error.not_found", "Volume not found")
+		return http.StatusNotFound, "VOLUME_NOT_FOUND", message, errMsg
 
-	// Business logic errors
-	if errors.Is(err, errors.New("cannot publish a draft chapter")) {
-		return http.StatusBadRequest, "CANNOT_PUBLISH_DRAFT", "Không thể xuất bản chapter ở trạng thái nháp", errMsg
-	}
+	case strings.Contains(lower, "chapter number already exists"):
+		message := i18n.Localize(c, "catalog.chapters.error.duplicate_number", "Chapter number already exists in this volume")
+		return http.StatusConflict, "CHAPTER_NUMBER_EXISTS", message, errMsg
 
-	// Parse pagination errors
-	if _, parseErr := strconv.Atoi(errMsg); parseErr == nil {
-		return http.StatusBadRequest, "INVALID_PAGINATION", "Tham số phân trang không hợp lệ", errMsg
-	}
+	case strings.Contains(lower, "cannot delete chapter with existing purchases"):
+		message := i18n.Localize(c, "catalog.chapters.error.cannot_delete_purchased", "Cannot delete chapter because readers have purchased it")
+		return http.StatusConflict, "CHAPTER_HAS_PURCHASES", message, errMsg
 
-	// Default internal server error
-	return http.StatusInternalServerError, "INTERNAL_ERROR", "Lỗi hệ thống khi " + operation + " chapter", errMsg
+	case strings.Contains(lower, "cannot publish a draft chapter"):
+		message := i18n.Localize(c, "catalog.chapters.error.cannot_publish_draft", "Cannot publish a draft chapter")
+		return http.StatusBadRequest, "CANNOT_PUBLISH_DRAFT", message, errMsg
+
+	case strings.Contains(lower, "invalid pagination") || strings.Contains(lower, "invalid query param"):
+		message := i18n.Localize(c, "catalog.chapters.error.invalid_pagination", "Invalid pagination parameters")
+		return http.StatusBadRequest, "INVALID_PAGINATION", message, errMsg
+
+	default:
+		defaultMsg := i18n.Localize(c, "catalog.chapters.error.internal", "Internal error while processing chapter")
+		return http.StatusInternalServerError, "INTERNAL_ERROR", defaultMsg, errMsg
+	}
 }

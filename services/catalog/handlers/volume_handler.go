@@ -38,11 +38,13 @@ func (h *VolumeHandler) CreateVolume(c *gin.Context) {
 	// Get novel ID from path parameter
 	novelID := c.Param("novel_id")
 	if novelID == "" {
+		message := i18n.Localize(c, "catalog.novels.error.id_required", "Novel ID is required")
+		detail := i18n.Localize(c, "catalog.novels.error.id_required_detail", "Novel ID path parameter is required")
 		c.JSON(http.StatusBadRequest, r.StandardResponse{
 			Success: false,
-			Message: "Novel ID is required",
+			Message: message,
 			Data:    nil,
-			Error:   &r.ErrorDetail{Code: "missing_parameter", Description: "Novel ID path parameter is required"},
+			Error:   &r.ErrorDetail{Code: "missing_parameter", Description: detail},
 			Meta:    map[string]interface{}{},
 		})
 		return
@@ -51,9 +53,10 @@ func (h *VolumeHandler) CreateVolume(c *gin.Context) {
 	// Bind and validate request body
 	var req d.CreateVolumeRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
+		message := i18n.Localize(c, "catalog.common.error.invalid_request_body", "Invalid request body")
 		c.JSON(http.StatusBadRequest, r.StandardResponse{
 			Success: false,
-			Message: "Invalid request body",
+			Message: message,
 			Data:    nil,
 			Error:   &r.ErrorDetail{Code: "validation_error", Description: err.Error()},
 			Meta:    map[string]interface{}{},
@@ -76,9 +79,10 @@ func (h *VolumeHandler) CreateVolume(c *gin.Context) {
 	}
 
 	// Return success response with created volume
+	successMessage := i18n.Localize(c, "catalog.volumes.create.success", "Volume created successfully")
 	c.JSON(http.StatusCreated, r.StandardResponse{
 		Success: true,
-		Message: "Tạo volume thành công",
+		Message: successMessage,
 		Data:    volume,
 		Error:   nil,
 		Meta:    map[string]interface{}{},
@@ -94,11 +98,13 @@ func (h *VolumeHandler) ListVolumesByNovelID(c *gin.Context) {
 	// Get novel ID from path parameter
 	novelID := c.Param("novel_id")
 	if novelID == "" {
+		message := i18n.Localize(c, "catalog.novels.error.id_required", "Novel ID is required")
+		detail := i18n.Localize(c, "catalog.novels.error.id_required_detail", "Novel ID path parameter is required")
 		c.JSON(http.StatusBadRequest, r.StandardResponse{
 			Success: false,
-			Message: "Novel ID is required",
+			Message: message,
 			Data:    nil,
-			Error:   &r.ErrorDetail{Code: "missing_parameter", Description: "Novel ID path parameter is required"},
+			Error:   &r.ErrorDetail{Code: "missing_parameter", Description: detail},
 			Meta:    map[string]interface{}{},
 		})
 		return
@@ -107,9 +113,10 @@ func (h *VolumeHandler) ListVolumesByNovelID(c *gin.Context) {
 	// Bind and validate query parameters
 	var req d.ListVolumesRequest
 	if err := c.ShouldBindQuery(&req); err != nil {
+		message := i18n.Localize(c, "catalog.common.error.invalid_query_parameters", "Invalid query parameters")
 		c.JSON(http.StatusBadRequest, r.StandardResponse{
 			Success: false,
-			Message: "Invalid query parameters",
+			Message: message,
 			Data:    nil,
 			Error:   &r.ErrorDetail{Code: "validation_error", Description: err.Error()},
 			Meta:    map[string]interface{}{},
@@ -143,9 +150,10 @@ func (h *VolumeHandler) ListVolumesByNovelID(c *gin.Context) {
 	}
 
 	// Return success response with volume list
+	successMessage := i18n.Localize(c, "catalog.volumes.list.success", "Volumes retrieved successfully")
 	c.JSON(http.StatusOK, r.StandardResponse{
 		Success: true,
-		Message: "Lấy danh sách volumes thành công",
+		Message: successMessage,
 		Data:    data,
 		Error:   nil,
 		Meta:    meta,
@@ -161,11 +169,13 @@ func (h *VolumeHandler) GetVolumeByID(c *gin.Context) {
 	// Get volume ID from path parameter
 	volumeID := c.Param("volume_id")
 	if volumeID == "" {
+		message := i18n.Localize(c, "catalog.volumes.error.id_required", "Volume ID is required")
+		detail := i18n.Localize(c, "catalog.volumes.error.id_required_detail", "Volume ID path parameter is required")
 		c.JSON(http.StatusBadRequest, r.StandardResponse{
 			Success: false,
-			Message: "Volume ID is required",
+			Message: message,
 			Data:    nil,
-			Error:   &r.ErrorDetail{Code: "missing_parameter", Description: "Volume ID path parameter is required"},
+			Error:   &r.ErrorDetail{Code: "missing_parameter", Description: detail},
 			Meta:    map[string]interface{}{},
 		})
 		return
@@ -186,9 +196,10 @@ func (h *VolumeHandler) GetVolumeByID(c *gin.Context) {
 	}
 
 	// Return success response with volume details
+	successMessage := i18n.Localize(c, "catalog.volumes.get.success", "Volume retrieved successfully")
 	c.JSON(http.StatusOK, r.StandardResponse{
 		Success: true,
-		Message: "Lấy chi tiết volume thành công",
+		Message: successMessage,
 		Data:    volume,
 		Error:   nil,
 		Meta:    map[string]interface{}{},
@@ -204,11 +215,13 @@ func (h *VolumeHandler) UpdateVolume(c *gin.Context) {
 	// Get volume ID from path parameter
 	volumeID := c.Param("volume_id")
 	if volumeID == "" {
+		message := i18n.Localize(c, "catalog.volumes.error.id_required", "Volume ID is required")
+		detail := i18n.Localize(c, "catalog.volumes.error.id_required_detail", "Volume ID path parameter is required")
 		c.JSON(http.StatusBadRequest, r.StandardResponse{
 			Success: false,
-			Message: "Volume ID is required",
+			Message: message,
 			Data:    nil,
-			Error:   &r.ErrorDetail{Code: "missing_parameter", Description: "Volume ID path parameter is required"},
+			Error:   &r.ErrorDetail{Code: "missing_parameter", Description: detail},
 			Meta:    map[string]interface{}{},
 		})
 		return
@@ -217,9 +230,10 @@ func (h *VolumeHandler) UpdateVolume(c *gin.Context) {
 	// Bind and validate request body
 	var req d.UpdateVolumeRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
+		message := i18n.Localize(c, "catalog.common.error.invalid_request_body", "Invalid request body")
 		c.JSON(http.StatusBadRequest, r.StandardResponse{
 			Success: false,
-			Message: "Invalid request body",
+			Message: message,
 			Data:    nil,
 			Error:   &r.ErrorDetail{Code: "validation_error", Description: err.Error()},
 			Meta:    map[string]interface{}{},
@@ -242,9 +256,10 @@ func (h *VolumeHandler) UpdateVolume(c *gin.Context) {
 	}
 
 	// Return success response with updated volume
+	successMessage := i18n.Localize(c, "catalog.volumes.update.success", "Volume updated successfully")
 	c.JSON(http.StatusOK, r.StandardResponse{
 		Success: true,
-		Message: "Cập nhật volume thành công",
+		Message: successMessage,
 		Data:    response,
 		Error:   nil,
 		Meta:    map[string]interface{}{},
@@ -260,11 +275,13 @@ func (h *VolumeHandler) DeleteVolume(c *gin.Context) {
 	// Get volume ID from path parameter
 	volumeID := c.Param("volume_id")
 	if volumeID == "" {
+		message := i18n.Localize(c, "catalog.volumes.error.id_required", "Volume ID is required")
+		detail := i18n.Localize(c, "catalog.volumes.error.id_required_detail", "Volume ID path parameter is required")
 		c.JSON(http.StatusBadRequest, r.StandardResponse{
 			Success: false,
-			Message: "Volume ID is required",
+			Message: message,
 			Data:    nil,
-			Error:   &r.ErrorDetail{Code: "missing_parameter", Description: "Volume ID path parameter is required"},
+			Error:   &r.ErrorDetail{Code: "missing_parameter", Description: detail},
 			Meta:    map[string]interface{}{},
 		})
 		return
@@ -285,9 +302,10 @@ func (h *VolumeHandler) DeleteVolume(c *gin.Context) {
 	}
 
 	// Return success response
+	successMessage := i18n.Localize(c, "catalog.volumes.delete.success", "Volume deleted successfully")
 	c.JSON(http.StatusOK, r.StandardResponse{
 		Success: true,
-		Message: "Xóa volume thành công",
+		Message: successMessage,
 		Data:    nil,
 		Error:   nil,
 		Meta:    map[string]interface{}{},
@@ -303,33 +321,43 @@ func mapVolumeServiceError(c *gin.Context, err error, operation string) (int, st
 	// Check for common error patterns and map to appropriate HTTP responses
 	switch {
 	case strings.Contains(errStr, "not found") || strings.Contains(errStr, "no rows"):
-		return http.StatusNotFound, "not_found", "Resource not found", errStr
+		message := i18n.Localize(c, "catalog.common.error.not_found", "Resource not found")
+		return http.StatusNotFound, "not_found", message, errStr
 
 	case strings.Contains(errStr, "already exists") || strings.Contains(errStr, "duplicate"):
-		return http.StatusConflict, "conflict", "Resource already exists", errStr
+		message := i18n.Localize(c, "catalog.common.error.conflict", "Resource already exists")
+		return http.StatusConflict, "conflict", message, errStr
 
 	case strings.Contains(errStr, "volume number") && strings.Contains(errStr, "already exists"):
-		return http.StatusConflict, "duplicate_volume_number", "Volume number already exists for this novel", errStr
+		message := i18n.Localize(c, "catalog.volumes.error.duplicate_number", "Volume number already exists for this novel")
+		return http.StatusConflict, "duplicate_volume_number", message, errStr
 
 	case strings.Contains(errStr, "validation") || strings.Contains(errStr, "invalid"):
-		return http.StatusBadRequest, "validation_error", "Validation error", errStr
+		message := i18n.Localize(c, "catalog.common.error.validation", "Validation error")
+		return http.StatusBadRequest, "validation_error", message, errStr
 
 	case strings.Contains(errStr, "required"):
-		return http.StatusBadRequest, "required_field", "Required field missing", errStr
+		message := i18n.Localize(c, "catalog.common.error.required_field", "Required field missing")
+		return http.StatusBadRequest, "required_field", message, errStr
 
 	case strings.Contains(errStr, "users have purchased content"):
-		return http.StatusConflict, "cannot_delete", "Cannot delete: users have purchased content from this volume", errStr
+		message := i18n.Localize(c, "catalog.volumes.error.cannot_delete_purchased", "Cannot delete: users have purchased content from this volume")
+		return http.StatusConflict, "cannot_delete", message, errStr
 
 	case strings.Contains(errStr, "invalid volume ID format") || strings.Contains(errStr, "invalid novel ID format"):
-		return http.StatusBadRequest, "invalid_id", "Invalid ID format", errStr
+		message := i18n.Localize(c, "catalog.common.error.invalid_id_format", "Invalid ID format")
+		return http.StatusBadRequest, "invalid_id", message, errStr
 
 	case strings.Contains(errStr, "no fields to update"):
-		return http.StatusBadRequest, "no_update_fields", "No fields provided for update", errStr
+		message := i18n.Localize(c, "catalog.common.error.no_update_fields", "No fields provided for update")
+		return http.StatusBadRequest, "no_update_fields", message, errStr
 
 	case strings.Contains(errStr, "novel not found"):
-		return http.StatusNotFound, "novel_not_found", "Parent novel not found", errStr
+		message := i18n.Localize(c, "catalog.volumes.error.parent_novel_not_found", "Parent novel not found")
+		return http.StatusNotFound, "novel_not_found", message, errStr
 
 	default:
-		return http.StatusInternalServerError, "internal_error", "Internal server error", errStr
+		message := i18n.Localize(c, "catalog.common.error.internal", "Internal server error")
+		return http.StatusInternalServerError, "internal_error", message, errStr
 	}
 }

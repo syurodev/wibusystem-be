@@ -34,8 +34,8 @@ func NewAuthHandler(authService interfaces.AuthServiceInterface, provider *oauth
 func (h *AuthHandler) Register(c *gin.Context) {
 	var req d.CreateUserRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		message := i18n.T(c, "identify.errors.invalid_request.message", "Invalid request", nil)
-		description := i18n.T(c, "identify.errors.invalid_request.description", fmt.Sprintf("Invalid request body: %s", err.Error()), map[string]interface{}{"Error": err.Error()})
+		message := i18n.Localize(c, "identify.errors.invalid_request.message", "Invalid request")
+		description := i18n.LocalizeWithData(c, "identify.errors.invalid_request.description", fmt.Sprintf("Invalid request body: %s", err.Error()), map[string]interface{}{"Error": err.Error()})
 		c.JSON(http.StatusBadRequest, r.StandardResponse{
 			Success: false,
 			Message: message,
@@ -63,7 +63,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	}
 
 	// Return success response
-	message := i18n.T(c, "identify.auth.register.success", "User registered successfully", nil)
+	message := i18n.Localize(c, "identify.auth.register.success", "User registered successfully")
 	c.JSON(http.StatusCreated, r.StandardResponse{
 		Success: true,
 		Message: message,
@@ -77,8 +77,8 @@ func (h *AuthHandler) Register(c *gin.Context) {
 func (h *AuthHandler) Login(c *gin.Context) {
 	var req d.LoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		message := i18n.T(c, "identify.errors.invalid_request.message", "Invalid request", nil)
-		description := i18n.T(c, "identify.errors.invalid_request.description", fmt.Sprintf("Invalid request body: %s", err.Error()), map[string]interface{}{"error": err.Error()})
+		message := i18n.Localize(c, "identify.errors.invalid_request.message", "Invalid request")
+		description := i18n.LocalizeWithData(c, "identify.errors.invalid_request.description", fmt.Sprintf("Invalid request body: %s", err.Error()), map[string]interface{}{"error": err.Error()})
 		c.JSON(http.StatusBadRequest, r.StandardResponse{
 			Success: false,
 			Message: message,
@@ -107,8 +107,8 @@ func (h *AuthHandler) Login(c *gin.Context) {
 
 	// Set session cookie for authorize flow
 	if err := h.authService.SetUserSession(c, result.User.ID); err != nil {
-		message := i18n.T(c, "identify.errors.server_error.message", "Session error", nil)
-		description := i18n.T(c, "identify.errors.server_error.description", "Failed to set session", nil)
+		message := i18n.Localize(c, "identify.errors.server_error.message", "Session error")
+		description := i18n.Localize(c, "identify.errors.server_error.description", "Failed to set session")
 		c.JSON(http.StatusInternalServerError, r.StandardResponse{
 			Success: false,
 			Message: message,
@@ -126,7 +126,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	}
 
 	// Return success response
-	message := i18n.T(c, "identify.auth.login.success", "Login successful", nil)
+	message := i18n.Localize(c, "identify.auth.login.success", "Login successful")
 	c.JSON(http.StatusOK, r.StandardResponse{
 		Success: true,
 		Message: message,
@@ -142,7 +142,7 @@ func (h *AuthHandler) Logout(c *gin.Context) {
 	h.authService.ClearUserSession(c)
 
 	// Return success response
-	message := i18n.T(c, "identify.auth.logout.success", "Logout successful", nil)
+	message := i18n.Localize(c, "identify.auth.logout.success", "Logout successful")
 	c.JSON(http.StatusOK, r.StandardResponse{
 		Success: true,
 		Message: message,
@@ -159,8 +159,8 @@ func (h *AuthHandler) RefreshToken(c *gin.Context) {
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
-		message := i18n.T(c, "identify.errors.invalid_request.message", "Invalid request", nil)
-		description := i18n.T(c, "identify.errors.refresh_token_required.description", "Refresh token is required", nil)
+		message := i18n.Localize(c, "identify.errors.invalid_request.message", "Invalid request")
+		description := i18n.Localize(c, "identify.errors.refresh_token_required.description", "Refresh token is required")
 		c.JSON(http.StatusBadRequest, r.StandardResponse{
 			Success: false,
 			Message: message,
@@ -176,7 +176,7 @@ func (h *AuthHandler) RefreshToken(c *gin.Context) {
 	// Refresh token through service
 	result, err := h.authService.RefreshToken(ctx, req.RefreshToken)
 	if err != nil {
-		status, code, message, description := mapServiceError(c, err,"refresh")
+		status, code, message, description := mapServiceError(c, err, "refresh")
 		c.JSON(status, r.StandardResponse{
 			Success: false,
 			Message: message,
@@ -188,7 +188,7 @@ func (h *AuthHandler) RefreshToken(c *gin.Context) {
 	}
 
 	// Return success response
-	message := i18n.T(c, "identify.auth.refresh.success", "Token refreshed successfully", nil)
+	message := i18n.Localize(c, "identify.auth.refresh.success", "Token refreshed successfully")
 	c.JSON(http.StatusOK, r.StandardResponse{
 		Success: true,
 		Message: message,
@@ -202,8 +202,8 @@ func (h *AuthHandler) RefreshToken(c *gin.Context) {
 func (h *AuthHandler) Profile(c *gin.Context) {
 	userID, err := getUserID(c)
 	if err != nil {
-		message := i18n.T(c, "identify.errors.unauthorized.message", "Unauthorized", nil)
-		description := i18n.T(c, "identify.errors.unauthorized.description", "User authentication required", nil)
+		message := i18n.Localize(c, "identify.errors.unauthorized.message", "Unauthorized")
+		description := i18n.Localize(c, "identify.errors.unauthorized.description", "User authentication required")
 		c.JSON(http.StatusUnauthorized, r.StandardResponse{
 			Success: false,
 			Message: message,
@@ -219,7 +219,7 @@ func (h *AuthHandler) Profile(c *gin.Context) {
 	// Get profile through service
 	result, err := h.authService.GetProfile(ctx, userID)
 	if err != nil {
-		status, code, message, description := mapServiceError(c, err,"profile")
+		status, code, message, description := mapServiceError(c, err, "profile")
 		c.JSON(status, r.StandardResponse{
 			Success: false,
 			Message: message,
@@ -237,7 +237,7 @@ func (h *AuthHandler) Profile(c *gin.Context) {
 	}
 
 	// Return success response
-	message := i18n.T(c, "identify.auth.profile.success", "Profile fetched successfully", nil)
+	message := i18n.Localize(c, "identify.auth.profile.success", "Profile fetched successfully")
 	c.JSON(http.StatusOK, r.StandardResponse{
 		Success: true,
 		Message: message,
@@ -255,8 +255,8 @@ func (h *AuthHandler) ChangePassword(c *gin.Context) {
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
-		message := i18n.T(c, "identify.errors.invalid_request.message", "Invalid request", nil)
-		description := i18n.T(c, "identify.errors.invalid_request.description", fmt.Sprintf("Invalid request body: %s", err.Error()), map[string]interface{}{"error": err.Error()})
+		message := i18n.Localize(c, "identify.errors.invalid_request.message", "Invalid request")
+		description := i18n.LocalizeWithData(c, "identify.errors.invalid_request.description", fmt.Sprintf("Invalid request body: %s", err.Error()), map[string]interface{}{"error": err.Error()})
 		c.JSON(http.StatusBadRequest, r.StandardResponse{
 			Success: false,
 			Message: message,
@@ -269,8 +269,8 @@ func (h *AuthHandler) ChangePassword(c *gin.Context) {
 
 	userID, err := getUserID(c)
 	if err != nil {
-		message := i18n.T(c, "identify.errors.unauthorized.message", "Unauthorized", nil)
-		description := i18n.T(c, "identify.errors.unauthorized.description", "User authentication required", nil)
+		message := i18n.Localize(c, "identify.errors.unauthorized.message", "Unauthorized")
+		description := i18n.Localize(c, "identify.errors.unauthorized.description", "User authentication required")
 		c.JSON(http.StatusUnauthorized, r.StandardResponse{
 			Success: false,
 			Message: message,
@@ -285,7 +285,7 @@ func (h *AuthHandler) ChangePassword(c *gin.Context) {
 
 	// Change password through service
 	if err := h.authService.ChangePassword(ctx, userID, req.CurrentPassword, req.NewPassword); err != nil {
-		status, code, message, description := mapServiceError(c, err,"change_password")
+		status, code, message, description := mapServiceError(c, err, "change_password")
 		c.JSON(status, r.StandardResponse{
 			Success: false,
 			Message: message,
@@ -297,7 +297,7 @@ func (h *AuthHandler) ChangePassword(c *gin.Context) {
 	}
 
 	// Return success response
-	message := i18n.T(c, "identify.auth.change_password.success", "Password changed successfully", nil)
+	message := i18n.Localize(c, "identify.auth.change_password.success", "Password changed successfully")
 	c.JSON(http.StatusOK, r.StandardResponse{
 		Success: true,
 		Message: message,
@@ -320,4 +320,3 @@ func getUserID(c *gin.Context) (uuid.UUID, error) {
 
 	return uuid.Parse(userIDStr)
 }
-

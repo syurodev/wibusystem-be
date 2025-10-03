@@ -99,6 +99,16 @@ func T(c *gin.Context, messageID string, defaultMessage string, templateData map
 	return value
 }
 
+// Localize is a convenience wrapper around T without template data.
+func Localize(c *gin.Context, messageID, defaultMessage string) string {
+	return T(c, messageID, defaultMessage, nil)
+}
+
+// LocalizeWithData mirrors T but keeps a clearer call-site name when passing template data.
+func LocalizeWithData(c *gin.Context, messageID, defaultMessage string, templateData map[string]any) string {
+	return T(c, messageID, defaultMessage, templateData)
+}
+
 // Tn localizes a pluralized message using the provided count with namespace support.
 func Tn(c *gin.Context, messageID string, defaultMessage string, pluralCount any, templateData map[string]any) string {
 	localizer := GetLocalizer(c)

@@ -19,28 +19,28 @@ func mapServiceError(c *gin.Context, err error, context string) (status int, cod
 	switch {
 	case contains(errStr, "already exists") || contains(errStr, "already taken"):
 		return http.StatusConflict, "resource_exists",
-			i18n.T(c, "identify.errors.resource_exists.message", "Resource already exists", nil),
-			i18n.T(c, "identify.errors.resource_exists.description", errStr, nil)
+			i18n.Localize(c, "identify.errors.resource_exists.message", "Resource already exists"),
+			i18n.Localize(c, "identify.errors.resource_exists.description", errStr)
 	case contains(errStr, "invalid credentials") || contains(errStr, "incorrect"):
 		return http.StatusUnauthorized, "invalid_credentials",
-			i18n.T(c, "identify.errors.invalid_credentials.message", "Invalid credentials", nil),
-			i18n.T(c, "identify.errors.invalid_credentials.description", "Invalid email or password", nil)
+			i18n.Localize(c, "identify.errors.invalid_credentials.message", "Invalid credentials"),
+			i18n.Localize(c, "identify.errors.invalid_credentials.description", "Invalid email or password")
 	case contains(errStr, "not found"):
 		return http.StatusNotFound, "not_found",
-			i18n.T(c, "identify.errors.not_found.message", "Resource not found", nil),
-			i18n.T(c, "identify.errors.not_found.description", errStr, nil)
+			i18n.Localize(c, "identify.errors.not_found.message", "Resource not found"),
+			i18n.Localize(c, "identify.errors.not_found.description", errStr)
 	case contains(errStr, "password") && contains(errStr, "must"):
 		return http.StatusBadRequest, "password_validation_failed",
-			i18n.T(c, "identify.errors.password_validation.message", "Password validation failed", nil),
-			i18n.T(c, "identify.errors.password_validation.description", errStr, nil)
+			i18n.Localize(c, "identify.errors.password_validation.message", "Password validation failed"),
+			i18n.Localize(c, "identify.errors.password_validation.description", errStr)
 	case contains(errStr, "required") || contains(errStr, "invalid") || contains(errStr, "must"):
 		return http.StatusBadRequest, "validation_failed",
-			i18n.T(c, "identify.errors.validation_failed.message", "Validation failed", nil),
-			i18n.T(c, "identify.errors.validation_failed.description", errStr, nil)
+			i18n.Localize(c, "identify.errors.validation_failed.message", "Validation failed"),
+			i18n.Localize(c, "identify.errors.validation_failed.description", errStr)
 	default:
 		return http.StatusInternalServerError, "internal_error",
-			i18n.T(c, "identify.errors.internal_error.message", "Internal server error", nil),
-			i18n.T(c, "identify.errors.internal_error.description", "An unexpected error occurred", nil)
+			i18n.Localize(c, "identify.errors.internal_error.message", "Internal server error"),
+			i18n.Localize(c, "identify.errors.internal_error.description", "An unexpected error occurred")
 	}
 }
 

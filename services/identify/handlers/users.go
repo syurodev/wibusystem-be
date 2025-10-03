@@ -56,7 +56,7 @@ func (h *UserHandler) ListUsers(c *gin.Context) {
 		totalPages++
 	}
 
-	message := i18n.T(c, "identify.users.list_success", "Users fetched successfully", nil)
+	message := i18n.Localize(c, "identify.users.list_success", "Users fetched successfully")
 	c.JSON(http.StatusOK, r.StandardResponse{
 		Success: true,
 		Message: message,
@@ -78,8 +78,8 @@ func (h *UserHandler) GetUser(c *gin.Context) {
 	// Parse user ID
 	userID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		message := i18n.T(c, "identify.errors.invalid_user_id.message", "Invalid user id", nil)
-		description := i18n.T(c, "identify.errors.invalid_user_id.description", "User ID must be a valid UUID", map[string]interface{}{"id": c.Param("id")})
+		message := i18n.Localize(c, "identify.errors.invalid_user_id.message", "Invalid user id")
+		description := i18n.LocalizeWithData(c, "identify.errors.invalid_user_id.description", "User ID must be a valid UUID", map[string]interface{}{"id": c.Param("id")})
 		c.JSON(http.StatusBadRequest, r.StandardResponse{
 			Success: false,
 			Message: message,
@@ -104,7 +104,7 @@ func (h *UserHandler) GetUser(c *gin.Context) {
 		return
 	}
 
-	message := i18n.T(c, "identify.users.get_success", "User fetched successfully", nil)
+	message := i18n.Localize(c, "identify.users.get_success", "User fetched successfully")
 	c.JSON(http.StatusOK, r.StandardResponse{
 		Success: true,
 		Message: message,
@@ -118,8 +118,8 @@ func (h *UserHandler) GetUser(c *gin.Context) {
 func (h *UserHandler) CreateUser(c *gin.Context) {
 	var req d.CreateUserRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		message := i18n.T(c, "identify.errors.invalid_request.message", "Invalid request", nil)
-		description := i18n.T(c, "identify.errors.invalid_request.description", fmt.Sprintf("Invalid request body: %s", err.Error()), map[string]interface{}{"error": err.Error()})
+		message := i18n.Localize(c, "identify.errors.invalid_request.message", "Invalid request")
+		description := i18n.LocalizeWithData(c, "identify.errors.invalid_request.description", fmt.Sprintf("Invalid request body: %s", err.Error()), map[string]interface{}{"error": err.Error()})
 		c.JSON(http.StatusBadRequest, r.StandardResponse{
 			Success: false,
 			Message: message,
@@ -146,7 +146,7 @@ func (h *UserHandler) CreateUser(c *gin.Context) {
 		return
 	}
 
-	message := i18n.T(c, "identify.users.create_success", "User created successfully", nil)
+	message := i18n.Localize(c, "identify.users.create_success", "User created successfully")
 	c.JSON(http.StatusCreated, r.StandardResponse{
 		Success: true,
 		Message: message,
@@ -163,8 +163,8 @@ func (h *UserHandler) UpdateUser(c *gin.Context) {
 	// Parse user ID
 	userID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		message := i18n.T(c, "identify.errors.invalid_user_id.message", "Invalid user id", nil)
-		description := i18n.T(c, "identify.errors.invalid_user_id.description", "User ID must be a valid UUID", map[string]interface{}{"id": c.Param("id")})
+		message := i18n.Localize(c, "identify.errors.invalid_user_id.message", "Invalid user id")
+		description := i18n.LocalizeWithData(c, "identify.errors.invalid_user_id.description", "User ID must be a valid UUID", map[string]interface{}{"id": c.Param("id")})
 		c.JSON(http.StatusBadRequest, r.StandardResponse{
 			Success: false,
 			Message: message,
@@ -177,8 +177,8 @@ func (h *UserHandler) UpdateUser(c *gin.Context) {
 
 	var req d.UpdateUserRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		message := i18n.T(c, "identify.errors.invalid_request.message", "Invalid request", nil)
-		description := i18n.T(c, "identify.errors.invalid_request.description", fmt.Sprintf("Invalid request body: %s", err.Error()), map[string]interface{}{"error": err.Error()})
+		message := i18n.Localize(c, "identify.errors.invalid_request.message", "Invalid request")
+		description := i18n.LocalizeWithData(c, "identify.errors.invalid_request.description", fmt.Sprintf("Invalid request body: %s", err.Error()), map[string]interface{}{"error": err.Error()})
 		c.JSON(http.StatusBadRequest, r.StandardResponse{
 			Success: false,
 			Message: message,
@@ -192,8 +192,8 @@ func (h *UserHandler) UpdateUser(c *gin.Context) {
 	// Check authorization
 	currentUserID, err := getCurrentUserID(c)
 	if err != nil {
-		message := i18n.T(c, "identify.errors.unauthorized.message", "Unauthorized", nil)
-		description := i18n.T(c, "identify.errors.unauthorized.description", "User authentication required", nil)
+		message := i18n.Localize(c, "identify.errors.unauthorized.message", "Unauthorized")
+		description := i18n.Localize(c, "identify.errors.unauthorized.description", "User authentication required")
 		c.JSON(http.StatusUnauthorized, r.StandardResponse{
 			Success: false,
 			Message: message,
@@ -206,8 +206,8 @@ func (h *UserHandler) UpdateUser(c *gin.Context) {
 
 	// Users can only update themselves, unless they're admin
 	if currentUserID != userID && !isAdmin(c) {
-		message := i18n.T(c, "identify.errors.access_denied.message", "Access denied", nil)
-		description := i18n.T(c, "identify.errors.access_denied.description", "You can only update your own profile", nil)
+		message := i18n.Localize(c, "identify.errors.access_denied.message", "Access denied")
+		description := i18n.Localize(c, "identify.errors.access_denied.description", "You can only update your own profile")
 		c.JSON(http.StatusForbidden, r.StandardResponse{
 			Success: false,
 			Message: message,
@@ -232,7 +232,7 @@ func (h *UserHandler) UpdateUser(c *gin.Context) {
 		return
 	}
 
-	message := i18n.T(c, "identify.users.update_success", "User updated successfully", nil)
+	message := i18n.Localize(c, "identify.users.update_success", "User updated successfully")
 	c.JSON(http.StatusOK, r.StandardResponse{
 		Success: true,
 		Message: message,
@@ -249,8 +249,8 @@ func (h *UserHandler) DeleteUser(c *gin.Context) {
 	// Parse user ID
 	userID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		message := i18n.T(c, "identify.errors.invalid_user_id.message", "Invalid user id", nil)
-		description := i18n.T(c, "identify.errors.invalid_user_id.description", "User ID must be a valid UUID", map[string]interface{}{"id": c.Param("id")})
+		message := i18n.Localize(c, "identify.errors.invalid_user_id.message", "Invalid user id")
+		description := i18n.LocalizeWithData(c, "identify.errors.invalid_user_id.description", "User ID must be a valid UUID", map[string]interface{}{"id": c.Param("id")})
 		c.JSON(http.StatusBadRequest, r.StandardResponse{
 			Success: false,
 			Message: message,
@@ -264,8 +264,8 @@ func (h *UserHandler) DeleteUser(c *gin.Context) {
 	// Check authorization
 	currentUserID, err := getCurrentUserID(c)
 	if err != nil {
-		message := i18n.T(c, "identify.errors.unauthorized.message", "Unauthorized", nil)
-		description := i18n.T(c, "identify.errors.unauthorized.description", "User authentication required", nil)
+		message := i18n.Localize(c, "identify.errors.unauthorized.message", "Unauthorized")
+		description := i18n.Localize(c, "identify.errors.unauthorized.description", "User authentication required")
 		c.JSON(http.StatusUnauthorized, r.StandardResponse{
 			Success: false,
 			Message: message,
@@ -278,8 +278,8 @@ func (h *UserHandler) DeleteUser(c *gin.Context) {
 
 	// Users can only delete themselves, unless they're admin
 	if currentUserID != userID && !isAdmin(c) {
-		message := i18n.T(c, "identify.errors.access_denied.message", "Access denied", nil)
-		description := i18n.T(c, "identify.errors.access_denied.description", "You can only delete your own account", nil)
+		message := i18n.Localize(c, "identify.errors.access_denied.message", "Access denied")
+		description := i18n.Localize(c, "identify.errors.access_denied.description", "You can only delete your own account")
 		c.JSON(http.StatusForbidden, r.StandardResponse{
 			Success: false,
 			Message: message,
@@ -303,7 +303,7 @@ func (h *UserHandler) DeleteUser(c *gin.Context) {
 		return
 	}
 
-	message := i18n.T(c, "identify.users.delete_success", "User deleted successfully", nil)
+	message := i18n.Localize(c, "identify.users.delete_success", "User deleted successfully")
 	c.JSON(http.StatusOK, r.StandardResponse{
 		Success: true,
 		Message: message,

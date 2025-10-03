@@ -43,8 +43,8 @@ func (h *TenantHandler) ListTenants(c *gin.Context) {
 	if userTenantsOnly {
 		userInfo, exists := middleware.GetUserFromContext(c)
 		if !exists {
-			message := i18n.T(c, "identify.errors.unauthorized.message", "Unauthorized", nil)
-			description := i18n.T(c, "identify.errors.unauthorized.description", "User authentication required", nil)
+			message := i18n.Localize(c, "identify.errors.unauthorized.message", "Unauthorized")
+			description := i18n.Localize(c, "identify.errors.unauthorized.description", "User authentication required")
 			c.JSON(http.StatusUnauthorized, r.StandardResponse{
 				Success: false,
 				Message: message,
@@ -69,7 +69,7 @@ func (h *TenantHandler) ListTenants(c *gin.Context) {
 			return
 		}
 
-		message := i18n.T(c, "identify.tenants.list_success", "Tenants fetched successfully", nil)
+		message := i18n.Localize(c, "identify.tenants.list_success", "Tenants fetched successfully")
 		c.JSON(http.StatusOK, r.StandardResponse{
 			Success: true,
 			Message: message,
@@ -82,8 +82,8 @@ func (h *TenantHandler) ListTenants(c *gin.Context) {
 
 	// Get all tenants with pagination (admin only)
 	if !isAdmin(c) {
-		message := i18n.T(c, "identify.errors.access_denied.message", "Access denied", nil)
-		description := i18n.T(c, "identify.errors.access_denied.description", "Admin privileges required to list all tenants", nil)
+		message := i18n.Localize(c, "identify.errors.access_denied.message", "Access denied")
+		description := i18n.Localize(c, "identify.errors.access_denied.description", "Admin privileges required to list all tenants")
 		c.JSON(http.StatusForbidden, r.StandardResponse{
 			Success: false,
 			Message: message,
@@ -113,7 +113,7 @@ func (h *TenantHandler) ListTenants(c *gin.Context) {
 		totalPages++
 	}
 
-	message := i18n.T(c, "identify.tenants.list_success", "Tenants fetched successfully", nil)
+	message := i18n.Localize(c, "identify.tenants.list_success", "Tenants fetched successfully")
 	c.JSON(http.StatusOK, r.StandardResponse{
 		Success: true,
 		Message: message,
@@ -135,8 +135,8 @@ func (h *TenantHandler) GetTenant(c *gin.Context) {
 	// Parse tenant ID
 	tenantID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		message := i18n.T(c, "identify.errors.invalid_tenant_id.message", "Invalid tenant id", nil)
-		description := i18n.T(c, "identify.errors.invalid_tenant_id.description", "Tenant ID must be a valid UUID", map[string]interface{}{"id": c.Param("id")})
+		message := i18n.Localize(c, "identify.errors.invalid_tenant_id.message", "Invalid tenant id")
+		description := i18n.LocalizeWithData(c, "identify.errors.invalid_tenant_id.description", "Tenant ID must be a valid UUID", map[string]interface{}{"id": c.Param("id")})
 		c.JSON(http.StatusBadRequest, r.StandardResponse{
 			Success: false,
 			Message: message,
@@ -149,8 +149,8 @@ func (h *TenantHandler) GetTenant(c *gin.Context) {
 
 	// Check if user has access to this tenant
 	if !h.canAccessTenant(c, tenantID) {
-		message := i18n.T(c, "identify.errors.access_denied.message", "Access denied", nil)
-		description := i18n.T(c, "identify.errors.access_denied.description", "You don't have access to this tenant", nil)
+		message := i18n.Localize(c, "identify.errors.access_denied.message", "Access denied")
+		description := i18n.Localize(c, "identify.errors.access_denied.description", "You don't have access to this tenant")
 		c.JSON(http.StatusForbidden, r.StandardResponse{
 			Success: false,
 			Message: message,
@@ -175,7 +175,7 @@ func (h *TenantHandler) GetTenant(c *gin.Context) {
 		return
 	}
 
-	message := i18n.T(c, "identify.tenants.get_success", "Tenant fetched successfully", nil)
+	message := i18n.Localize(c, "identify.tenants.get_success", "Tenant fetched successfully")
 	c.JSON(http.StatusOK, r.StandardResponse{
 		Success: true,
 		Message: message,
@@ -189,8 +189,8 @@ func (h *TenantHandler) GetTenant(c *gin.Context) {
 func (h *TenantHandler) CreateTenant(c *gin.Context) {
 	var req d.CreateTenantRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		message := i18n.T(c, "identify.errors.invalid_request.message", "Invalid request", nil)
-		description := i18n.T(c, "identify.errors.invalid_request.description", fmt.Sprintf("Invalid request body: %s", err.Error()), map[string]interface{}{"error": err.Error()})
+		message := i18n.Localize(c, "identify.errors.invalid_request.message", "Invalid request")
+		description := i18n.LocalizeWithData(c, "identify.errors.invalid_request.description", fmt.Sprintf("Invalid request body: %s", err.Error()), map[string]interface{}{"error": err.Error()})
 		c.JSON(http.StatusBadRequest, r.StandardResponse{
 			Success: false,
 			Message: message,
@@ -225,7 +225,7 @@ func (h *TenantHandler) CreateTenant(c *gin.Context) {
 		_ = h.tenantService.AddUserToTenant(ctx, tenant.ID, userID, "owner")
 	}
 
-	message := i18n.T(c, "identify.tenants.create_success", "Tenant created successfully", nil)
+	message := i18n.Localize(c, "identify.tenants.create_success", "Tenant created successfully")
 	c.JSON(http.StatusCreated, r.StandardResponse{
 		Success: true,
 		Message: message,
@@ -242,8 +242,8 @@ func (h *TenantHandler) UpdateTenant(c *gin.Context) {
 	// Parse tenant ID
 	tenantID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		message := i18n.T(c, "identify.errors.invalid_tenant_id.message", "Invalid tenant id", nil)
-		description := i18n.T(c, "identify.errors.invalid_tenant_id.description", "Tenant ID must be a valid UUID", map[string]interface{}{"id": c.Param("id")})
+		message := i18n.Localize(c, "identify.errors.invalid_tenant_id.message", "Invalid tenant id")
+		description := i18n.LocalizeWithData(c, "identify.errors.invalid_tenant_id.description", "Tenant ID must be a valid UUID", map[string]interface{}{"id": c.Param("id")})
 		c.JSON(http.StatusBadRequest, r.StandardResponse{
 			Success: false,
 			Message: message,
@@ -256,8 +256,8 @@ func (h *TenantHandler) UpdateTenant(c *gin.Context) {
 
 	// Check if user can modify this tenant
 	if !h.canModifyTenant(c, tenantID) {
-		message := i18n.T(c, "identify.errors.access_denied.message", "Access denied", nil)
-		description := i18n.T(c, "identify.errors.access_denied.description", "You don't have permission to modify this tenant", nil)
+		message := i18n.Localize(c, "identify.errors.access_denied.message", "Access denied")
+		description := i18n.Localize(c, "identify.errors.access_denied.description", "You don't have permission to modify this tenant")
 		c.JSON(http.StatusForbidden, r.StandardResponse{
 			Success: false,
 			Message: message,
@@ -270,8 +270,8 @@ func (h *TenantHandler) UpdateTenant(c *gin.Context) {
 
 	var req d.UpdateTenantRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		message := i18n.T(c, "identify.errors.invalid_request.message", "Invalid request", nil)
-		description := i18n.T(c, "identify.errors.invalid_request.description", fmt.Sprintf("Invalid request body: %s", err.Error()), map[string]interface{}{"error": err.Error()})
+		message := i18n.Localize(c, "identify.errors.invalid_request.message", "Invalid request")
+		description := i18n.LocalizeWithData(c, "identify.errors.invalid_request.description", fmt.Sprintf("Invalid request body: %s", err.Error()), map[string]interface{}{"error": err.Error()})
 		c.JSON(http.StatusBadRequest, r.StandardResponse{
 			Success: false,
 			Message: message,
@@ -296,7 +296,7 @@ func (h *TenantHandler) UpdateTenant(c *gin.Context) {
 		return
 	}
 
-	message := i18n.T(c, "identify.tenants.update_success", "Tenant updated successfully", nil)
+	message := i18n.Localize(c, "identify.tenants.update_success", "Tenant updated successfully")
 	c.JSON(http.StatusOK, r.StandardResponse{
 		Success: true,
 		Message: message,
@@ -313,8 +313,8 @@ func (h *TenantHandler) DeleteTenant(c *gin.Context) {
 	// Parse tenant ID
 	tenantID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		message := i18n.T(c, "identify.errors.invalid_tenant_id.message", "Invalid tenant id", nil)
-		description := i18n.T(c, "identify.errors.invalid_tenant_id.description", "Tenant ID must be a valid UUID", map[string]interface{}{"id": c.Param("id")})
+		message := i18n.Localize(c, "identify.errors.invalid_tenant_id.message", "Invalid tenant id")
+		description := i18n.LocalizeWithData(c, "identify.errors.invalid_tenant_id.description", "Tenant ID must be a valid UUID", map[string]interface{}{"id": c.Param("id")})
 		c.JSON(http.StatusBadRequest, r.StandardResponse{
 			Success: false,
 			Message: message,
@@ -327,8 +327,8 @@ func (h *TenantHandler) DeleteTenant(c *gin.Context) {
 
 	// Check if user can modify this tenant
 	if !h.canModifyTenant(c, tenantID) {
-		message := i18n.T(c, "identify.errors.access_denied.message", "Access denied", nil)
-		description := i18n.T(c, "identify.errors.access_denied.description", "You don't have permission to delete this tenant", nil)
+		message := i18n.Localize(c, "identify.errors.access_denied.message", "Access denied")
+		description := i18n.Localize(c, "identify.errors.access_denied.description", "You don't have permission to delete this tenant")
 		c.JSON(http.StatusForbidden, r.StandardResponse{
 			Success: false,
 			Message: message,
@@ -352,7 +352,7 @@ func (h *TenantHandler) DeleteTenant(c *gin.Context) {
 		return
 	}
 
-	message := i18n.T(c, "identify.tenants.delete_success", "Tenant deleted successfully", nil)
+	message := i18n.Localize(c, "identify.tenants.delete_success", "Tenant deleted successfully")
 	c.JSON(http.StatusOK, r.StandardResponse{
 		Success: true,
 		Message: message,
@@ -369,8 +369,8 @@ func (h *TenantHandler) GetTenantMembers(c *gin.Context) {
 	// Parse tenant ID
 	tenantID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		message := i18n.T(c, "identify.errors.invalid_tenant_id.message", "Invalid tenant id", nil)
-		description := i18n.T(c, "identify.errors.invalid_tenant_id.description", "Tenant ID must be a valid UUID", map[string]interface{}{"id": c.Param("id")})
+		message := i18n.Localize(c, "identify.errors.invalid_tenant_id.message", "Invalid tenant id")
+		description := i18n.LocalizeWithData(c, "identify.errors.invalid_tenant_id.description", "Tenant ID must be a valid UUID", map[string]interface{}{"id": c.Param("id")})
 		c.JSON(http.StatusBadRequest, r.StandardResponse{
 			Success: false,
 			Message: message,
@@ -383,8 +383,8 @@ func (h *TenantHandler) GetTenantMembers(c *gin.Context) {
 
 	// Check if user has access to this tenant
 	if !h.canAccessTenant(c, tenantID) {
-		message := i18n.T(c, "identify.errors.access_denied.message", "Access denied", nil)
-		description := i18n.T(c, "identify.errors.access_denied.description", "You don't have access to this tenant", nil)
+		message := i18n.Localize(c, "identify.errors.access_denied.message", "Access denied")
+		description := i18n.Localize(c, "identify.errors.access_denied.description", "You don't have access to this tenant")
 		c.JSON(http.StatusForbidden, r.StandardResponse{
 			Success: false,
 			Message: message,
@@ -419,7 +419,7 @@ func (h *TenantHandler) GetTenantMembers(c *gin.Context) {
 		totalPages++
 	}
 
-	message := i18n.T(c, "identify.tenants.members_success", "Tenant members fetched successfully", nil)
+	message := i18n.Localize(c, "identify.tenants.members_success", "Tenant members fetched successfully")
 	c.JSON(http.StatusOK, r.StandardResponse{
 		Success: true,
 		Message: message,
@@ -471,4 +471,3 @@ func (h *TenantHandler) canModifyTenant(c *gin.Context, tenantID uuid.UUID) bool
 	// In a real implementation, you might want to check for specific roles like "owner" or "admin"
 	return h.canAccessTenant(c, tenantID)
 }
-

@@ -34,9 +34,10 @@ func (h *GenreHandler) ListGenres(c *gin.Context) {
 	// Bind query parameters
 	var req d.ListGenresRequest
 	if err := c.ShouldBindQuery(&req); err != nil {
+		message := i18n.Localize(c, "catalog.common.error.invalid_query_parameters", "Invalid query parameters")
 		c.JSON(http.StatusBadRequest, r.StandardResponse{
 			Success: false,
-			Message: "Invalid query parameters",
+			Message: message,
 			Data:    nil,
 			Error:   &r.ErrorDetail{Code: "validation_error", Description: err.Error()},
 			Meta:    map[string]interface{}{},
@@ -64,9 +65,10 @@ func (h *GenreHandler) ListGenres(c *gin.Context) {
 		totalPages++
 	}
 
+	successMessage := i18n.Localize(c, "catalog.genres.list.success", "Genres fetched successfully")
 	c.JSON(http.StatusOK, r.StandardResponse{
 		Success: true,
-		Message: "Genres fetched successfully",
+		Message: successMessage,
 		Data:    genres,
 		Error:   nil,
 		Meta: map[string]interface{}{
@@ -85,11 +87,13 @@ func (h *GenreHandler) GetGenre(c *gin.Context) {
 	// Parse genre ID
 	genreID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
+		message := i18n.Localize(c, "catalog.genres.error.invalid_id", "Invalid genre ID")
+		detail := i18n.Localize(c, "catalog.genres.error.invalid_id_detail", "Genre ID must be a valid UUID")
 		c.JSON(http.StatusBadRequest, r.StandardResponse{
 			Success: false,
-			Message: "Invalid genre ID",
+			Message: message,
 			Data:    nil,
-			Error:   &r.ErrorDetail{Code: "invalid_id", Description: "Genre ID must be a valid UUID"},
+			Error:   &r.ErrorDetail{Code: "invalid_id", Description: detail},
 			Meta:    map[string]interface{}{},
 		})
 		return
@@ -109,9 +113,10 @@ func (h *GenreHandler) GetGenre(c *gin.Context) {
 		return
 	}
 
+	successMessage := i18n.Localize(c, "catalog.genres.get.success", "Genre fetched successfully")
 	c.JSON(http.StatusOK, r.StandardResponse{
 		Success: true,
-		Message: "Genre fetched successfully",
+		Message: successMessage,
 		Data:    genre,
 		Error:   nil,
 		Meta:    map[string]interface{}{},
@@ -125,9 +130,10 @@ func (h *GenreHandler) CreateGenre(c *gin.Context) {
 	// Bind request body
 	var req d.CreateGenreRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
+		message := i18n.Localize(c, "catalog.common.error.invalid_request_body", "Invalid request body")
 		c.JSON(http.StatusBadRequest, r.StandardResponse{
 			Success: false,
-			Message: "Invalid request body",
+			Message: message,
 			Data:    nil,
 			Error:   &r.ErrorDetail{Code: "validation_error", Description: err.Error()},
 			Meta:    map[string]interface{}{},
@@ -149,9 +155,10 @@ func (h *GenreHandler) CreateGenre(c *gin.Context) {
 		return
 	}
 
+	successMessage := i18n.Localize(c, "catalog.genres.create.success", "Genre created successfully")
 	c.JSON(http.StatusCreated, r.StandardResponse{
 		Success: true,
-		Message: "Genre created successfully",
+		Message: successMessage,
 		Data:    genre,
 		Error:   nil,
 		Meta:    map[string]interface{}{},
@@ -165,11 +172,13 @@ func (h *GenreHandler) UpdateGenre(c *gin.Context) {
 	// Parse genre ID
 	genreID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
+		message := i18n.Localize(c, "catalog.genres.error.invalid_id", "Invalid genre ID")
+		detail := i18n.Localize(c, "catalog.genres.error.invalid_id_detail", "Genre ID must be a valid UUID")
 		c.JSON(http.StatusBadRequest, r.StandardResponse{
 			Success: false,
-			Message: "Invalid genre ID",
+			Message: message,
 			Data:    nil,
-			Error:   &r.ErrorDetail{Code: "invalid_id", Description: "Genre ID must be a valid UUID"},
+			Error:   &r.ErrorDetail{Code: "invalid_id", Description: detail},
 			Meta:    map[string]interface{}{},
 		})
 		return
@@ -178,9 +187,10 @@ func (h *GenreHandler) UpdateGenre(c *gin.Context) {
 	// Bind request body
 	var req d.UpdateGenreRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
+		message := i18n.Localize(c, "catalog.common.error.invalid_request_body", "Invalid request body")
 		c.JSON(http.StatusBadRequest, r.StandardResponse{
 			Success: false,
-			Message: "Invalid request body",
+			Message: message,
 			Data:    nil,
 			Error:   &r.ErrorDetail{Code: "validation_error", Description: err.Error()},
 			Meta:    map[string]interface{}{},
@@ -202,9 +212,10 @@ func (h *GenreHandler) UpdateGenre(c *gin.Context) {
 		return
 	}
 
+	successMessage := i18n.Localize(c, "catalog.genres.update.success", "Genre updated successfully")
 	c.JSON(http.StatusOK, r.StandardResponse{
 		Success: true,
-		Message: "Genre updated successfully",
+		Message: successMessage,
 		Data:    genre,
 		Error:   nil,
 		Meta:    map[string]interface{}{},
@@ -218,11 +229,13 @@ func (h *GenreHandler) DeleteGenre(c *gin.Context) {
 	// Parse genre ID
 	genreID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
+		message := i18n.Localize(c, "catalog.genres.error.invalid_id", "Invalid genre ID")
+		detail := i18n.Localize(c, "catalog.genres.error.invalid_id_detail", "Genre ID must be a valid UUID")
 		c.JSON(http.StatusBadRequest, r.StandardResponse{
 			Success: false,
-			Message: "Invalid genre ID",
+			Message: message,
 			Data:    nil,
-			Error:   &r.ErrorDetail{Code: "invalid_id", Description: "Genre ID must be a valid UUID"},
+			Error:   &r.ErrorDetail{Code: "invalid_id", Description: detail},
 			Meta:    map[string]interface{}{},
 		})
 		return
@@ -242,9 +255,10 @@ func (h *GenreHandler) DeleteGenre(c *gin.Context) {
 		return
 	}
 
+	successMessage := i18n.Localize(c, "catalog.genres.delete.success", "Genre deleted successfully")
 	c.JSON(http.StatusOK, r.StandardResponse{
 		Success: true,
-		Message: "Genre deleted successfully",
+		Message: successMessage,
 		Data:    nil,
 		Error:   nil,
 		Meta:    map[string]interface{}{},
@@ -258,18 +272,23 @@ func mapServiceError(c *gin.Context, err error, operation string) (int, string, 
 	// Check for common error patterns
 	switch {
 	case strings.Contains(errStr, "not found") || strings.Contains(errStr, "no rows"):
-		return http.StatusNotFound, "not_found", "Resource not found", errStr
+		message := i18n.Localize(c, "catalog.common.error.not_found", "Resource not found")
+		return http.StatusNotFound, "not_found", message, errStr
 
 	case strings.Contains(errStr, "already exists") || strings.Contains(errStr, "duplicate"):
-		return http.StatusConflict, "conflict", "Resource already exists", errStr
+		message := i18n.Localize(c, "catalog.common.error.conflict", "Resource already exists")
+		return http.StatusConflict, "conflict", message, errStr
 
 	case strings.Contains(errStr, "validation") || strings.Contains(errStr, "invalid"):
-		return http.StatusBadRequest, "validation_error", "Validation error", errStr
+		message := i18n.Localize(c, "catalog.common.error.validation", "Validation error")
+		return http.StatusBadRequest, "validation_error", message, errStr
 
 	case strings.Contains(errStr, "required"):
-		return http.StatusBadRequest, "required_field", "Required field missing", errStr
+		message := i18n.Localize(c, "catalog.common.error.required_field", "Required field missing")
+		return http.StatusBadRequest, "required_field", message, errStr
 
 	default:
-		return http.StatusInternalServerError, "internal_error", "Internal server error", errStr
+		message := i18n.Localize(c, "catalog.common.error.internal", "Internal server error")
+		return http.StatusInternalServerError, "internal_error", message, errStr
 	}
 }

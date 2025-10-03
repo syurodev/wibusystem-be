@@ -35,8 +35,5 @@ func SetupChapterRoutes(router *gin.RouterGroup, h *handlers.Handlers, m *middle
 	{
 		chapters.GET("/:id", h.Chapter.GetChapterByID)              // Get chapter details
 		chapters.PUT("/:id", h.Chapter.UpdateChapter)               // Update chapter
-		chapters.DELETE("/:id", h.Chapter.DeleteChapter)            // Delete chapter
-		chapters.POST("/:id/publish", h.Chapter.PublishChapter)     // Publish chapter
-		chapters.POST("/:id/unpublish", h.Chapter.UnpublishChapter) // Unpublish chapter
 	}
 }

@@ -45,7 +45,7 @@ func (h *AdminHandler) ListGlobalRoles(c *gin.Context) {
 
 	c.JSON(http.StatusOK, r.StandardResponse{
 		Success: true,
-		Message: i18n.T(c, "identify.admin.global_roles.list_success", "Global roles retrieved", nil),
+		Message: i18n.Localize(c, "identify.admin.global_roles.list_success", "Global roles retrieved"),
 		Data:    roles,
 		Error:   nil,
 		Meta:    map[string]interface{}{},
@@ -58,7 +58,7 @@ func (h *AdminHandler) AssignGlobalRole(c *gin.Context) {
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, r.StandardResponse{
 			Success: false,
-			Message: i18n.T(c, "identify.errors.validation_failed.message", "Validation failed", nil),
+			Message: i18n.Localize(c, "identify.errors.validation_failed.message", "Validation failed"),
 			Data:    nil,
 			Error:   &r.ErrorDetail{Code: "validation_failed", Description: err.Error()},
 			Meta:    map[string]interface{}{},
@@ -70,7 +70,7 @@ func (h *AdminHandler) AssignGlobalRole(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusBadRequest, r.StandardResponse{
 			Success: false,
-			Message: i18n.T(c, "identify.errors.invalid_user_id.message", "Invalid user id", nil),
+			Message: i18n.Localize(c, "identify.errors.invalid_user_id.message", "Invalid user id"),
 			Data:    nil,
 			Error:   &r.ErrorDetail{Code: "invalid_user_id", Description: err.Error()},
 			Meta:    map[string]interface{}{},
@@ -82,7 +82,7 @@ func (h *AdminHandler) AssignGlobalRole(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusBadRequest, r.StandardResponse{
 			Success: false,
-			Message: i18n.T(c, "identify.errors.invalid_role_id.message", "Invalid role id", nil),
+			Message: i18n.Localize(c, "identify.errors.invalid_role_id.message", "Invalid role id"),
 			Data:    nil,
 			Error:   &r.ErrorDetail{Code: "invalid_role_id", Description: err.Error()},
 			Meta:    map[string]interface{}{},
@@ -104,7 +104,7 @@ func (h *AdminHandler) AssignGlobalRole(c *gin.Context) {
 
 	c.JSON(http.StatusOK, r.StandardResponse{
 		Success: true,
-		Message: i18n.T(c, "identify.admin.global_roles.assign_success", "Global role assigned", nil),
+		Message: i18n.Localize(c, "identify.admin.global_roles.assign_success", "Global role assigned"),
 		Data:    nil,
 		Error:   nil,
 		Meta:    map[string]interface{}{},
@@ -117,7 +117,7 @@ func (h *AdminHandler) RemoveGlobalRole(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusBadRequest, r.StandardResponse{
 			Success: false,
-			Message: i18n.T(c, "identify.errors.invalid_role_id.message", "Invalid role id", nil),
+			Message: i18n.Localize(c, "identify.errors.invalid_role_id.message", "Invalid role id"),
 			Data:    nil,
 			Error:   &r.ErrorDetail{Code: "invalid_role_id", Description: err.Error()},
 			Meta:    map[string]interface{}{},
@@ -129,7 +129,7 @@ func (h *AdminHandler) RemoveGlobalRole(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusBadRequest, r.StandardResponse{
 			Success: false,
-			Message: i18n.T(c, "identify.errors.invalid_user_id.message", "Invalid user id", nil),
+			Message: i18n.Localize(c, "identify.errors.invalid_user_id.message", "Invalid user id"),
 			Data:    nil,
 			Error:   &r.ErrorDetail{Code: "invalid_user_id", Description: err.Error()},
 			Meta:    map[string]interface{}{},
@@ -151,7 +151,7 @@ func (h *AdminHandler) RemoveGlobalRole(c *gin.Context) {
 
 	c.JSON(http.StatusOK, r.StandardResponse{
 		Success: true,
-		Message: i18n.T(c, "identify.admin.global_roles.remove_success", "Global role removed", nil),
+		Message: i18n.Localize(c, "identify.admin.global_roles.remove_success", "Global role removed"),
 		Data:    nil,
 		Error:   nil,
 		Meta:    map[string]interface{}{},
@@ -175,7 +175,7 @@ func (h *AdminHandler) ListTenantPermissions(c *gin.Context) {
 
 	c.JSON(http.StatusOK, r.StandardResponse{
 		Success: true,
-		Message: i18n.T(c, "identify.admin.tenant_permissions.list_success", "Tenant permissions retrieved", nil),
+		Message: i18n.Localize(c, "identify.admin.tenant_permissions.list_success", "Tenant permissions retrieved"),
 		Data:    perms,
 		Error:   nil,
 		Meta:    map[string]interface{}{},
@@ -188,7 +188,7 @@ func (h *AdminHandler) ListTenantRoles(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusBadRequest, r.StandardResponse{
 			Success: false,
-			Message: i18n.T(c, "identify.errors.invalid_tenant_id.message", "Invalid tenant id", nil),
+			Message: i18n.Localize(c, "identify.errors.invalid_tenant_id.message", "Invalid tenant id"),
 			Data:    nil,
 			Error:   &r.ErrorDetail{Code: "invalid_tenant_id", Description: err.Error()},
 			Meta:    map[string]interface{}{},
@@ -211,7 +211,7 @@ func (h *AdminHandler) ListTenantRoles(c *gin.Context) {
 
 	c.JSON(http.StatusOK, r.StandardResponse{
 		Success: true,
-		Message: i18n.T(c, "identify.admin.tenant_roles.list_success", "Tenant roles retrieved", nil),
+		Message: i18n.Localize(c, "identify.admin.tenant_roles.list_success", "Tenant roles retrieved"),
 		Data:    roles,
 		Error:   nil,
 		Meta:    map[string]interface{}{},
@@ -224,7 +224,7 @@ func (h *AdminHandler) CreateTenantRole(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusBadRequest, r.StandardResponse{
 			Success: false,
-			Message: i18n.T(c, "identify.errors.invalid_tenant_id.message", "Invalid tenant id", nil),
+			Message: i18n.Localize(c, "identify.errors.invalid_tenant_id.message", "Invalid tenant id"),
 			Data:    nil,
 			Error:   &r.ErrorDetail{Code: "invalid_tenant_id", Description: err.Error()},
 			Meta:    map[string]interface{}{},
@@ -236,7 +236,7 @@ func (h *AdminHandler) CreateTenantRole(c *gin.Context) {
 	if err := c.ShouldBindJSON(&payload); err != nil {
 		c.JSON(http.StatusBadRequest, r.StandardResponse{
 			Success: false,
-			Message: i18n.T(c, "identify.errors.validation_failed.message", "Validation failed", nil),
+			Message: i18n.Localize(c, "identify.errors.validation_failed.message", "Validation failed"),
 			Data:    nil,
 			Error:   &r.ErrorDetail{Code: "validation_failed", Description: err.Error()},
 			Meta:    map[string]interface{}{},
@@ -259,7 +259,7 @@ func (h *AdminHandler) CreateTenantRole(c *gin.Context) {
 
 	c.JSON(http.StatusCreated, r.StandardResponse{
 		Success: true,
-		Message: i18n.T(c, "identify.admin.tenant_roles.create_success", "Tenant role created", nil),
+		Message: i18n.Localize(c, "identify.admin.tenant_roles.create_success", "Tenant role created"),
 		Data:    role,
 		Error:   nil,
 		Meta:    map[string]interface{}{},
@@ -272,7 +272,7 @@ func (h *AdminHandler) UpdateTenantRole(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusBadRequest, r.StandardResponse{
 			Success: false,
-			Message: i18n.T(c, "identify.errors.invalid_tenant_id.message", "Invalid tenant id", nil),
+			Message: i18n.Localize(c, "identify.errors.invalid_tenant_id.message", "Invalid tenant id"),
 			Data:    nil,
 			Error:   &r.ErrorDetail{Code: "invalid_tenant_id", Description: err.Error()},
 			Meta:    map[string]interface{}{},
@@ -284,7 +284,7 @@ func (h *AdminHandler) UpdateTenantRole(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusBadRequest, r.StandardResponse{
 			Success: false,
-			Message: i18n.T(c, "identify.errors.invalid_role_id.message", "Invalid role id", nil),
+			Message: i18n.Localize(c, "identify.errors.invalid_role_id.message", "Invalid role id"),
 			Data:    nil,
 			Error:   &r.ErrorDetail{Code: "invalid_role_id", Description: err.Error()},
 			Meta:    map[string]interface{}{},
@@ -296,7 +296,7 @@ func (h *AdminHandler) UpdateTenantRole(c *gin.Context) {
 	if err := c.ShouldBindJSON(&payload); err != nil {
 		c.JSON(http.StatusBadRequest, r.StandardResponse{
 			Success: false,
-			Message: i18n.T(c, "identify.errors.validation_failed.message", "Validation failed", nil),
+			Message: i18n.Localize(c, "identify.errors.validation_failed.message", "Validation failed"),
 			Data:    nil,
 			Error:   &r.ErrorDetail{Code: "validation_failed", Description: err.Error()},
 			Meta:    map[string]interface{}{},
@@ -319,7 +319,7 @@ func (h *AdminHandler) UpdateTenantRole(c *gin.Context) {
 
 	c.JSON(http.StatusOK, r.StandardResponse{
 		Success: true,
-		Message: i18n.T(c, "identify.admin.tenant_roles.update_success", "Tenant role updated", nil),
+		Message: i18n.Localize(c, "identify.admin.tenant_roles.update_success", "Tenant role updated"),
 		Data:    role,
 		Error:   nil,
 		Meta:    map[string]interface{}{},
@@ -332,7 +332,7 @@ func (h *AdminHandler) DeleteTenantRole(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusBadRequest, r.StandardResponse{
 			Success: false,
-			Message: i18n.T(c, "identify.errors.invalid_tenant_id.message", "Invalid tenant id", nil),
+			Message: i18n.Localize(c, "identify.errors.invalid_tenant_id.message", "Invalid tenant id"),
 			Data:    nil,
 			Error:   &r.ErrorDetail{Code: "invalid_tenant_id", Description: err.Error()},
 			Meta:    map[string]interface{}{},
@@ -344,7 +344,7 @@ func (h *AdminHandler) DeleteTenantRole(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusBadRequest, r.StandardResponse{
 			Success: false,
-			Message: i18n.T(c, "identify.errors.invalid_role_id.message", "Invalid role id", nil),
+			Message: i18n.Localize(c, "identify.errors.invalid_role_id.message", "Invalid role id"),
 			Data:    nil,
 			Error:   &r.ErrorDetail{Code: "invalid_role_id", Description: err.Error()},
 			Meta:    map[string]interface{}{},
@@ -366,7 +366,7 @@ func (h *AdminHandler) DeleteTenantRole(c *gin.Context) {
 
 	c.JSON(http.StatusOK, r.StandardResponse{
 		Success: true,
-		Message: i18n.T(c, "identify.admin.tenant_roles.delete_success", "Tenant role deleted", nil),
+		Message: i18n.Localize(c, "identify.admin.tenant_roles.delete_success", "Tenant role deleted"),
 		Data:    nil,
 		Error:   nil,
 		Meta:    map[string]interface{}{},
@@ -379,7 +379,7 @@ func (h *AdminHandler) AssignTenantRole(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusBadRequest, r.StandardResponse{
 			Success: false,
-			Message: i18n.T(c, "identify.errors.invalid_tenant_id.message", "Invalid tenant id", nil),
+			Message: i18n.Localize(c, "identify.errors.invalid_tenant_id.message", "Invalid tenant id"),
 			Data:    nil,
 			Error:   &r.ErrorDetail{Code: "invalid_tenant_id", Description: err.Error()},
 			Meta:    map[string]interface{}{},
@@ -391,7 +391,7 @@ func (h *AdminHandler) AssignTenantRole(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusBadRequest, r.StandardResponse{
 			Success: false,
-			Message: i18n.T(c, "identify.errors.invalid_role_id.message", "Invalid role id", nil),
+			Message: i18n.Localize(c, "identify.errors.invalid_role_id.message", "Invalid role id"),
 			Data:    nil,
 			Error:   &r.ErrorDetail{Code: "invalid_role_id", Description: err.Error()},
 			Meta:    map[string]interface{}{},
@@ -403,7 +403,7 @@ func (h *AdminHandler) AssignTenantRole(c *gin.Context) {
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, r.StandardResponse{
 			Success: false,
-			Message: i18n.T(c, "identify.errors.validation_failed.message", "Validation failed", nil),
+			Message: i18n.Localize(c, "identify.errors.validation_failed.message", "Validation failed"),
 			Data:    nil,
 			Error:   &r.ErrorDetail{Code: "validation_failed", Description: err.Error()},
 			Meta:    map[string]interface{}{},
@@ -415,7 +415,7 @@ func (h *AdminHandler) AssignTenantRole(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusBadRequest, r.StandardResponse{
 			Success: false,
-			Message: i18n.T(c, "identify.errors.invalid_user_id.message", "Invalid user id", nil),
+			Message: i18n.Localize(c, "identify.errors.invalid_user_id.message", "Invalid user id"),
 			Data:    nil,
 			Error:   &r.ErrorDetail{Code: "invalid_user_id", Description: err.Error()},
 			Meta:    map[string]interface{}{},
@@ -437,7 +437,7 @@ func (h *AdminHandler) AssignTenantRole(c *gin.Context) {
 
 	c.JSON(http.StatusOK, r.StandardResponse{
 		Success: true,
-		Message: i18n.T(c, "identify.admin.tenant_roles.assign_success", "Tenant role assigned", nil),
+		Message: i18n.Localize(c, "identify.admin.tenant_roles.assign_success", "Tenant role assigned"),
 		Data:    nil,
 		Error:   nil,
 		Meta:    map[string]interface{}{},
@@ -450,7 +450,7 @@ func (h *AdminHandler) RemoveTenantRole(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusBadRequest, r.StandardResponse{
 			Success: false,
-			Message: i18n.T(c, "identify.errors.invalid_tenant_id.message", "Invalid tenant id", nil),
+			Message: i18n.Localize(c, "identify.errors.invalid_tenant_id.message", "Invalid tenant id"),
 			Data:    nil,
 			Error:   &r.ErrorDetail{Code: "invalid_tenant_id", Description: err.Error()},
 			Meta:    map[string]interface{}{},
@@ -462,7 +462,7 @@ func (h *AdminHandler) RemoveTenantRole(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusBadRequest, r.StandardResponse{
 			Success: false,
-			Message: i18n.T(c, "identify.errors.invalid_role_id.message", "Invalid role id", nil),
+			Message: i18n.Localize(c, "identify.errors.invalid_role_id.message", "Invalid role id"),
 			Data:    nil,
 			Error:   &r.ErrorDetail{Code: "invalid_role_id", Description: err.Error()},
 			Meta:    map[string]interface{}{},
@@ -474,7 +474,7 @@ func (h *AdminHandler) RemoveTenantRole(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusBadRequest, r.StandardResponse{
 			Success: false,
-			Message: i18n.T(c, "identify.errors.invalid_user_id.message", "Invalid user id", nil),
+			Message: i18n.Localize(c, "identify.errors.invalid_user_id.message", "Invalid user id"),
 			Data:    nil,
 			Error:   &r.ErrorDetail{Code: "invalid_user_id", Description: err.Error()},
 			Meta:    map[string]interface{}{},
@@ -496,7 +496,7 @@ func (h *AdminHandler) RemoveTenantRole(c *gin.Context) {
 
 	c.JSON(http.StatusOK, r.StandardResponse{
 		Success: true,
-		Message: i18n.T(c, "identify.admin.tenant_roles.remove_success", "Tenant role removed", nil),
+		Message: i18n.Localize(c, "identify.admin.tenant_roles.remove_success", "Tenant role removed"),
 		Data:    nil,
 		Error:   nil,
 		Meta:    map[string]interface{}{},

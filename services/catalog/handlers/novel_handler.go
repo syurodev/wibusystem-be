@@ -32,9 +32,10 @@ func (h *NovelHandler) CreateNovel(c *gin.Context) {
 	// Bind request body
 	var req d.CreateNovelRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
+		message := i18n.Localize(c, "catalog.common.error.invalid_request_body", "Invalid request body")
 		c.JSON(http.StatusBadRequest, r.StandardResponse{
 			Success: false,
-			Message: "Invalid request body",
+			Message: message,
 			Data:    nil,
 			Error:   &r.ErrorDetail{Code: "validation_error", Description: err.Error()},
 			Meta:    map[string]interface{}{},
@@ -76,9 +77,10 @@ func (h *NovelHandler) CreateNovel(c *gin.Context) {
 		response.Slug = *novel.Slug
 	}
 
+	successMessage := i18n.Localize(c, "catalog.novels.create.success", "Novel created successfully")
 	c.JSON(http.StatusCreated, r.StandardResponse{
 		Success: true,
-		Message: "Tạo tiểu thuyết thành công",
+		Message: successMessage,
 		Data:    response,
 		Error:   nil,
 		Meta:    map[string]interface{}{},
@@ -92,9 +94,10 @@ func (h *NovelHandler) ListNovels(c *gin.Context) {
 	// Bind query parameters
 	var req d.ListNovelsRequest
 	if err := c.ShouldBindQuery(&req); err != nil {
+		message := i18n.Localize(c, "catalog.common.error.invalid_query_parameters", "Invalid query parameters")
 		c.JSON(http.StatusBadRequest, r.StandardResponse{
 			Success: false,
-			Message: "Invalid query parameters",
+			Message: message,
 			Data:    nil,
 			Error:   &r.ErrorDetail{Code: "validation_error", Description: err.Error()},
 			Meta:    map[string]interface{}{},
@@ -126,9 +129,10 @@ func (h *NovelHandler) ListNovels(c *gin.Context) {
 		meta["pagination"] = response.Pagination
 	}
 
+	successMessage := i18n.Localize(c, "catalog.novels.list.success", "Novels retrieved successfully")
 	c.JSON(http.StatusOK, r.StandardResponse{
 		Success: true,
-		Message: "Lấy danh sách tiểu thuyết thành công",
+		Message: successMessage,
 		Data:    data,
 		Error:   nil,
 		Meta:    meta,
@@ -142,11 +146,13 @@ func (h *NovelHandler) GetNovelByID(c *gin.Context) {
 	// Get novel ID from path
 	novelID := c.Param("novel_id")
 	if novelID == "" {
+		message := i18n.Localize(c, "catalog.novels.error.id_required", "Novel ID is required")
+		detail := i18n.Localize(c, "catalog.novels.error.id_required_detail", "Novel ID path parameter is required")
 		c.JSON(http.StatusBadRequest, r.StandardResponse{
 			Success: false,
-			Message: "Novel ID is required",
+			Message: message,
 			Data:    nil,
-			Error:   &r.ErrorDetail{Code: "missing_parameter", Description: "Novel ID path parameter is required"},
+			Error:   &r.ErrorDetail{Code: "missing_parameter", Description: detail},
 			Meta:    map[string]interface{}{},
 		})
 		return
@@ -179,9 +185,10 @@ func (h *NovelHandler) GetNovelByID(c *gin.Context) {
 		return
 	}
 
+	successMessage := i18n.Localize(c, "catalog.novels.get.success", "Novel retrieved successfully")
 	c.JSON(http.StatusOK, r.StandardResponse{
 		Success: true,
-		Message: "Lấy thông tin tiểu thuyết thành công",
+		Message: successMessage,
 		Data:    novel,
 		Error:   nil,
 		Meta:    map[string]interface{}{},
@@ -195,11 +202,13 @@ func (h *NovelHandler) UpdateNovel(c *gin.Context) {
 	// Get novel ID from path
 	novelID := c.Param("novel_id")
 	if novelID == "" {
+		message := i18n.Localize(c, "catalog.novels.error.id_required", "Novel ID is required")
+		detail := i18n.Localize(c, "catalog.novels.error.id_required_detail", "Novel ID path parameter is required")
 		c.JSON(http.StatusBadRequest, r.StandardResponse{
 			Success: false,
-			Message: "Novel ID is required",
+			Message: message,
 			Data:    nil,
-			Error:   &r.ErrorDetail{Code: "missing_parameter", Description: "Novel ID path parameter is required"},
+			Error:   &r.ErrorDetail{Code: "missing_parameter", Description: detail},
 			Meta:    map[string]interface{}{},
 		})
 		return
@@ -208,9 +217,10 @@ func (h *NovelHandler) UpdateNovel(c *gin.Context) {
 	// Bind request body
 	var req d.UpdateNovelRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
+		message := i18n.Localize(c, "catalog.common.error.invalid_request_body", "Invalid request body")
 		c.JSON(http.StatusBadRequest, r.StandardResponse{
 			Success: false,
-			Message: "Invalid request body",
+			Message: message,
 			Data:    nil,
 			Error:   &r.ErrorDetail{Code: "validation_error", Description: err.Error()},
 			Meta:    map[string]interface{}{},
@@ -232,9 +242,10 @@ func (h *NovelHandler) UpdateNovel(c *gin.Context) {
 		return
 	}
 
+	successMessage := i18n.Localize(c, "catalog.novels.update.success", "Novel updated successfully")
 	c.JSON(http.StatusOK, r.StandardResponse{
 		Success: true,
-		Message: "Cập nhật tiểu thuyết thành công",
+		Message: successMessage,
 		Data:    response,
 		Error:   nil,
 		Meta:    map[string]interface{}{},
@@ -248,11 +259,13 @@ func (h *NovelHandler) DeleteNovel(c *gin.Context) {
 	// Get novel ID from path
 	novelID := c.Param("novel_id")
 	if novelID == "" {
+		message := i18n.Localize(c, "catalog.novels.error.id_required", "Novel ID is required")
+		detail := i18n.Localize(c, "catalog.novels.error.id_required_detail", "Novel ID path parameter is required")
 		c.JSON(http.StatusBadRequest, r.StandardResponse{
 			Success: false,
-			Message: "Novel ID is required",
+			Message: message,
 			Data:    nil,
-			Error:   &r.ErrorDetail{Code: "missing_parameter", Description: "Novel ID path parameter is required"},
+			Error:   &r.ErrorDetail{Code: "missing_parameter", Description: detail},
 			Meta:    map[string]interface{}{},
 		})
 		return
@@ -276,9 +289,10 @@ func (h *NovelHandler) DeleteNovel(c *gin.Context) {
 		return
 	}
 
+	successMessage := i18n.Localize(c, "catalog.novels.delete.success", "Novel deleted successfully")
 	c.JSON(http.StatusOK, r.StandardResponse{
 		Success: true,
-		Message: "Xóa tiểu thuyết thành công",
+		Message: successMessage,
 		Data:    nil,
 		Error:   nil,
 		Meta:    map[string]interface{}{},
@@ -292,30 +306,39 @@ func mapNovelServiceError(c *gin.Context, err error, operation string) (int, str
 	// Check for common error patterns
 	switch {
 	case strings.Contains(errStr, "not found") || strings.Contains(errStr, "no rows"):
-		return http.StatusNotFound, "not_found", "Resource not found", errStr
+		message := i18n.Localize(c, "catalog.common.error.not_found", "Resource not found")
+		return http.StatusNotFound, "not_found", message, errStr
 
 	case strings.Contains(errStr, "already exists") || strings.Contains(errStr, "duplicate"):
-		return http.StatusConflict, "conflict", "Resource already exists", errStr
+		message := i18n.Localize(c, "catalog.common.error.conflict", "Resource already exists")
+		return http.StatusConflict, "conflict", message, errStr
 
 	case strings.Contains(errStr, "validation") || strings.Contains(errStr, "invalid"):
-		return http.StatusBadRequest, "validation_error", "Validation error", errStr
+		message := i18n.Localize(c, "catalog.common.error.validation", "Validation error")
+		return http.StatusBadRequest, "validation_error", message, errStr
 
 	case strings.Contains(errStr, "required"):
-		return http.StatusBadRequest, "required_field", "Required field missing", errStr
+		message := i18n.Localize(c, "catalog.common.error.required_field", "Required field missing")
+		return http.StatusBadRequest, "required_field", message, errStr
 
 	case strings.Contains(errStr, "genres do not exist"):
-		return http.StatusBadRequest, "invalid_genre", "One or more genres do not exist", errStr
+		message := i18n.Localize(c, "catalog.novels.error.genres_missing", "One or more genres do not exist")
+		return http.StatusBadRequest, "invalid_genre", message, errStr
 
 	case strings.Contains(errStr, "users have purchased content"):
-		return http.StatusConflict, "cannot_delete", "Cannot delete: users have purchased content", errStr
+		message := i18n.Localize(c, "catalog.novels.error.cannot_delete_purchased", "Cannot delete: users have purchased content")
+		return http.StatusConflict, "cannot_delete", message, errStr
 
 	case strings.Contains(errStr, "invalid novel ID format") || strings.Contains(errStr, "invalid user ID format"):
-		return http.StatusBadRequest, "invalid_id", "Invalid ID format", errStr
+		message := i18n.Localize(c, "catalog.common.error.invalid_id_format", "Invalid ID format")
+		return http.StatusBadRequest, "invalid_id", message, errStr
 
 	case strings.Contains(errStr, "no fields to update"):
-		return http.StatusBadRequest, "no_update_fields", "No fields provided for update", errStr
+		message := i18n.Localize(c, "catalog.common.error.no_update_fields", "No fields provided for update")
+		return http.StatusBadRequest, "no_update_fields", message, errStr
 
 	default:
-		return http.StatusInternalServerError, "internal_error", "Internal server error", errStr
+		message := i18n.Localize(c, "catalog.common.error.internal", "Internal server error")
+		return http.StatusInternalServerError, "internal_error", message, errStr
 	}
 }

@@ -33,9 +33,10 @@ func (h *CreatorHandler) ListCreators(c *gin.Context) {
 	// Bind query parameters
 	var req d.ListCreatorsRequest
 	if err := c.ShouldBindQuery(&req); err != nil {
+		message := i18n.Localize(c, "catalog.common.error.invalid_query_parameters", "Invalid query parameters")
 		c.JSON(http.StatusBadRequest, r.StandardResponse{
 			Success: false,
-			Message: "Invalid query parameters",
+			Message: message,
 			Data:    nil,
 			Error:   &r.ErrorDetail{Code: "validation_error", Description: err.Error()},
 			Meta:    map[string]interface{}{},
@@ -63,9 +64,10 @@ func (h *CreatorHandler) ListCreators(c *gin.Context) {
 		totalPages++
 	}
 
+	successMessage := i18n.Localize(c, "catalog.creators.list.success", "Creators fetched successfully")
 	c.JSON(http.StatusOK, r.StandardResponse{
 		Success: true,
-		Message: "Creators fetched successfully",
+		Message: successMessage,
 		Data:    creators,
 		Error:   nil,
 		Meta: map[string]interface{}{
@@ -84,11 +86,13 @@ func (h *CreatorHandler) GetCreator(c *gin.Context) {
 	// Parse creator ID
 	creatorID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
+		message := i18n.Localize(c, "catalog.creators.error.invalid_id", "Invalid creator ID")
+		detail := i18n.Localize(c, "catalog.creators.error.invalid_id_detail", "Creator ID must be a valid UUID")
 		c.JSON(http.StatusBadRequest, r.StandardResponse{
 			Success: false,
-			Message: "Invalid creator ID",
+			Message: message,
 			Data:    nil,
-			Error:   &r.ErrorDetail{Code: "invalid_id", Description: "Creator ID must be a valid UUID"},
+			Error:   &r.ErrorDetail{Code: "invalid_id", Description: detail},
 			Meta:    map[string]interface{}{},
 		})
 		return
@@ -108,9 +112,10 @@ func (h *CreatorHandler) GetCreator(c *gin.Context) {
 		return
 	}
 
+	successMessage := i18n.Localize(c, "catalog.creators.get.success", "Creator fetched successfully")
 	c.JSON(http.StatusOK, r.StandardResponse{
 		Success: true,
-		Message: "Creator fetched successfully",
+		Message: successMessage,
 		Data:    creator,
 		Error:   nil,
 		Meta:    map[string]interface{}{},
@@ -124,9 +129,10 @@ func (h *CreatorHandler) CreateCreator(c *gin.Context) {
 	// Bind request body
 	var req d.CreateCreatorRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
+		message := i18n.Localize(c, "catalog.common.error.invalid_request_body", "Invalid request body")
 		c.JSON(http.StatusBadRequest, r.StandardResponse{
 			Success: false,
-			Message: "Invalid request body",
+			Message: message,
 			Data:    nil,
 			Error:   &r.ErrorDetail{Code: "validation_error", Description: err.Error()},
 			Meta:    map[string]interface{}{},
@@ -148,9 +154,10 @@ func (h *CreatorHandler) CreateCreator(c *gin.Context) {
 		return
 	}
 
+	successMessage := i18n.Localize(c, "catalog.creators.create.success", "Creator created successfully")
 	c.JSON(http.StatusCreated, r.StandardResponse{
 		Success: true,
-		Message: "Creator created successfully",
+		Message: successMessage,
 		Data:    creator,
 		Error:   nil,
 		Meta:    map[string]interface{}{},
@@ -164,11 +171,13 @@ func (h *CreatorHandler) UpdateCreator(c *gin.Context) {
 	// Parse creator ID
 	creatorID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
+		message := i18n.Localize(c, "catalog.creators.error.invalid_id", "Invalid creator ID")
+		detail := i18n.Localize(c, "catalog.creators.error.invalid_id_detail", "Creator ID must be a valid UUID")
 		c.JSON(http.StatusBadRequest, r.StandardResponse{
 			Success: false,
-			Message: "Invalid creator ID",
+			Message: message,
 			Data:    nil,
-			Error:   &r.ErrorDetail{Code: "invalid_id", Description: "Creator ID must be a valid UUID"},
+			Error:   &r.ErrorDetail{Code: "invalid_id", Description: detail},
 			Meta:    map[string]interface{}{},
 		})
 		return
@@ -201,9 +210,10 @@ func (h *CreatorHandler) UpdateCreator(c *gin.Context) {
 		return
 	}
 
+	successMessage := i18n.Localize(c, "catalog.creators.update.success", "Creator updated successfully")
 	c.JSON(http.StatusOK, r.StandardResponse{
 		Success: true,
-		Message: "Creator updated successfully",
+		Message: successMessage,
 		Data:    creator,
 		Error:   nil,
 		Meta:    map[string]interface{}{},
@@ -241,9 +251,10 @@ func (h *CreatorHandler) DeleteCreator(c *gin.Context) {
 		return
 	}
 
+	successMessage := i18n.Localize(c, "catalog.creators.delete.success", "Creator deleted successfully")
 	c.JSON(http.StatusOK, r.StandardResponse{
 		Success: true,
-		Message: "Creator deleted successfully",
+		Message: successMessage,
 		Data:    nil,
 		Error:   nil,
 		Meta:    map[string]interface{}{},
