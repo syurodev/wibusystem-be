@@ -19,6 +19,10 @@ type RentalItemType string
 
 type SubscriptionTier string
 
+type OwnershipType string
+
+type AccessLevel string
+
 const (
 	ContentStatusOngoing   ContentStatus = "ONGOING"
 	ContentStatusCompleted ContentStatus = "COMPLETED"
@@ -63,4 +67,12 @@ const (
 	SubscriptionTierFree    SubscriptionTier = "FREE"
 	SubscriptionTierPremium SubscriptionTier = "PREMIUM"
 	SubscriptionTierVIP     SubscriptionTier = "VIP"
+
+	OwnershipTypePersonal       OwnershipType = "PERSONAL"       // Individual user ownership
+	OwnershipTypeTenant         OwnershipType = "TENANT"         // Organization/tenant ownership
+	OwnershipTypeCollaborative  OwnershipType = "COLLABORATIVE"  // Shared ownership
+
+	AccessLevelPrivate    AccessLevel = "PRIVATE"     // Only owner can access
+	AccessLevelTenantOnly AccessLevel = "TENANT_ONLY" // Only tenant members can access
+	AccessLevelPublic     AccessLevel = "PUBLIC"      // Public access
 )

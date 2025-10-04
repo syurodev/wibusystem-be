@@ -44,13 +44,26 @@ func (n NovelService) ListNovels(ctx context.Context, req d.ListNovelsRequest) (
 	tenantIDSet := make(map[string]bool)
 
 	for _, novel := range response.Novels {
-		if novel.User != nil && novel.User.ID != "" && !userIDSet[novel.User.ID] {
-			userIDs = append(userIDs, novel.User.ID)
-			userIDSet[novel.User.ID] = true
+		// Determine primary owner IDs based on ownership type
+		if novel.PrimaryOwnerID != "" {
+			switch novel.OwnershipType {
+			case "TENANT":
+				if !tenantIDSet[novel.PrimaryOwnerID] {
+					tenantIDs = append(tenantIDs, novel.PrimaryOwnerID)
+					tenantIDSet[novel.PrimaryOwnerID] = true
+				}
+			default:
+				if !userIDSet[novel.PrimaryOwnerID] {
+					userIDs = append(userIDs, novel.PrimaryOwnerID)
+					userIDSet[novel.PrimaryOwnerID] = true
+				}
+			}
 		}
-		if novel.Tenant != nil && novel.Tenant.ID != "" && !tenantIDSet[novel.Tenant.ID] {
-			tenantIDs = append(tenantIDs, novel.Tenant.ID)
-			tenantIDSet[novel.Tenant.ID] = true
+
+		// Original creator is always a user
+		if novel.OriginalCreatorID != "" && !userIDSet[novel.OriginalCreatorID] {
+			userIDs = append(userIDs, novel.OriginalCreatorID)
+			userIDSet[novel.OriginalCreatorID] = true
 		}
 	}
 
@@ -76,17 +89,24 @@ func (n NovelService) ListNovels(ctx context.Context, req d.ListNovelsRequest) (
 	for i := range response.Novels {
 		novel := &response.Novels[i]
 
-		// Add user data if available
-		if novel.User != nil && novel.User.ID != "" {
-			if user, exists := users[novel.User.ID]; exists {
-				novel.User = user
+		// Populate primary owner info based on ownership type
+		if novel.PrimaryOwnerID != "" {
+			switch novel.OwnershipType {
+			case "TENANT":
+				if tenant, exists := tenants[novel.PrimaryOwnerID]; exists {
+					novel.PrimaryOwner = tenant
+				}
+			default:
+				if user, exists := users[novel.PrimaryOwnerID]; exists {
+					novel.PrimaryOwner = user
+				}
 			}
 		}
 
-		// Add tenant data if available
-		if novel.Tenant != nil && novel.Tenant.ID != "" {
-			if tenant, exists := tenants[novel.Tenant.ID]; exists {
-				novel.Tenant = tenant
+		// Populate original creator info (always a user)
+		if novel.OriginalCreatorID != "" {
+			if user, exists := users[novel.OriginalCreatorID]; exists {
+				novel.OriginalCreator = user
 			}
 		}
 	}

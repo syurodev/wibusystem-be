@@ -145,7 +145,7 @@ func (r *volumeRepository) GetVolumeByID(ctx context.Context, id uuid.UUID) (*m.
 
 	err := r.pool.QueryRow(ctx, query, id).Scan(
 		&volume.ID, &volume.NovelID, &volume.VolumeNumber, &volume.VolumeTitle, &volume.Description, &volume.CoverImage,
-		&volume.CreatedByUserID, &volume.UpdatedByUserID,
+		&volume.LastModifiedByUserID,
 		&volume.PublishedAt, &volume.IsDeleted, &volume.DeletedAt, &volume.IsAvailable,
 		&volume.PriceCoins, &volume.RentalPriceCoins, &volume.RentalDurationDays,
 		&volume.PageCount, &volume.WordCount, &volume.ChapterCount, &volume.EstimatedReadingTime,

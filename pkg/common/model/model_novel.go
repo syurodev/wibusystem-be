@@ -18,10 +18,13 @@ type Novel struct {
 	CoverImage *string          `json:"cover_image,omitempty" db:"cover_image"` // URL ảnh bìa novel
 	Summary    *json.RawMessage `json:"summary,omitempty" db:"summary"`         // Tóm tắt đa ngôn ngữ (JSONB)
 
-	// User & Tenant tracking
-	CreatedByUserID *uuid.UUID `json:"created_by_user_id,omitempty" db:"created_by_user_id"` // User tạo novel
-	UpdatedByUserID *uuid.UUID `json:"updated_by_user_id,omitempty" db:"updated_by_user_id"` // User cập nhật cuối cùng
-	TenantID        *uuid.UUID `json:"tenant_id,omitempty" db:"tenant_id"`                   // Tenant sở hữu novel (multi-tenancy)
+	// Ownership Model - Clean ownership tracking
+	OwnershipType          string     `json:"ownership_type" db:"ownership_type"`                               // PERSONAL, TENANT, COLLABORATIVE
+	PrimaryOwnerID         uuid.UUID  `json:"primary_owner_id" db:"primary_owner_id"`                           // User ID (PERSONAL) or Tenant ID (TENANT/COLLABORATIVE)
+	OriginalCreatorID      uuid.UUID  `json:"original_creator_id" db:"original_creator_id"`                     // User who originally created the content - immutable
+	AccessLevel            string     `json:"access_level" db:"access_level"`                                   // PRIVATE, TENANT_ONLY, PUBLIC
+	LastModifiedByUserID   *uuid.UUID `json:"last_modified_by_user_id,omitempty" db:"last_modified_by_user_id"` // User who last modified
+	OwnershipTransferredAt *time.Time `json:"ownership_transferred_at,omitempty" db:"ownership_transferred_at"` // When ownership was last transferred
 
 	// Publishing information
 	PublishedAt      *time.Time `json:"published_at,omitempty" db:"published_at"`           // Ngày xuất bản chính thức
@@ -85,9 +88,8 @@ type NovelVolume struct {
 	CoverImage  *string `json:"cover_image,omitempty" db:"cover_image"`   // URL ảnh bìa volume
 	Description *string `json:"description,omitempty" db:"description"`   // Mô tả ngắn volume
 
-	// User tracking
-	CreatedByUserID *uuid.UUID `json:"created_by_user_id,omitempty" db:"created_by_user_id"` // User tạo volume
-	UpdatedByUserID *uuid.UUID `json:"updated_by_user_id,omitempty" db:"updated_by_user_id"` // User cập nhật volume
+	// User tracking (volumes inherit ownership from novel)
+	LastModifiedByUserID *uuid.UUID `json:"last_modified_by_user_id,omitempty" db:"last_modified_by_user_id"` // User who last modified volume
 
 	// Publishing và status
 	PublishedAt *time.Time `json:"published_at,omitempty" db:"published_at"` // Ngày xuất bản volume
@@ -122,9 +124,8 @@ type NovelChapter struct {
 	Title   *string          `json:"title,omitempty" db:"title"`     // Tiêu đề chapter (nếu có)
 	Content *json.RawMessage `json:"content,omitempty" db:"content"` // Nội dung chapter (JSONB rich text)
 
-	// User tracking
-	CreatedByUserID *uuid.UUID `json:"created_by_user_id,omitempty" db:"created_by_user_id"` // User tạo chapter
-	UpdatedByUserID *uuid.UUID `json:"updated_by_user_id,omitempty" db:"updated_by_user_id"` // User cập nhật chapter
+	// User tracking (chapters inherit ownership from novel)
+	LastModifiedByUserID *uuid.UUID `json:"last_modified_by_user_id,omitempty" db:"last_modified_by_user_id"` // User who last modified chapter
 
 	// Publishing workflow
 	PublishedAt        *time.Time `json:"published_at,omitempty" db:"published_at"`               // Thời gian xuất bản chapter

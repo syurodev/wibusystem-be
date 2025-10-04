@@ -47,8 +47,11 @@ type CreateNovelRequest struct {
 	RentalDurationDays *int `json:"rental_duration_days,omitempty" validate:"omitempty,min=1"` // Thời hạn thuê (ngày)
 	IsPremium          bool `json:"is_premium"`                                               // Nội dung premium
 
-	// Tenant context (sẽ được set từ middleware/context)
-	TenantID *uuid.UUID `json:"-"` // Không expose trong JSON, set từ context
+	// Ownership fields (set from middleware/auth context)
+	OwnershipType     string     `json:"ownership_type" validate:"required,oneof=PERSONAL TENANT COLLABORATIVE"` // PERSONAL, TENANT, COLLABORATIVE
+	PrimaryOwnerID    uuid.UUID  `json:"-"`                                                                      // Set from context - user_id or tenant_id
+	OriginalCreatorID uuid.UUID  `json:"-"`                                                                      // Set from context - user who creates
+	AccessLevel       string     `json:"access_level" validate:"required,oneof=PRIVATE TENANT_ONLY PUBLIC"`     // PRIVATE, TENANT_ONLY, PUBLIC
 }
 
 // CreatorRole represents a creator with their role in the novel
@@ -124,9 +127,10 @@ type ListNovelsRequest struct {
 	PublishedAfter  *time.Time `form:"published_after"`  // Lọc xuất bản sau ngày
 	PublishedBefore *time.Time `form:"published_before"` // Lọc xuất bản trước ngày
 
-	// Additional filters for user, tenant, view count, and latest chapter updates
-	UserID   *uuid.UUID `form:"user_id" validate:"omitempty,uuid"`   // Lọc theo user tạo
-	TenantID *uuid.UUID `form:"tenant_id" validate:"omitempty,uuid"` // Lọc theo tenant
+	// Ownership filters
+	OwnershipType  string     `form:"ownership_type" validate:"omitempty,oneof=PERSONAL TENANT COLLABORATIVE"` // Lọc theo loại sở hữu
+	PrimaryOwnerID *uuid.UUID `form:"primary_owner_id" validate:"omitempty,uuid"`                             // Lọc theo owner (user or tenant)
+	CreatorID      *uuid.UUID `form:"creator_id" validate:"omitempty,uuid"`                                   // Lọc theo original creator
 
 	// Date ranges cho latest chapter update
 	LatestChapterUpdatedAfter  *time.Time `form:"latest_chapter_updated_after"`
@@ -145,11 +149,14 @@ type NovelSummaryResponse struct {
 	ViewCount   int64     `json:"view_count"`
 	CreatedAt   time.Time `json:"created_at"`
 
-	// User object
-	User *UserSummary `json:"user"`
+	// Ownership info
+	OwnershipType     string `json:"ownership_type"`      // PERSONAL, TENANT, COLLABORATIVE
+	PrimaryOwnerID    string `json:"primary_owner_id"`    // UUID string
+	OriginalCreatorID string `json:"original_creator_id"` // UUID string
 
-	// Tenant object
-	Tenant *TenantSummary `json:"tenant"`
+	// Owner/Creator objects (populated by service layer via gRPC)
+	PrimaryOwner   interface{} `json:"primary_owner,omitempty"`   // UserSummary or TenantSummary based on ownership_type
+	OriginalCreator *UserSummary `json:"original_creator,omitempty"` // Always a user
 
 	// Latest chapter info
 	LatestChapterUpdatedAt *time.Time `json:"latest_chapter_updated_at"`

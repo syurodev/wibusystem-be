@@ -166,7 +166,7 @@ func (r *chapterRepository) CreateChapter(ctx context.Context, volumeID uuid.UUI
 		wordCount, charCount, readingTime,
 	).Scan(
 		&chapter.ID, &chapter.VolumeID, &chapter.ChapterNumber, &chapter.Title, &chapter.Content,
-		&chapter.CreatedByUserID, &chapter.UpdatedByUserID,
+		&chapter.LastModifiedByUserID,
 		&chapter.PublishedAt, &chapter.ScheduledPublishAt, &chapter.IsDraft, &chapter.IsPublic, &chapter.IsDeleted, &chapter.DeletedAt,
 		&chapter.Version, &chapter.ContentWarnings, &chapter.HasMatureContent, &chapter.PriceCoins,
 		&chapter.WordCount, &chapter.CharacterCount, &chapter.ReadingTimeMinutes,
@@ -222,7 +222,7 @@ func (r *chapterRepository) GetChapterByID(ctx context.Context, id uuid.UUID, in
 
 	err := r.pool.QueryRow(ctx, query, id).Scan(
 		&chapter.ID, &chapter.VolumeID, &chapter.ChapterNumber, &chapter.Title, &chapter.Content,
-		&chapter.CreatedByUserID, &chapter.UpdatedByUserID,
+		&chapter.LastModifiedByUserID,
 		&chapter.PublishedAt, &chapter.ScheduledPublishAt, &chapter.IsDraft, &chapter.IsPublic, &chapter.IsDeleted, &chapter.DeletedAt,
 		&chapter.Version, &chapter.ContentWarnings, &chapter.HasMatureContent, &chapter.PriceCoins,
 		&chapter.WordCount, &chapter.CharacterCount, &chapter.ReadingTimeMinutes,
@@ -454,7 +454,7 @@ func (r *chapterRepository) UpdateChapter(ctx context.Context, id uuid.UUID, req
 	var chapter m.NovelChapter
 	err = tx.QueryRow(ctx, query, args...).Scan(
 		&chapter.ID, &chapter.VolumeID, &chapter.ChapterNumber, &chapter.Title, &chapter.Content,
-		&chapter.CreatedByUserID, &chapter.UpdatedByUserID,
+		&chapter.LastModifiedByUserID,
 		&chapter.PublishedAt, &chapter.ScheduledPublishAt, &chapter.IsDraft, &chapter.IsPublic, &chapter.IsDeleted, &chapter.DeletedAt,
 		&chapter.Version, &chapter.ContentWarnings, &chapter.HasMatureContent, &chapter.PriceCoins,
 		&chapter.WordCount, &chapter.CharacterCount, &chapter.ReadingTimeMinutes,
@@ -590,7 +590,7 @@ func (r *chapterRepository) PublishChapter(ctx context.Context, id uuid.UUID, pu
 
 	err = tx.QueryRow(ctx, query, id, pubTime).Scan(
 		&chapter.ID, &chapter.VolumeID, &chapter.ChapterNumber, &chapter.Title, &chapter.Content,
-		&chapter.CreatedByUserID, &chapter.UpdatedByUserID,
+		&chapter.LastModifiedByUserID,
 		&chapter.PublishedAt, &chapter.ScheduledPublishAt, &chapter.IsDraft, &chapter.IsPublic, &chapter.IsDeleted, &chapter.DeletedAt,
 		&chapter.Version, &chapter.ContentWarnings, &chapter.HasMatureContent, &chapter.PriceCoins,
 		&chapter.WordCount, &chapter.CharacterCount, &chapter.ReadingTimeMinutes,
@@ -636,7 +636,7 @@ func (r *chapterRepository) UnpublishChapter(ctx context.Context, id uuid.UUID) 
 
 	err = tx.QueryRow(ctx, query, id).Scan(
 		&chapter.ID, &chapter.VolumeID, &chapter.ChapterNumber, &chapter.Title, &chapter.Content,
-		&chapter.CreatedByUserID, &chapter.UpdatedByUserID,
+		&chapter.LastModifiedByUserID,
 		&chapter.PublishedAt, &chapter.ScheduledPublishAt, &chapter.IsDraft, &chapter.IsPublic, &chapter.IsDeleted, &chapter.DeletedAt,
 		&chapter.Version, &chapter.ContentWarnings, &chapter.HasMatureContent, &chapter.PriceCoins,
 		&chapter.WordCount, &chapter.CharacterCount, &chapter.ReadingTimeMinutes,

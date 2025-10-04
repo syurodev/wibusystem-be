@@ -59,7 +59,8 @@ func (r *novelRepository) CreateNovel(ctx context.Context, req d.CreateNovelRequ
 	query := `
 		INSERT INTO novel (
 			id, status, cover_image, summary,
-			tenant_id, published_at, original_language, source_url, isbn,
+			ownership_type, primary_owner_id, original_creator_id, access_level,
+			published_at, original_language, source_url, isbn,
 			age_rating, content_warnings, mature_content,
 			is_public, is_featured, is_completed,
 			slug, tags, keywords, meta_description,
@@ -68,16 +69,18 @@ func (r *novelRepository) CreateNovel(ctx context.Context, req d.CreateNovelRequ
 		)
 		VALUES (
 			$1, 'DRAFT', $2, $3,
-			$5, $6, $7, $8, $9,
-			$10, $11, $12,
-			$13, $14, $15,
-			$16, $17, $18, $19,
-			$20, $21, $22, $23,
+			$4, $5, $6, $7,
+			$8, $9, $10, $11,
+			$12, $13, $14,
+			$15, $16, $17,
+			$18, $19, $20, $21,
+			$22, $23, $24, $25,
 			CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
 		)
 		RETURNING
 			id, name, status, cover_image, summary,
-			tenant_id, published_at, original_language, source_url, isbn,
+			ownership_type, primary_owner_id, original_creator_id, access_level,
+			published_at, original_language, source_url, isbn,
 			age_rating, content_warnings, mature_content,
 			is_public, is_featured, is_completed,
 			slug, tags, keywords, meta_description,
@@ -120,14 +123,16 @@ func (r *novelRepository) CreateNovel(ctx context.Context, req d.CreateNovelRequ
 
 	err = tx.QueryRow(ctx, query,
 		novelID, req.Title, req.CoverImage, summaryBytes,
-		req.TenantID, req.PublishedAt, req.OriginalLanguage, sourceURL, isbn,
+		req.OwnershipType, req.PrimaryOwnerID, req.OriginalCreatorID, req.AccessLevel,
+		req.PublishedAt, req.OriginalLanguage, sourceURL, isbn,
 		ageRating, contentWarningsBytes, req.MatureContent,
 		req.IsPublic, req.IsFeatured, req.IsCompleted,
 		slug, tagsBytes, keywords, metaDescription,
 		req.PriceCoins, req.RentalPriceCoins, req.RentalDurationDays, req.IsPremium,
 	).Scan(
 		&novel.ID, &novel.Name, &novel.Status, &novel.CoverImage, &novel.Summary,
-		&novel.TenantID, &novel.PublishedAt, &novel.OriginalLanguage, &novel.SourceURL, &novel.ISBN,
+		&novel.OwnershipType, &novel.PrimaryOwnerID, &novel.OriginalCreatorID, &novel.AccessLevel,
+		&novel.PublishedAt, &novel.OriginalLanguage, &novel.SourceURL, &novel.ISBN,
 		&novel.AgeRating, &novel.ContentWarnings, &novel.MatureContent,
 		&novel.IsPublic, &novel.IsFeatured, &novel.IsCompleted,
 		&novel.Slug, &novel.Tags, &novel.Keywords, &novel.MetaDescription,
@@ -283,7 +288,7 @@ func (r *novelRepository) GetNovelByID(ctx context.Context, id uuid.UUID) (*m.No
 	query := `
 		SELECT
 			id, name, status, cover_image, summary,
-			created_by_user_id, updated_by_user_id, tenant_id,
+			ownership_type, primary_owner_id, original_creator_id, access_level, last_modified_by_user_id, ownership_transferred_at,
 			published_at, original_language, source_url, isbn,
 			age_rating, content_warnings, mature_content,
 			is_public, is_featured, is_completed, is_deleted,
@@ -300,7 +305,7 @@ func (r *novelRepository) GetNovelByID(ctx context.Context, id uuid.UUID) (*m.No
 
 	err := r.pool.QueryRow(ctx, query, id).Scan(
 		&novel.ID, &novel.Name, &novel.Status, &novel.CoverImage, &novel.Summary,
-		&novel.CreatedByUserID, &novel.UpdatedByUserID, &novel.TenantID,
+		&novel.OwnershipType, &novel.PrimaryOwnerID, &novel.OriginalCreatorID, &novel.AccessLevel, &novel.LastModifiedByUserID, &novel.OwnershipTransferredAt,
 		&novel.PublishedAt, &novel.OriginalLanguage, &novel.SourceURL, &novel.ISBN,
 		&novel.AgeRating, &novel.ContentWarnings, &novel.MatureContent,
 		&novel.IsPublic, &novel.IsFeatured, &novel.IsCompleted, &novel.IsDeleted,
@@ -347,7 +352,7 @@ func (r *novelRepository) ListNovels(ctx context.Context, req d.ListNovelsReques
 	baseQuery := `
 	SELECT DISTINCT
 		n.id, n.name, n.cover_image, n.view_count, n.created_at,
-		n.created_by_user_id, n.tenant_id,
+		n.ownership_type, n.primary_owner_id, n.original_creator_id,
 		latest_chapter.updated_at as latest_chapter_updated_at
 	FROM novel n
 	LEFT JOIN novel_genre ng ON n.id = ng.novel_id
@@ -408,15 +413,21 @@ func (r *novelRepository) ListNovels(ctx context.Context, req d.ListNovelsReques
 		argIndex++
 	}
 
-	if req.UserID != nil {
-		conditions = append(conditions, fmt.Sprintf("n.created_by_user_id = $%d", argIndex))
-		args = append(args, *req.UserID)
+	if req.OwnershipType != "" {
+		conditions = append(conditions, fmt.Sprintf("n.ownership_type = $%d", argIndex))
+		args = append(args, req.OwnershipType)
 		argIndex++
 	}
 
-	if req.TenantID != nil {
-		conditions = append(conditions, fmt.Sprintf("n.tenant_id = $%d", argIndex))
-		args = append(args, *req.TenantID)
+	if req.PrimaryOwnerID != nil {
+		conditions = append(conditions, fmt.Sprintf("n.primary_owner_id = $%d", argIndex))
+		args = append(args, *req.PrimaryOwnerID)
+		argIndex++
+	}
+
+	if req.CreatorID != nil {
+		conditions = append(conditions, fmt.Sprintf("n.original_creator_id = $%d", argIndex))
+		args = append(args, *req.CreatorID)
 		argIndex++
 	}
 
@@ -514,25 +525,23 @@ func (r *novelRepository) ListNovels(ctx context.Context, req d.ListNovelsReques
 	var novels []d.NovelSummaryResponse
 	for rows.Next() {
 		var novel d.NovelSummaryResponse
-		var userID, tenantID *uuid.UUID
+		var ownershipType string
+		var primaryOwnerID, originalCreatorID uuid.UUID
 		var latestChapterUpdatedAt *time.Time
 
 		err := rows.Scan(
 			&novel.ID, &novel.Name, &novel.CoverImage, &novel.ViewCount, &novel.CreatedAt,
-			&userID, &tenantID, &latestChapterUpdatedAt,
+			&ownershipType, &primaryOwnerID, &originalCreatorID, &latestChapterUpdatedAt,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan novel row: %w", err)
 		}
 
-		// Note: User and Tenant info will be populated via gRPC calls in the service layer
-		// For now, we'll set them to nil, they will be filled by the service
-		if userID != nil {
-			novel.User = &d.UserSummary{ID: userID.String()}
-		}
-		if tenantID != nil {
-			novel.Tenant = &d.TenantSummary{ID: tenantID.String()}
-		}
+		// Note: Owner info will be populated via gRPC calls in the service layer based on ownership type
+		// For now, store ownership metadata
+		novel.OwnershipType = ownershipType
+		novel.PrimaryOwnerID = primaryOwnerID.String()
+		novel.OriginalCreatorID = originalCreatorID.String()
 		novel.LatestChapterUpdatedAt = latestChapterUpdatedAt
 
 		novels = append(novels, novel)
@@ -727,7 +736,8 @@ func (r *novelRepository) UpdateNovel(ctx context.Context, id uuid.UUID, req d.U
 		WHERE id = $%d AND is_deleted = FALSE
 		RETURNING
 			id, name, status, cover_image, summary,
-			tenant_id, published_at, original_language, source_url, isbn,
+			ownership_type, primary_owner_id, original_creator_id, access_level, last_modified_by_user_id, ownership_transferred_at,
+			published_at, original_language, source_url, isbn,
 			age_rating, content_warnings, mature_content,
 			is_public, is_featured, is_completed,
 			slug, tags, keywords, meta_description,
@@ -743,7 +753,8 @@ func (r *novelRepository) UpdateNovel(ctx context.Context, id uuid.UUID, req d.U
 	var novel m.Novel
 	err = tx.QueryRow(ctx, query, args...).Scan(
 		&novel.ID, &novel.Name, &novel.Status, &novel.CoverImage, &novel.Summary,
-		&novel.TenantID, &novel.PublishedAt, &novel.OriginalLanguage, &novel.SourceURL, &novel.ISBN,
+		&novel.OwnershipType, &novel.PrimaryOwnerID, &novel.OriginalCreatorID, &novel.AccessLevel, &novel.LastModifiedByUserID, &novel.OwnershipTransferredAt,
+		&novel.PublishedAt, &novel.OriginalLanguage, &novel.SourceURL, &novel.ISBN,
 		&novel.AgeRating, &novel.ContentWarnings, &novel.MatureContent,
 		&novel.IsPublic, &novel.IsFeatured, &novel.IsCompleted,
 		&novel.Slug, &novel.Tags, &novel.Keywords, &novel.MetaDescription,
