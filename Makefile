@@ -107,6 +107,50 @@ db-status: ## Show database status
 	@echo "📊 Database Info:"
 	@docker exec -it system_dev psql -U system_dev -d system_dev -c "\dn" 2>/dev/null || echo "Database not running"
 
+.PHONY: db-clean-migrations
+db-clean-migrations: ## Clean up partial migrations (drops identity schema)
+	@echo "⚠️  Cleaning up partial migrations..."
+	@docker exec -it system_dev psql -U system_dev -d system_dev -c "DROP SCHEMA IF EXISTS identity CASCADE;" 2>/dev/null || echo "Schema already clean"
+	@docker exec -it system_dev psql -U system_dev -d system_dev -c "DROP TABLE IF EXISTS schema_migrations;" 2>/dev/null || echo "No migration table to drop"
+	@echo "✅ Migration cleanup complete - ready for fresh migration"
+
+.PHONY: db-seed
+db-seed: ## Seed database with initial development data
+	@echo "🌱 Seeding database..."
+	@echo "📦 [1/4] Seeding OAuth2 clients..."
+	@docker exec -i system_dev psql -U system_dev -d system_dev < seeds/001_oauth2_clients.sql
+	@echo ""
+	@echo "📦 [2/4] Seeding users and tenants..."
+	@docker exec -i system_dev psql -U system_dev -d system_dev < seeds/002_users_and_tenants.sql
+	@echo ""
+	@echo "📦 [3/4] Seeding permissions and roles..."
+	@docker exec -i system_dev psql -U system_dev -d system_dev < seeds/003_permissions_and_roles.sql
+	@echo ""
+	@echo "📦 [4/4] Assigning admin roles..."
+	@docker exec -i system_dev psql -U system_dev -d system_dev < seeds/004_assign_admin_roles.sql
+	@echo ""
+	@echo "✅ Database seeded successfully"
+
+.PHONY: db-seed-oauth2
+db-seed-oauth2: ## Seed OAuth2 clients only
+	@echo "🔑 Seeding OAuth2 clients..."
+	@docker exec -i system_dev psql -U system_dev -d system_dev < seeds/001_oauth2_clients.sql
+
+.PHONY: db-seed-users
+db-seed-users: ## Seed users and tenants only
+	@echo "👥 Seeding users and tenants..."
+	@docker exec -i system_dev psql -U system_dev -d system_dev < seeds/002_users_and_tenants.sql
+
+.PHONY: db-seed-permissions
+db-seed-permissions: ## Seed permissions and roles only
+	@echo "🔐 Seeding permissions and roles..."
+	@docker exec -i system_dev psql -U system_dev -d system_dev < seeds/003_permissions_and_roles.sql
+
+.PHONY: db-seed-admin-roles
+db-seed-admin-roles: ## Assign admin roles only
+	@echo "👑 Assigning admin roles..."
+	@docker exec -i system_dev psql -U system_dev -d system_dev < seeds/004_assign_admin_roles.sql
+
 # ============================================================================
 # Testing Commands
 # ============================================================================
@@ -203,6 +247,48 @@ docker-clean: ## Clean Docker resources
 	@echo "🧹 Cleaning Docker resources..."
 	docker compose down -v
 	docker system prune -f
+
+# ============================================================================
+# OAuth2 Management
+# ============================================================================
+
+.PHONY: oauth2-create-client
+oauth2-create-client: ## Create OAuth2 client (usage: make oauth2-create-client ID=my-app NAME="My App" SECRET=secret)
+	@if [ -z "$(ID)" ] || [ -z "$(NAME)" ]; then \
+		echo "❌ Error: ID and NAME are required"; \
+		echo "Usage: make oauth2-create-client ID=my-app NAME=\"My App\" SECRET=mysecret"; \
+		echo "Optional: PUBLIC=true REDIRECT_URIS=\"http://localhost:3000/callback\""; \
+		exit 1; \
+	fi
+	@echo "🔑 Creating OAuth2 client..."
+	go run ./cmd/oauth2-client \
+		-id="$(ID)" \
+		-name="$(NAME)" \
+		$(if $(SECRET),-secret="$(SECRET)") \
+		$(if $(PUBLIC),-public=$(PUBLIC)) \
+		$(if $(REDIRECT_URIS),-redirect-uris="$(REDIRECT_URIS)") \
+		$(if $(GRANT_TYPES),-grant-types="$(GRANT_TYPES)") \
+		$(if $(SCOPES),-scopes="$(SCOPES)")
+
+.PHONY: oauth2-list-clients
+oauth2-list-clients: ## List all OAuth2 clients
+	@echo "📋 OAuth2 Clients:"
+	@docker exec system_dev psql -U system_dev -d system_dev -c "\
+		SELECT id, client_name, public, redirect_uris, grant_types, created_at \
+		FROM identity.oauth2_clients \
+		ORDER BY created_at DESC;"
+
+.PHONY: oauth2-delete-client
+oauth2-delete-client: ## Delete OAuth2 client (usage: make oauth2-delete-client ID=my-app)
+	@if [ -z "$(ID)" ]; then \
+		echo "❌ Error: ID is required"; \
+		echo "Usage: make oauth2-delete-client ID=my-app"; \
+		exit 1; \
+	fi
+	@echo "🗑️  Deleting OAuth2 client: $(ID)"
+	@docker exec system_dev psql -U system_dev -d system_dev -c "\
+		DELETE FROM identity.oauth2_clients WHERE id = '$(ID)';"
+	@echo "✅ Client deleted"
 
 # ============================================================================
 # Migration Management

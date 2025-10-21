@@ -115,27 +115,33 @@ func main() {
 
 	log.Println("✅ Routes configured")
 
-	// Graceful shutdown
+	// Setup graceful shutdown
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+
+	// Start server in a goroutine
 	go func() {
-		sigChan := make(chan os.Signal, 1)
-		signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
-		<-sigChan
+		portStr := strconv.Itoa(cfg.Server.Port)
+		log.Printf("🚀 Server starting on http://localhost:%s", portStr)
 
-		log.Println("Shutting down gracefully...")
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-
-		if err := app.ShutdownWithContext(ctx); err != nil {
-			log.Printf("Error during shutdown: %v", err)
+		if err := app.Listen(":" + portStr); err != nil {
+			log.Printf("Server error: %v", err)
 		}
 	}()
 
-	// Start server
-	portStr := strconv.Itoa(cfg.Server.Port)
+	// Wait for shutdown signal
+	<-sigChan
+	log.Println("Shutting down gracefully...")
 
-	log.Printf("🚀 Server starting on http://localhost:%s", portStr)
+	// Create shutdown context with timeout
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer shutdownCancel()
 
-	if err := app.Listen(":" + portStr); err != nil {
-		log.Fatalf("Failed to start server: %v", err)
+	// Shutdown Fiber server
+	if err := app.ShutdownWithContext(shutdownCtx); err != nil {
+		log.Printf("Error during server shutdown: %v", err)
 	}
+
+	log.Println("✅ Shutdown completed")
+	// Database will be closed by defer db.Close()
 }

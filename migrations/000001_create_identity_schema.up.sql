@@ -15,29 +15,41 @@ SET search_path TO identity, public;
 -- ============================================================================
 
 -- User status enum
-CREATE TYPE identity.user_status AS ENUM (
-    'active',
-    'inactive',
-    'suspended',
-    'pending_verification'
-);
+DO $$ BEGIN
+    CREATE TYPE identity.user_status AS ENUM (
+        'active',
+        'inactive',
+        'suspended',
+        'pending_verification'
+    );
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
 
 -- Tenant status enum
-CREATE TYPE identity.tenant_status AS ENUM (
-    'active',
-    'inactive',
-    'suspended',
-    'trial'
-);
+DO $$ BEGIN
+    CREATE TYPE identity.tenant_status AS ENUM (
+        'active',
+        'inactive',
+        'suspended',
+        'trial'
+    );
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
 
 -- OAuth2 grant types
-CREATE TYPE identity.grant_type AS ENUM (
-    'authorization_code',
-    'client_credentials',
-    'refresh_token',
-    'password',
-    'implicit'
-);
+DO $$ BEGIN
+    CREATE TYPE identity.grant_type AS ENUM (
+        'authorization_code',
+        'client_credentials',
+        'refresh_token',
+        'password',
+        'implicit'
+    );
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
 
 -- ============================================================================
 -- CORE TABLES

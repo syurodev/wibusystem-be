@@ -49,7 +49,21 @@ make db-up      # Start database & Redis
 make run        # Start application
 ```
 
-### Step 3: Verify It Works
+### Step 3: Seed Database (Optional)
+```bash
+# Seed database with demo data (4 users, 3 tenants, 4 OAuth2 clients)
+make db-seed
+
+# Or create OAuth2 client manually
+make oauth2-create-client \
+  ID=my-app \
+  NAME="My Application" \
+  SECRET="my-secret-key"
+```
+
+📖 **See:** [Database Seeds Guide](seeds/README.md) | [OAuth2 Quick Start](docs/OAUTH2_QUICK_START.md)
+
+### Step 4: Verify It Works
 ```bash
 # In another terminal
 make poc-verify
@@ -177,10 +191,19 @@ make help               # Show all commands
 ### Database
 ```bash
 make db-up              # Start database
+make db-seed            # Seed with demo data
 make db-connect         # Connect with psql
 make db-status          # Show status
 make db-logs            # Show logs
 make db-reset           # Reset (DANGER!)
+make db-clean-migrations # Clean partial migrations
+```
+
+### OAuth2 Management
+```bash
+make oauth2-create-client ID=app NAME="App" SECRET=secret  # Create client
+make oauth2-list-clients                                   # List all clients
+make oauth2-delete-client ID=app                           # Delete client
 ```
 
 ### Testing
@@ -319,6 +342,8 @@ make db-reset
 
 ### Documentation
 - **Quick Start:** `POC_README.md`
+- **OAuth2 Quick Start:** `docs/OAUTH2_QUICK_START.md` ⭐ NEW
+- **OAuth2 Management:** `docs/OAUTH2_CLIENT_MANAGEMENT.md` ⭐ NEW
 - **Migration Plan:** `docs/migration/to-modular-monolith.md`
 - **Comparison:** `docs/migration/comparison.md`
 - **Setup Details:** `docs/migration/poc-setup-complete.md`

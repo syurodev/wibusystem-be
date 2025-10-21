@@ -76,6 +76,7 @@ func (db *DB) Pool() *pgxpool.Pool {
 // Close closes the database connection pool.
 func (db *DB) Close() {
 	if db.pool != nil {
+		log.Println("Closing database connection pool...")
 		db.pool.Close()
 		log.Println("Database connection closed")
 	}
@@ -135,6 +136,15 @@ func (db *DB) RunMigrations(migrationsPath string) error {
 	if err != nil {
 		return fmt.Errorf("failed to create migration instance: %w", err)
 	}
+	defer func() {
+		srcErr, dbErr := m.Close()
+		if srcErr != nil {
+			log.Printf("Warning: error closing migration source: %v", srcErr)
+		}
+		if dbErr != nil {
+			log.Printf("Warning: error closing migration database: %v", dbErr)
+		}
+	}()
 
 	// Run migrations
 	if err := m.Up(); err != nil && err != migrate.ErrNoChange {

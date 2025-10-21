@@ -45,7 +45,7 @@ func SetupRouter(app *fiber.App, config RouterConfig) {
 
 	// CORS middleware
 	if config.Environment == "development" {
-		app.Use(middleware.DevelopmentCORS())
+		app.Use(middleware.DevelopmentCORS(config.AllowedOrigins))
 	} else {
 		app.Use(middleware.ProductionCORS(config.AllowedOrigins))
 	}
@@ -187,7 +187,7 @@ func SetupMinimalRouter(app *fiber.App, authService service.AuthService) {
 	// Minimal middleware
 	app.Use(requestid.New())
 	app.Use(middleware.RecoverMiddleware())
-	app.Use(middleware.DevelopmentCORS())
+	app.Use(middleware.DevelopmentCORS(nil))
 
 	// Health check
 	app.Get("/health", healthCheck)

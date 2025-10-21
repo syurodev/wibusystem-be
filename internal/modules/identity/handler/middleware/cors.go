@@ -74,15 +74,16 @@ func CORSMiddleware(config CORSConfig) fiber.Handler {
 	})
 }
 
-// DevelopmentCORS returns a permissive CORS middleware for development
-func DevelopmentCORS() fiber.Handler {
-	return cors.New(cors.Config{
-		AllowOrigins:     "*",
-		AllowMethods:     "GET,POST,PUT,PATCH,DELETE,OPTIONS,HEAD",
-		AllowHeaders:     "Origin,Content-Type,Accept,Authorization,X-Requested-With,X-Request-ID,X-Tenant-ID",
-		AllowCredentials: false,
-		MaxAge:           86400,
-	})
+// DevelopmentCORS returns a configurable CORS middleware for development environments.
+// It enables credentials support so that cookies/session data work during local development.
+func DevelopmentCORS(allowedOrigins []string) fiber.Handler {
+	config := DefaultCORSConfig()
+
+	if len(allowedOrigins) > 0 {
+		config.AllowOrigins = allowedOrigins
+	}
+
+	return CORSMiddleware(config)
 }
 
 // ProductionCORS returns a strict CORS middleware for production
