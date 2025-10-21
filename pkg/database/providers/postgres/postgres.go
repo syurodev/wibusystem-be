@@ -99,7 +99,7 @@ func (p *PostgresProvider) BeginTx(ctx context.Context) (interfaces.Transaction,
 }
 
 // Query executes a query that returns rows
-func (p *PostgresProvider) Query(ctx context.Context, sql string, args ...interface{}) (interfaces.Rows, error) {
+func (p *PostgresProvider) Query(ctx context.Context, sql string, args ...any) (interfaces.Rows, error) {
 	if p.pool == nil {
 		return nil, fmt.Errorf("postgres provider not connected")
 	}
@@ -113,7 +113,7 @@ func (p *PostgresProvider) Query(ctx context.Context, sql string, args ...interf
 }
 
 // QueryRow executes a query that returns at most one row
-func (p *PostgresProvider) QueryRow(ctx context.Context, sql string, args ...interface{}) interfaces.Row {
+func (p *PostgresProvider) QueryRow(ctx context.Context, sql string, args ...any) interfaces.Row {
 	if p.pool == nil {
 		return &PostgresRow{err: fmt.Errorf("postgres provider not connected")}
 	}
@@ -123,7 +123,7 @@ func (p *PostgresProvider) QueryRow(ctx context.Context, sql string, args ...int
 }
 
 // Exec executes a query that doesn't return rows
-func (p *PostgresProvider) Exec(ctx context.Context, sql string, args ...interface{}) (interfaces.Result, error) {
+func (p *PostgresProvider) Exec(ctx context.Context, sql string, args ...any) (interfaces.Result, error) {
 	if p.pool == nil {
 		return nil, fmt.Errorf("postgres provider not connected")
 	}

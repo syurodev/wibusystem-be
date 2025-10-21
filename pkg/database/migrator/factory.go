@@ -11,7 +11,7 @@ import (
 type DefaultMigratorFactory struct{}
 
 // CreateMigrator creates a migrator for the given database type
-func (f *DefaultMigratorFactory) CreateMigrator(dbType interfaces.DatabaseType, db interface{}, migrationConfig *MigrationConfig) (Migrator, error) {
+func (f *DefaultMigratorFactory) CreateMigrator(dbType interfaces.DatabaseType, db any, migrationConfig *MigrationConfig) (Migrator, error) {
 	switch dbType {
 	case interfaces.PostgreSQL:
 		return f.createPostgresMigrator(db, migrationConfig)
@@ -24,7 +24,7 @@ func (f *DefaultMigratorFactory) CreateMigrator(dbType interfaces.DatabaseType, 
 }
 
 // createPostgresMigrator creates a PostgreSQL migrator
-func (f *DefaultMigratorFactory) createPostgresMigrator(db interface{}, migrationConfig *MigrationConfig) (Migrator, error) {
+func (f *DefaultMigratorFactory) createPostgresMigrator(db any, migrationConfig *MigrationConfig) (Migrator, error) {
 	// Extract relational config from the database interface
 	relationalConfig, ok := db.(interfaces.RelationalConfigInterface)
 	if !ok {

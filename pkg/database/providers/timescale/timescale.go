@@ -91,7 +91,7 @@ func (t *TimescaleProvider) CreateHypertable(ctx context.Context, table string, 
 
 	// Build the CREATE HYPERTABLE query
 	var queryParts []string
-	var args []interface{}
+	var args []any
 	argIndex := 1
 
 	queryParts = append(queryParts, "SELECT create_hypertable($"+fmt.Sprintf("%d", argIndex)+", $"+fmt.Sprintf("%d", argIndex+1))

@@ -20,7 +20,7 @@ type ErrorDetail struct {
 type StandardResponse struct {
 	Success bool                   `json:"success"`
 	Message string                 `json:"message"`
-	Data    interface{}            `json:"data"`
+	Data    any            `json:"data"`
 	Error   *ErrorDetail           `json:"error"`
-	Meta    map[string]interface{} `json:"meta"`
+	Meta    map[string]any `json:"meta"`
 }

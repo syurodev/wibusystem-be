@@ -25,7 +25,7 @@ const (
 )
 
 // TenantSettings represents tenant settings as JSONB
-type TenantSettings map[string]interface{}
+type TenantSettings map[string]any
 
 // Value implements driver.Valuer interface for database storage
 func (ts TenantSettings) Value() (driver.Value, error) {
@@ -36,7 +36,7 @@ func (ts TenantSettings) Value() (driver.Value, error) {
 }
 
 // Scan implements sql.Scanner interface for database retrieval
-func (ts *TenantSettings) Scan(value interface{}) error {
+func (ts *TenantSettings) Scan(value any) error {
 	if value == nil {
 		return nil
 	}

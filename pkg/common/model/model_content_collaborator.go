@@ -31,7 +31,7 @@ const (
 )
 
 // RevenueNotes represents additional revenue sharing terms as JSONB
-type RevenueNotes map[string]interface{}
+type RevenueNotes map[string]any
 
 // Value implements driver.Valuer interface for database storage
 func (rn RevenueNotes) Value() (driver.Value, error) {
@@ -42,7 +42,7 @@ func (rn RevenueNotes) Value() (driver.Value, error) {
 }
 
 // Scan implements sql.Scanner interface for database retrieval
-func (rn *RevenueNotes) Scan(value interface{}) error {
+func (rn *RevenueNotes) Scan(value any) error {
 	if value == nil {
 		return nil
 	}
@@ -56,7 +56,7 @@ func (rn *RevenueNotes) Scan(value interface{}) error {
 }
 
 // CustomPermissions represents custom permission overrides as JSONB
-type CustomPermissions map[string]interface{}
+type CustomPermissions map[string]any
 
 // Value implements driver.Valuer interface for database storage
 func (cp CustomPermissions) Value() (driver.Value, error) {
@@ -67,7 +67,7 @@ func (cp CustomPermissions) Value() (driver.Value, error) {
 }
 
 // Scan implements sql.Scanner interface for database retrieval
-func (cp *CustomPermissions) Scan(value interface{}) error {
+func (cp *CustomPermissions) Scan(value any) error {
 	if value == nil {
 		return nil
 	}

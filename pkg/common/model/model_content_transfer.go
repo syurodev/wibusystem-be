@@ -33,7 +33,7 @@ const (
 )
 
 // TransferConditions represents additional transfer conditions as JSONB
-type TransferConditions map[string]interface{}
+type TransferConditions map[string]any
 
 // Value implements driver.Valuer interface for database storage
 func (tc TransferConditions) Value() (driver.Value, error) {
@@ -44,7 +44,7 @@ func (tc TransferConditions) Value() (driver.Value, error) {
 }
 
 // Scan implements sql.Scanner interface for database retrieval
-func (tc *TransferConditions) Scan(value interface{}) error {
+func (tc *TransferConditions) Scan(value any) error {
 	if value == nil {
 		return nil
 	}
@@ -58,7 +58,7 @@ func (tc *TransferConditions) Scan(value interface{}) error {
 }
 
 // TransferNotes represents additional transfer metadata as JSONB
-type TransferNotes map[string]interface{}
+type TransferNotes map[string]any
 
 // Value implements driver.Valuer interface for database storage
 func (tn TransferNotes) Value() (driver.Value, error) {
@@ -69,7 +69,7 @@ func (tn TransferNotes) Value() (driver.Value, error) {
 }
 
 // Scan implements sql.Scanner interface for database retrieval
-func (tn *TransferNotes) Scan(value interface{}) error {
+func (tn *TransferNotes) Scan(value any) error {
 	if value == nil {
 		return nil
 	}

@@ -3,7 +3,7 @@ module wibusystem/pkg/middleware
 go 1.25.1
 
 require (
-	github.com/gin-gonic/gin v1.10.1
+	github.com/gin-gonic/gin v1.11.0
 	github.com/google/uuid v1.6.0
 	google.golang.org/grpc v1.75.1
 	wibusystem/pkg/common v0.0.0

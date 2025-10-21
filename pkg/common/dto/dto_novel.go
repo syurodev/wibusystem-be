@@ -155,7 +155,7 @@ type NovelSummaryResponse struct {
 	OriginalCreatorID string `json:"original_creator_id"` // UUID string
 
 	// Owner/Creator objects (populated by service layer via gRPC)
-	PrimaryOwner   interface{} `json:"primary_owner,omitempty"`   // UserSummary or TenantSummary based on ownership_type
+	PrimaryOwner   any `json:"primary_owner,omitempty"`   // UserSummary or TenantSummary based on ownership_type
 	OriginalCreator *UserSummary `json:"original_creator,omitempty"` // Always a user
 
 	// Latest chapter info
@@ -211,7 +211,7 @@ type NovelDetailResponse struct {
 	ID              string                 `json:"id"`
 	Name            string                 `json:"name"`              // Tên theo ngôn ngữ client
 	CoverImage      *string                `json:"cover_image"`       // URL ảnh bìa
-	Summary         map[string]interface{} `json:"summary"`           // JSON content từ Plate editor
+	Summary         map[string]any `json:"summary"`           // JSON content từ Plate editor
 	Status          string                 `json:"status"`            // Trạng thái
 	PublishedAt     *time.Time             `json:"published_at"`      // Ngày xuất bản
 	OriginalLanguage string                 `json:"original_language"` // Ngôn ngữ gốc
@@ -238,8 +238,8 @@ type NovelDetailResponse struct {
 	Genres          []GenreInfo            `json:"genres"`            // Danh sách thể loại
 	Creators        []CreatorInfo          `json:"creators"`          // Danh sách creator
 	Characters      []CharacterInfo        `json:"characters"`        // Danh sách nhân vật
-	Translations    []interface{}          `json:"translations"`      // Bản dịch (nếu có)
-	Stats           map[string]interface{} `json:"stats"`             // Thống kê (nếu có)
+	Translations    []any          `json:"translations"`      // Bản dịch (nếu có)
+	Stats           map[string]any `json:"stats"`             // Thống kê (nếu có)
 	CreatedAt       time.Time              `json:"created_at"`
 	UpdatedAt       time.Time              `json:"updated_at"`
 }

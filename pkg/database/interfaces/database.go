@@ -38,14 +38,14 @@ type Transaction interface {
 // Rows represents a query result set
 type Rows interface {
 	Next() bool
-	Scan(dest ...interface{}) error
+	Scan(dest ...any) error
 	Close() error
 	Err() error
 }
 
 // Row represents a single query result row
 type Row interface {
-	Scan(dest ...interface{}) error
+	Scan(dest ...any) error
 }
 
 // Result represents the result of a command execution
@@ -59,9 +59,9 @@ type RelationalDatabase interface {
 	Database
 
 	// Query execution
-	Query(ctx context.Context, sql string, args ...interface{}) (Rows, error)
-	QueryRow(ctx context.Context, sql string, args ...interface{}) Row
-	Exec(ctx context.Context, sql string, args ...interface{}) (Result, error)
+	Query(ctx context.Context, sql string, args ...any) (Rows, error)
+	QueryRow(ctx context.Context, sql string, args ...any) Row
+	Exec(ctx context.Context, sql string, args ...any) (Result, error)
 
 	// Migration support
 	Migrate(ctx context.Context, direction MigrationDirection) error
@@ -88,21 +88,21 @@ type CacheDatabase interface {
 
 	// Key-value operations
 	Get(ctx context.Context, key string) (string, error)
-	Set(ctx context.Context, key string, value interface{}, expiration time.Duration) error
+	Set(ctx context.Context, key string, value any, expiration time.Duration) error
 	Delete(ctx context.Context, keys ...string) error
 	Exists(ctx context.Context, keys ...string) (int64, error)
 
 	// Hash operations
 	HGet(ctx context.Context, key, field string) (string, error)
-	HSet(ctx context.Context, key string, values ...interface{}) error
+	HSet(ctx context.Context, key string, values ...any) error
 	HDelete(ctx context.Context, key string, fields ...string) error
 
 	// List operations
-	LPush(ctx context.Context, key string, values ...interface{}) error
+	LPush(ctx context.Context, key string, values ...any) error
 	RPop(ctx context.Context, key string) (string, error)
 
 	// Set operations
-	SAdd(ctx context.Context, key string, members ...interface{}) error
+	SAdd(ctx context.Context, key string, members ...any) error
 	SMembers(ctx context.Context, key string) ([]string, error)
 }
 
@@ -138,7 +138,7 @@ type IndexDefinition struct {
 	Unique  bool                   `json:"unique"`
 	Sparse  bool                   `json:"sparse"`
 	TTL     *time.Duration         `json:"ttl,omitempty"`
-	Options map[string]interface{} `json:"options,omitempty"`
+	Options map[string]any `json:"options,omitempty"`
 }
 
 // HypertableOptions defines TimescaleDB hypertable configuration

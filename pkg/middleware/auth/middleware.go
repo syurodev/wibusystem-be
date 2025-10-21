@@ -224,7 +224,7 @@ func (m *Middleware) respondUnauthorized(c *gin.Context, message string) {
 			Code:        "unauthorized",
 			Description: message,
 		},
-		Meta: map[string]interface{}{},
+		Meta: map[string]any{},
 	})
 	c.Abort()
 }
@@ -239,7 +239,7 @@ func (m *Middleware) respondForbidden(c *gin.Context, message string) {
 			Code:        "forbidden",
 			Description: message,
 		},
-		Meta: map[string]interface{}{},
+		Meta: map[string]any{},
 	})
 	c.Abort()
 }
@@ -254,7 +254,7 @@ func (m *Middleware) respondError(c *gin.Context, message string, statusCode int
 			Code:        "auth_error",
 			Description: message,
 		},
-		Meta: map[string]interface{}{},
+		Meta: map[string]any{},
 	})
 	c.Abort()
 }

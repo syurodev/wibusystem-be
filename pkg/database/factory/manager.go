@@ -256,12 +256,12 @@ func (dm *DatabaseManager) createTimeSeriesDatabase(config *config.TimeSeriesCon
 // Utility methods
 
 // GetDatabasesStatus returns the status of all databases
-func (dm *DatabaseManager) GetDatabasesStatus(ctx context.Context) map[string]interface{} {
-	status := make(map[string]interface{})
+func (dm *DatabaseManager) GetDatabasesStatus(ctx context.Context) map[string]any {
+	status := make(map[string]any)
 
 	if dm.primary != nil {
 		err := dm.primary.Health(ctx)
-		status["primary"] = map[string]interface{}{
+		status["primary"] = map[string]any{
 			"type":      dm.primary.GetType(),
 			"connected": err == nil,
 			"error":     err,
@@ -270,7 +270,7 @@ func (dm *DatabaseManager) GetDatabasesStatus(ctx context.Context) map[string]in
 
 	if dm.cache != nil {
 		err := dm.cache.Health(ctx)
-		status["cache"] = map[string]interface{}{
+		status["cache"] = map[string]any{
 			"type":      dm.cache.GetType(),
 			"connected": err == nil,
 			"error":     err,
@@ -279,7 +279,7 @@ func (dm *DatabaseManager) GetDatabasesStatus(ctx context.Context) map[string]in
 
 	if dm.document != nil {
 		err := dm.document.Health(ctx)
-		status["document"] = map[string]interface{}{
+		status["document"] = map[string]any{
 			"type":      dm.document.GetType(),
 			"connected": err == nil,
 			"error":     err,
@@ -288,7 +288,7 @@ func (dm *DatabaseManager) GetDatabasesStatus(ctx context.Context) map[string]in
 
 	if dm.timeseries != nil {
 		err := dm.timeseries.Health(ctx)
-		status["timeseries"] = map[string]interface{}{
+		status["timeseries"] = map[string]any{
 			"type":      dm.timeseries.GetType(),
 			"connected": err == nil,
 			"error":     err,

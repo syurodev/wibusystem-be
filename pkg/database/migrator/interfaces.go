@@ -46,7 +46,7 @@ type MigrationConfig struct {
 // MigratorFactory creates migrators for different database types
 type MigratorFactory interface {
 	// CreateMigrator creates a migrator for the given database type
-	CreateMigrator(dbType interfaces.DatabaseType, db interface{}, config *MigrationConfig) (Migrator, error)
+	CreateMigrator(dbType interfaces.DatabaseType, db any, config *MigrationConfig) (Migrator, error)
 
 	// SupportedDatabases returns list of supported database types
 	SupportedDatabases() []interfaces.DatabaseType

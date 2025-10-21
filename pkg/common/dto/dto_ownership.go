@@ -48,7 +48,7 @@ type TransferResponse struct {
 	ApprovedAt       *time.Time             `json:"approved_at,omitempty"`
 	CompletedAt      *time.Time             `json:"completed_at,omitempty"`
 	ExpiresAt        *time.Time             `json:"expires_at,omitempty"`
-	Conditions       map[string]interface{} `json:"conditions,omitempty"`
+	Conditions       map[string]any `json:"conditions,omitempty"`
 }
 
 // CreateCollaboratorRequest represents a request to add a collaborator

@@ -20,7 +20,7 @@ func NoRouteHandler() gin.HandlerFunc {
 				Code:        "route_not_found",
 				Description: fmt.Sprintf("The requested route '%s %s' does not exist", c.Request.Method, c.Request.URL.Path),
 			},
-			Meta: map[string]interface{}{},
+			Meta: map[string]any{},
 		})
 	}
 }

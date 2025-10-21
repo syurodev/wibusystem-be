@@ -50,7 +50,7 @@ type VolumeResponse struct {
 	UpdatedAt    time.Time  `json:"updated_at"` // Last update timestamp
 
 	// Chapters field is only populated when IncludeChapters=true
-	Chapters []interface{} `json:"chapters,omitempty"` // Chapter list (optional, populated based on request)
+	Chapters []any `json:"chapters,omitempty"` // Chapter list (optional, populated based on request)
 }
 
 // CreateVolumeResponse represents the response after creating a volume

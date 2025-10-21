@@ -15,7 +15,7 @@ func (r *PostgresRows) Next() bool {
 	return r.rows.Next()
 }
 
-func (r *PostgresRows) Scan(dest ...interface{}) error {
+func (r *PostgresRows) Scan(dest ...any) error {
 	return r.rows.Scan(dest...)
 }
 
@@ -34,7 +34,7 @@ type PostgresRow struct {
 	err error
 }
 
-func (r *PostgresRow) Scan(dest ...interface{}) error {
+func (r *PostgresRow) Scan(dest ...any) error {
 	if r.err != nil {
 		return r.err
 	}

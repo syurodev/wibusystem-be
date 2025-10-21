@@ -117,7 +117,7 @@ func (r *RedisProvider) Get(ctx context.Context, key string) (string, error) {
 }
 
 // Set sets a key-value pair with optional expiration
-func (r *RedisProvider) Set(ctx context.Context, key string, value interface{}, expiration time.Duration) error {
+func (r *RedisProvider) Set(ctx context.Context, key string, value any, expiration time.Duration) error {
 	if r.client == nil {
 		return fmt.Errorf("redis provider not connected")
 	}
@@ -178,7 +178,7 @@ func (r *RedisProvider) HGet(ctx context.Context, key, field string) (string, er
 }
 
 // HSet sets field values in a hash
-func (r *RedisProvider) HSet(ctx context.Context, key string, values ...interface{}) error {
+func (r *RedisProvider) HSet(ctx context.Context, key string, values ...any) error {
 	if r.client == nil {
 		return fmt.Errorf("redis provider not connected")
 	}
@@ -208,7 +208,7 @@ func (r *RedisProvider) HDelete(ctx context.Context, key string, fields ...strin
 // List operations
 
 // LPush pushes values to the left (head) of a list
-func (r *RedisProvider) LPush(ctx context.Context, key string, values ...interface{}) error {
+func (r *RedisProvider) LPush(ctx context.Context, key string, values ...any) error {
 	if r.client == nil {
 		return fmt.Errorf("redis provider not connected")
 	}
@@ -241,7 +241,7 @@ func (r *RedisProvider) RPop(ctx context.Context, key string) (string, error) {
 // Set operations
 
 // SAdd adds members to a set
-func (r *RedisProvider) SAdd(ctx context.Context, key string, members ...interface{}) error {
+func (r *RedisProvider) SAdd(ctx context.Context, key string, members ...any) error {
 	if r.client == nil {
 		return fmt.Errorf("redis provider not connected")
 	}

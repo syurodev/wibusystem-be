@@ -128,7 +128,7 @@ func RegisterTenantServiceServer(s grpc.ServiceRegistrar, srv TenantServiceServe
 	s.RegisterService(&TenantService_ServiceDesc, srv)
 }
 
-func _TenantService_GetTenant_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _TenantService_GetTenant_Handler(srv any, ctx context.Context, dec func(any) error, interceptor grpc.UnaryServerInterceptor) (any, error) {
 	in := new(GetTenantRequest)
 	if err := dec(in); err != nil {
 		return nil, err
@@ -140,13 +140,13 @@ func _TenantService_GetTenant_Handler(srv interface{}, ctx context.Context, dec 
 		Server:     srv,
 		FullMethod: TenantService_GetTenant_FullMethodName,
 	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+	handler := func(ctx context.Context, req any) (any, error) {
 		return srv.(TenantServiceServer).GetTenant(ctx, req.(*GetTenantRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _TenantService_GetTenants_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _TenantService_GetTenants_Handler(srv any, ctx context.Context, dec func(any) error, interceptor grpc.UnaryServerInterceptor) (any, error) {
 	in := new(GetTenantsRequest)
 	if err := dec(in); err != nil {
 		return nil, err
@@ -158,13 +158,13 @@ func _TenantService_GetTenants_Handler(srv interface{}, ctx context.Context, dec
 		Server:     srv,
 		FullMethod: TenantService_GetTenants_FullMethodName,
 	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+	handler := func(ctx context.Context, req any) (any, error) {
 		return srv.(TenantServiceServer).GetTenants(ctx, req.(*GetTenantsRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _TenantService_GetTenantBySlug_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _TenantService_GetTenantBySlug_Handler(srv any, ctx context.Context, dec func(any) error, interceptor grpc.UnaryServerInterceptor) (any, error) {
 	in := new(GetTenantBySlugRequest)
 	if err := dec(in); err != nil {
 		return nil, err
@@ -176,7 +176,7 @@ func _TenantService_GetTenantBySlug_Handler(srv interface{}, ctx context.Context
 		Server:     srv,
 		FullMethod: TenantService_GetTenantBySlug_FullMethodName,
 	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+	handler := func(ctx context.Context, req any) (any, error) {
 		return srv.(TenantServiceServer).GetTenantBySlug(ctx, req.(*GetTenantBySlugRequest))
 	}
 	return interceptor(ctx, in, info, handler)

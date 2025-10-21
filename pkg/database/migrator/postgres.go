@@ -127,7 +127,7 @@ func (m *PostgresMigrator) Close() error {
 // MigrationLogger implements migrate.Logger for verbose output
 type MigrationLogger struct{}
 
-func (l *MigrationLogger) Printf(format string, v ...interface{}) {
+func (l *MigrationLogger) Printf(format string, v ...any) {
 	fmt.Printf("[MIGRATION] "+format, v...)
 }
 

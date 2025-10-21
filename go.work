@@ -1,9 +1,0 @@
-go 1.25.1
-
-use (
-	.
-	./pkg/grpc
-	./pkg/middleware
-	./services/catalog
-	./services/identify
-)

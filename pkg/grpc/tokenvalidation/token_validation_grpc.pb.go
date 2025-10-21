@@ -93,7 +93,7 @@ func RegisterTokenValidationServiceServer(s grpc.ServiceRegistrar, srv TokenVali
 	s.RegisterService(&TokenValidationService_ServiceDesc, srv)
 }
 
-func _TokenValidationService_ValidateToken_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _TokenValidationService_ValidateToken_Handler(srv any, ctx context.Context, dec func(any) error, interceptor grpc.UnaryServerInterceptor) (any, error) {
 	in := new(ValidateTokenRequest)
 	if err := dec(in); err != nil {
 		return nil, err
@@ -105,7 +105,7 @@ func _TokenValidationService_ValidateToken_Handler(srv interface{}, ctx context.
 		Server:     srv,
 		FullMethod: TokenValidationService_ValidateToken_FullMethodName,
 	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+	handler := func(ctx context.Context, req any) (any, error) {
 		return srv.(TokenValidationServiceServer).ValidateToken(ctx, req.(*ValidateTokenRequest))
 	}
 	return interceptor(ctx, in, info, handler)
