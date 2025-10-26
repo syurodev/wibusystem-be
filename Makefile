@@ -1,411 +1,236 @@
-# ============================================================================
-# WibuSystem Modular Monolith - Makefile
-# ============================================================================
+# Makefile for System Project
+# Author: System Team
+# Description: Helper commands cho development, testing và deployment
 
+# =====================================================
+# Variables
+# =====================================================
+BINARY_NAME=server
+BINARY_DIR=bin
+MAIN_PATH=./cmd/server
+MIGRATIONS_DIR=./migrations
+
+# Database connection (from .env)
+DB_HOST?=localhost
+DB_PORT?=5432
+DB_NAME?=system_dev
+DB_USER?=system_dev
+DB_PASSWORD?=system_dev
+DB_SSL_MODE?=disable
+
+# Build migration database URL
+DATABASE_URL=postgres://$(DB_USER):$(DB_PASSWORD)@$(DB_HOST):$(DB_PORT)/$(DB_NAME)?sslmode=$(DB_SSL_MODE)
+
+# Colors for output
+RED=\033[0;31m
+GREEN=\033[0;32m
+YELLOW=\033[1;33m
+BLUE=\033[0;34m
+NC=\033[0m # No Color
+
+# =====================================================
+# Help Command
+# =====================================================
 .PHONY: help
-help: ## Show this help message
-	@echo 'Usage: make [target]'
-	@echo ''
-	@echo 'Available targets:'
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
+help: ## Hiển thị help message
+	@echo "$(BLUE)Available commands:$(NC)"
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  $(GREEN)%-20s$(NC) %s\n", $$1, $$2}'
 
-# ============================================================================
+# =====================================================
 # Development Commands
-# ============================================================================
-
-.PHONY: setup
-setup: ## Initial setup for development
-	@echo "🔧 Setting up development environment..."
-	cp -n .env.example .env || true
-	@echo "✅ .env file created (edit if needed)"
-	@echo "📦 Downloading Go dependencies..."
-	go mod download
-	@echo "✅ Setup complete!"
-
+# =====================================================
 .PHONY: run
-run: ## Run the application
-	@echo "🚀 Starting WibuSystem..."
-	go run ./cmd/server
+run: ## Chạy application
+	@echo "$(BLUE)Starting application...$(NC)"
+	go run $(MAIN_PATH)/main.go
 
 .PHONY: build
-build: ## Build the application
-	@echo "🔨 Building application..."
-	go build -o bin/wibusystem ./cmd/server
-	@echo "✅ Binary created at: bin/wibusystem"
+build: ## Build application binary
+	@echo "$(BLUE)Building $(BINARY_NAME)...$(NC)"
+	@mkdir -p $(BINARY_DIR)
+	go build -o $(BINARY_DIR)/$(BINARY_NAME) $(MAIN_PATH)
+	@echo "$(GREEN)✓ Build completed: $(BINARY_DIR)/$(BINARY_NAME)$(NC)"
 
-.PHONY: build-linux
-build-linux: ## Build for Linux (useful for Docker)
-	@echo "🔨 Building for Linux..."
-	GOOS=linux GOARCH=amd64 go build -o bin/wibusystem-linux ./cmd/server
-	@echo "✅ Linux binary created at: bin/wibusystem-linux"
-
-.PHONY: dev
-dev: ## Run with hot reload (requires air)
-	@echo "🔥 Starting with hot reload..."
-	@command -v air >/dev/null 2>&1 || { echo "Installing air..."; go install github.com/cosmtrek/air@latest; }
-	air
-
-# ============================================================================
-# Database Commands
-# ============================================================================
-
-.PHONY: db-up
-db-up: ## Start database and Redis
-	@echo "🗄️  Starting database services..."
-	docker compose up -d system_dev redis
-	@echo "✅ Database services started"
-	@echo "   PostgreSQL: localhost:5432"
-	@echo "   Redis:      localhost:6379"
-
-.PHONY: db-down
-db-down: ## Stop database and Redis
-	@echo "🛑 Stopping database services..."
-	docker compose down
-	@echo "✅ Database services stopped"
-
-.PHONY: db-logs
-db-logs: ## Show database logs
-	docker compose logs -f system_dev
-
-.PHONY: db-connect
-db-connect: ## Connect to database with psql
-	@echo "🔗 Connecting to database..."
-	docker exec -it system_dev psql -U system_dev -d system_dev
-
-.PHONY: db-reset
-db-reset: ## Reset database (WARNING: destroys all data)
-	@echo "⚠️  WARNING: This will destroy all data!"
-	@read -p "Are you sure? [y/N] " -n 1 -r; \
-	echo; \
-	if [[ $$REPLY =~ ^[Yy]$$ ]]; then \
-		docker compose down -v; \
-		docker compose up -d system_dev redis; \
-		sleep 3; \
-		make run; \
-	fi
-
-.PHONY: db-migrate-up
-db-migrate-up: ## Run migrations (handled automatically by app)
-	@echo "Migrations are run automatically when the application starts"
-	@echo "Or just run: make run"
-
-.PHONY: db-shell
-db-shell: ## Open database shell
-	@echo "📊 Database shell commands:"
-	@echo "  \\dn                    - List schemas"
-	@echo "  \\dt identity.*         - List identity tables"
-	@echo "  \\d identity.users      - Describe users table"
-	@echo "  \\q                     - Quit"
-	@echo ""
-	docker exec -it system_dev psql -U system_dev -d system_dev
-
-.PHONY: db-status
-db-status: ## Show database status
-	@echo "🔍 Database Status:"
-	@docker compose ps system_dev redis
-	@echo ""
-	@echo "📊 Database Info:"
-	@docker exec -it system_dev psql -U system_dev -d system_dev -c "\dn" 2>/dev/null || echo "Database not running"
-
-.PHONY: db-clean-migrations
-db-clean-migrations: ## Clean up partial migrations (drops identity schema)
-	@echo "⚠️  Cleaning up partial migrations..."
-	@docker exec -it system_dev psql -U system_dev -d system_dev -c "DROP SCHEMA IF EXISTS identity CASCADE;" 2>/dev/null || echo "Schema already clean"
-	@docker exec -it system_dev psql -U system_dev -d system_dev -c "DROP TABLE IF EXISTS schema_migrations;" 2>/dev/null || echo "No migration table to drop"
-	@echo "✅ Migration cleanup complete - ready for fresh migration"
-
-.PHONY: db-seed
-db-seed: ## Seed database with initial development data
-	@echo "🌱 Seeding database..."
-	@echo "📦 [1/4] Seeding OAuth2 clients..."
-	@docker exec -i system_dev psql -U system_dev -d system_dev < seeds/001_oauth2_clients.sql
-	@echo ""
-	@echo "📦 [2/4] Seeding users and tenants..."
-	@docker exec -i system_dev psql -U system_dev -d system_dev < seeds/002_users_and_tenants.sql
-	@echo ""
-	@echo "📦 [3/4] Seeding permissions and roles..."
-	@docker exec -i system_dev psql -U system_dev -d system_dev < seeds/003_permissions_and_roles.sql
-	@echo ""
-	@echo "📦 [4/4] Assigning admin roles..."
-	@docker exec -i system_dev psql -U system_dev -d system_dev < seeds/004_assign_admin_roles.sql
-	@echo ""
-	@echo "✅ Database seeded successfully"
-
-.PHONY: db-seed-oauth2
-db-seed-oauth2: ## Seed OAuth2 clients only
-	@echo "🔑 Seeding OAuth2 clients..."
-	@docker exec -i system_dev psql -U system_dev -d system_dev < seeds/001_oauth2_clients.sql
-
-.PHONY: db-seed-users
-db-seed-users: ## Seed users and tenants only
-	@echo "👥 Seeding users and tenants..."
-	@docker exec -i system_dev psql -U system_dev -d system_dev < seeds/002_users_and_tenants.sql
-
-.PHONY: db-seed-permissions
-db-seed-permissions: ## Seed permissions and roles only
-	@echo "🔐 Seeding permissions and roles..."
-	@docker exec -i system_dev psql -U system_dev -d system_dev < seeds/003_permissions_and_roles.sql
-
-.PHONY: db-seed-admin-roles
-db-seed-admin-roles: ## Assign admin roles only
-	@echo "👑 Assigning admin roles..."
-	@docker exec -i system_dev psql -U system_dev -d system_dev < seeds/004_assign_admin_roles.sql
-
-# ============================================================================
-# Testing Commands
-# ============================================================================
+.PHONY: clean
+clean: ## Xóa build artifacts
+	@echo "$(BLUE)Cleaning build artifacts...$(NC)"
+	@rm -rf $(BINARY_DIR)
+	@echo "$(GREEN)✓ Clean completed$(NC)"
 
 .PHONY: test
-test: ## Run all tests
-	@echo "🧪 Running tests..."
-	go test ./... -v
+test: ## Chạy tests
+	@echo "$(BLUE)Running tests...$(NC)"
+	go test -v -race -coverprofile=coverage.out ./...
+	@echo "$(GREEN)✓ Tests completed$(NC)"
 
 .PHONY: test-coverage
-test-coverage: ## Run tests with coverage
-	@echo "🧪 Running tests with coverage..."
-	go test ./... -coverprofile=coverage.out
-	go tool cover -html=coverage.out -o coverage.html
-	@echo "✅ Coverage report: coverage.html"
-
-.PHONY: test-integration
-test-integration: ## Run integration tests
-	@echo "🧪 Running integration tests..."
-	go test ./... -tags=integration -v
-
-.PHONY: bench
-bench: ## Run benchmarks
-	@echo "⚡ Running benchmarks..."
-	go test ./... -bench=. -benchmem
-
-# ============================================================================
-# Code Quality Commands
-# ============================================================================
+test-coverage: test ## Xem test coverage
+	@echo "$(BLUE)Opening coverage report...$(NC)"
+	go tool cover -html=coverage.out
 
 .PHONY: fmt
 fmt: ## Format code
-	@echo "✨ Formatting code..."
-	go fmt ./...
-	@echo "✅ Code formatted"
+	@echo "$(BLUE)Formatting code...$(NC)"
+	gofmt -s -w .
+	@echo "$(GREEN)✓ Format completed$(NC)"
 
 .PHONY: lint
 lint: ## Run linter
-	@echo "🔍 Running linter..."
-	@command -v golangci-lint >/dev/null 2>&1 || { echo "Installing golangci-lint..."; go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest; }
+	@echo "$(BLUE)Running linter...$(NC)"
 	golangci-lint run ./...
-
-.PHONY: vet
-vet: ## Run go vet
-	@echo "🔍 Running go vet..."
-	go vet ./...
+	@echo "$(GREEN)✓ Lint completed$(NC)"
 
 .PHONY: tidy
-tidy: ## Tidy go.mod
-	@echo "🧹 Tidying go.mod..."
+tidy: ## Tidy go modules
+	@echo "$(BLUE)Tidying go modules...$(NC)"
 	go mod tidy
-	@echo "✅ go.mod tidied"
+	@echo "$(GREEN)✓ Tidy completed$(NC)"
 
-.PHONY: check
-check: fmt vet lint ## Run all code quality checks
-	@echo "✅ All checks passed"
+# =====================================================
+# Database Commands
+# =====================================================
+.PHONY: db-create
+db-create: ## Tạo database
+	@echo "$(BLUE)Creating database $(DB_NAME)...$(NC)"
+	docker exec -it system_dev psql -U $(DB_USER) -c "CREATE DATABASE $(DB_NAME);" 2>/dev/null || true
+	@echo "$(GREEN)✓ Database created (or already exists)$(NC)"
 
-# ============================================================================
-# Load Testing
-# ============================================================================
+.PHONY: db-drop
+db-drop: ## Xóa database (⚠️ CẢNH BÁO: Mất toàn bộ dữ liệu!)
+	@echo "$(RED)⚠️  WARNING: This will delete the database $(DB_NAME)!$(NC)"
+	@read -p "Are you sure? [y/N] " -n 1 -r; \
+	echo; \
+	if [[ $$REPLY =~ ^[Yy]$$ ]]; then \
+		docker exec -it system_dev psql -U postgres -c "DROP DATABASE IF EXISTS $(DB_NAME);"; \
+		echo "$(GREEN)✓ Database dropped$(NC)"; \
+	else \
+		echo "$(YELLOW)Cancelled$(NC)"; \
+	fi
 
-.PHONY: load-test
-load-test: ## Run load test on health endpoint
-	@echo "📊 Running load test..."
-	@command -v hey >/dev/null 2>&1 || { echo "Installing hey..."; go install github.com/rakyll/hey@latest; }
-	hey -n 10000 -c 100 http://localhost:8080/health
+.PHONY: db-reset
+db-reset: db-drop db-create ## Reset database (drop + create)
+	@echo "$(GREEN)✓ Database reset completed$(NC)"
 
-.PHONY: load-test-api
-load-test-api: ## Run load test on API endpoint
-	@echo "📊 Running load test on API..."
-	@command -v hey >/dev/null 2>&1 || { echo "Installing hey..."; go install github.com/rakyll/hey@latest; }
-	hey -n 10000 -c 100 http://localhost:8080/api/v1/
+.PHONY: db-shell
+db-shell: ## Kết nối vào PostgreSQL shell
+	@echo "$(BLUE)Connecting to PostgreSQL...$(NC)"
+	docker exec -it system_dev psql -U $(DB_USER) -d $(DB_NAME)
 
-# ============================================================================
+# =====================================================
+# Migration Commands
+# =====================================================
+.PHONY: migrate-install
+migrate-install: ## Cài đặt golang-migrate tool
+	@echo "$(BLUE)Installing golang-migrate...$(NC)"
+	@which migrate > /dev/null || ( \
+		echo "$(YELLOW)Installing migrate...$(NC)" && \
+		go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@latest \
+	)
+	@echo "$(GREEN)✓ golang-migrate installed$(NC)"
+	@migrate -version
+
+.PHONY: migrate-up
+migrate-up: ## Chạy all pending migrations
+	@echo "$(BLUE)Running migrations up...$(NC)"
+	migrate -path $(MIGRATIONS_DIR) -database "$(DATABASE_URL)" up
+	@echo "$(GREEN)✓ Migrations up completed$(NC)"
+
+.PHONY: migrate-down
+migrate-down: ## Rollback last migration
+	@echo "$(YELLOW)Rolling back last migration...$(NC)"
+	migrate -path $(MIGRATIONS_DIR) -database "$(DATABASE_URL)" down 1
+	@echo "$(GREEN)✓ Migration rolled back$(NC)"
+
+.PHONY: migrate-down-all
+migrate-down-all: ## Rollback all migrations (⚠️ CẢNH BÁO!)
+	@echo "$(RED)⚠️  WARNING: This will rollback ALL migrations!$(NC)"
+	@read -p "Are you sure? [y/N] " -n 1 -r; \
+	echo; \
+	if [[ $$REPLY =~ ^[Yy]$$ ]]; then \
+		migrate -path $(MIGRATIONS_DIR) -database "$(DATABASE_URL)" down; \
+		echo "$(GREEN)✓ All migrations rolled back$(NC)"; \
+	else \
+		echo "$(YELLOW)Cancelled$(NC)"; \
+	fi
+
+.PHONY: migrate-force
+migrate-force: ## Force migration version (sử dụng: make migrate-force VERSION=1)
+	@if [ -z "$(VERSION)" ]; then \
+		echo "$(RED)Error: VERSION is required. Usage: make migrate-force VERSION=1$(NC)"; \
+		exit 1; \
+	fi
+	@echo "$(YELLOW)Forcing migration to version $(VERSION)...$(NC)"
+	migrate -path $(MIGRATIONS_DIR) -database "$(DATABASE_URL)" force $(VERSION)
+	@echo "$(GREEN)✓ Migration forced to version $(VERSION)$(NC)"
+
+.PHONY: migrate-version
+migrate-version: ## Hiển thị current migration version
+	@echo "$(BLUE)Current migration version:$(NC)"
+	@migrate -path $(MIGRATIONS_DIR) -database "$(DATABASE_URL)" version
+
+.PHONY: migrate-create
+migrate-create: ## Tạo migration file mới (sử dụng: make migrate-create NAME=create_users)
+	@if [ -z "$(NAME)" ]; then \
+		echo "$(RED)Error: NAME is required. Usage: make migrate-create NAME=create_users$(NC)"; \
+		exit 1; \
+	fi
+	@echo "$(BLUE)Creating migration: $(NAME)...$(NC)"
+	migrate create -ext sql -dir $(MIGRATIONS_DIR) -seq $(NAME)
+	@echo "$(GREEN)✓ Migration files created$(NC)"
+
+.PHONY: migrate-status
+migrate-status: ## Hiển thị migration status
+	@echo "$(BLUE)Migration status:$(NC)"
+	@migrate -path $(MIGRATIONS_DIR) -database "$(DATABASE_URL)" version || echo "No migrations applied yet"
+
+# =====================================================
 # Docker Commands
-# ============================================================================
+# =====================================================
+.PHONY: docker-up
+docker-up: ## Start docker services
+	@echo "$(BLUE)Starting Docker services...$(NC)"
+	docker-compose up -d
+	@echo "$(GREEN)✓ Docker services started$(NC)"
 
-.PHONY: docker-build
-docker-build: ## Build Docker image
-	@echo "🐳 Building Docker image..."
-	docker build -t wibusystem:latest -f deployments/docker/Dockerfile .
-
-.PHONY: docker-run
-docker-run: ## Run application in Docker
-	@echo "🐳 Running Docker container..."
-	docker run --rm -p 8080:8080 --env-file .env wibusystem:latest
+.PHONY: docker-down
+docker-down: ## Stop docker services
+	@echo "$(BLUE)Stopping Docker services...$(NC)"
+	docker-compose down
+	@echo "$(GREEN)✓ Docker services stopped$(NC)"
 
 .PHONY: docker-logs
-docker-logs: ## Show Docker container logs
-	docker compose logs -f
+docker-logs: ## Xem docker logs
+	docker-compose logs -f
 
-.PHONY: docker-clean
-docker-clean: ## Clean Docker resources
-	@echo "🧹 Cleaning Docker resources..."
-	docker compose down -v
-	docker system prune -f
+.PHONY: docker-ps
+docker-ps: ## Hiển thị docker containers
+	docker-compose ps
 
-# ============================================================================
-# OAuth2 Management
-# ============================================================================
+.PHONY: docker-restart
+docker-restart: docker-down docker-up ## Restart docker services
 
-.PHONY: oauth2-create-client
-oauth2-create-client: ## Create OAuth2 client (usage: make oauth2-create-client ID=my-app NAME="My App" SECRET=secret)
-	@if [ -z "$(ID)" ] || [ -z "$(NAME)" ]; then \
-		echo "❌ Error: ID and NAME are required"; \
-		echo "Usage: make oauth2-create-client ID=my-app NAME=\"My App\" SECRET=mysecret"; \
-		echo "Optional: PUBLIC=true REDIRECT_URIS=\"http://localhost:3000/callback\""; \
-		exit 1; \
-	fi
-	@echo "🔑 Creating OAuth2 client..."
-	go run ./cmd/oauth2-client \
-		-id="$(ID)" \
-		-name="$(NAME)" \
-		$(if $(SECRET),-secret="$(SECRET)") \
-		$(if $(PUBLIC),-public=$(PUBLIC)) \
-		$(if $(REDIRECT_URIS),-redirect-uris="$(REDIRECT_URIS)") \
-		$(if $(GRANT_TYPES),-grant-types="$(GRANT_TYPES)") \
-		$(if $(SCOPES),-scopes="$(SCOPES)")
-
-.PHONY: oauth2-list-clients
-oauth2-list-clients: ## List all OAuth2 clients
-	@echo "📋 OAuth2 Clients:"
-	@docker exec system_dev psql -U system_dev -d system_dev -c "\
-		SELECT id, client_name, public, redirect_uris, grant_types, created_at \
-		FROM identity.oauth2_clients \
-		ORDER BY created_at DESC;"
-
-.PHONY: oauth2-delete-client
-oauth2-delete-client: ## Delete OAuth2 client (usage: make oauth2-delete-client ID=my-app)
-	@if [ -z "$(ID)" ]; then \
-		echo "❌ Error: ID is required"; \
-		echo "Usage: make oauth2-delete-client ID=my-app"; \
-		exit 1; \
-	fi
-	@echo "🗑️  Deleting OAuth2 client: $(ID)"
-	@docker exec system_dev psql -U system_dev -d system_dev -c "\
-		DELETE FROM identity.oauth2_clients WHERE id = '$(ID)';"
-	@echo "✅ Client deleted"
-
-# ============================================================================
-# Migration Management
-# ============================================================================
-
-.PHONY: migration-create
-migration-create: ## Create new migration (usage: make migration-create NAME=add_users_table)
-	@if [ -z "$(NAME)" ]; then \
-		echo "❌ Error: NAME is required"; \
-		echo "Usage: make migration-create NAME=add_users_table"; \
-		exit 1; \
-	fi
-	@echo "📝 Creating migration: $(NAME)"
-	@TIMESTAMP=$$(date +%s); \
-	touch migrations/$${TIMESTAMP}_$(NAME).up.sql; \
-	touch migrations/$${TIMESTAMP}_$(NAME).down.sql; \
-	echo "✅ Created migrations/$${TIMESTAMP}_$(NAME).up.sql"; \
-	echo "✅ Created migrations/$${TIMESTAMP}_$(NAME).down.sql"
-
-# ============================================================================
-# Monitoring & Debugging
-# ============================================================================
-
-.PHONY: logs
-logs: ## Show application logs (when running with docker)
-	docker compose logs -f
-
-.PHONY: health
-health: ## Check application health
-	@echo "🏥 Checking application health..."
-	@curl -s http://localhost:8080/health | jq . || echo "Application not running or jq not installed"
-
-.PHONY: stats
-stats: ## Show database pool statistics
-	@echo "📊 Database Pool Statistics:"
-	@echo "Check application logs for: 'DB Pool Stats'"
-
-# ============================================================================
-# Cleanup Commands
-# ============================================================================
-
-.PHONY: clean
-clean: ## Clean build artifacts
-	@echo "🧹 Cleaning build artifacts..."
-	rm -rf bin/
-	rm -rf tmp/
-	rm -f coverage.out coverage.html
-	@echo "✅ Cleaned"
-
-.PHONY: clean-all
-clean-all: clean docker-clean ## Clean everything (build artifacts + docker)
-	@echo "✅ Everything cleaned"
-
-# ============================================================================
-# Installation Commands
-# ============================================================================
-
-.PHONY: install-tools
-install-tools: ## Install development tools
-	@echo "🔧 Installing development tools..."
-	go install github.com/cosmtrek/air@latest
-	go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
-	go install github.com/rakyll/hey@latest
-	go install golang.org/x/tools/cmd/goimports@latest
-	@echo "✅ Tools installed"
-
-# ============================================================================
-# PoC Specific Commands
-# ============================================================================
-
-.PHONY: poc-start
-poc-start: ## Start PoC from scratch
-	@echo "🚀 Starting PoC..."
-	make setup
-	make db-up
-	sleep 3
-	make run
-
-.PHONY: poc-verify
-poc-verify: ## Verify PoC is working
-	@echo "✅ Verifying PoC..."
+# =====================================================
+# Setup Commands
+# =====================================================
+.PHONY: setup
+setup: migrate-install docker-up ## Setup development environment
+	@echo "$(BLUE)Setting up development environment...$(NC)"
+	@sleep 3 # Wait for database to be ready
+	@$(MAKE) migrate-up
+	@echo "$(GREEN)✓ Setup completed!$(NC)"
 	@echo ""
-	@echo "1. Checking database connection..."
-	@docker compose ps system_dev | grep -q "Up" && echo "   ✅ Database is running" || echo "   ❌ Database is not running"
-	@echo ""
-	@echo "2. Checking schemas..."
-	@docker exec system_dev psql -U system_dev -d system_dev -c "\dn" 2>/dev/null | grep -q "identity" && echo "   ✅ Identity schema exists" || echo "   ❌ Identity schema missing"
-	@echo ""
-	@echo "3. Checking application health..."
-	@curl -s http://localhost:8080/health >/dev/null 2>&1 && echo "   ✅ Application is healthy" || echo "   ❌ Application is not responding"
-	@echo ""
-	@echo "4. API endpoint..."
-	@curl -s http://localhost:8080/api/v1/ >/dev/null 2>&1 && echo "   ✅ API is accessible" || echo "   ❌ API is not accessible"
+	@echo "$(BLUE)Next steps:$(NC)"
+	@echo "  1. Run '$(GREEN)make run$(NC)' to start the application"
+	@echo "  2. Run '$(GREEN)make test$(NC)' to run tests"
 
-.PHONY: poc-info
-poc-info: ## Show PoC information
-	@echo "📚 WibuSystem Modular Monolith PoC"
-	@echo ""
-	@echo "🌐 Endpoints:"
-	@echo "   Health:      http://localhost:8080/health"
-	@echo "   Readiness:   http://localhost:8080/health/ready"
-	@echo "   Liveness:    http://localhost:8080/health/live"
-	@echo "   API:         http://localhost:8080/api/v1/"
-	@echo ""
-	@echo "🗄️  Database:"
-	@echo "   Host:        localhost:5432"
-	@echo "   Database:    system_dev"
-	@echo "   User:        system_dev"
-	@echo "   Password:    system_dev"
-	@echo ""
-	@echo "📖 Documentation:"
-	@echo "   PoC Guide:   POC_README.md"
-	@echo "   Migration:   docs/migration/to-modular-monolith.md"
-	@echo "   Comparison:  docs/migration/comparison.md"
+.PHONY: dev
+dev: ## Start development environment (docker + migrations + run)
+	@$(MAKE) docker-up
+	@sleep 3
+	@$(MAKE) migrate-up
+	@$(MAKE) run
 
-# ============================================================================
+# =====================================================
 # Default Target
-# ============================================================================
-
+# =====================================================
 .DEFAULT_GOAL := help

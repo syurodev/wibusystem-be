@@ -1,30 +1,14 @@
 {
-  "common.validation.required": "This field is required",
-  "common.validation.invalid_email": "Please enter a valid email address",
-  "common.validation.invalid_format": "Invalid format",
-  "common.validation.too_short": "This field is too short",
-  "common.validation.too_long": "This field is too long",
-  "common.validation.invalid_password": "Password must be at least 8 characters with uppercase, lowercase, number and special character",
-
-  "common.error.internal_server": "Internal server error",
-  "common.error.not_found": "Resource not found",
-  "common.error.unauthorized": "Unauthorized access",
-  "common.error.forbidden": "Access forbidden",
-  "common.error.bad_request": "Invalid request",
-  "common.error.conflict": "Resource conflict",
-  "common.error.service_unavailable": "Service temporarily unavailable",
-
-  "common.success.created": "Successfully created",
-  "common.success.updated": "Successfully updated",
-  "common.success.deleted": "Successfully deleted",
-  "common.success.retrieved": "Successfully retrieved",
-
-  "common.pagination.page": "Page",
-  "common.pagination.of": "of",
-  "common.pagination.total": "Total",
-  "common.pagination.per_page": "Per page",
-  "common.pagination.first": "First",
-  "common.pagination.last": "Last",
-  "common.pagination.next": "Next",
-  "common.pagination.previous": "Previous"
+  "general.success": "Operation completed successfully.",
+  "general.error": "An internal error occurred. Please try again later.",
+  "validation.failed": "Validation failed.",
+  "validation.required": "The field '{{.field}}' is required.",
+  "validation.invalid_format": "The field '{{.field}}' has an invalid format.",
+  "auth.unauthorized": "Authentication required. Please log in.",
+  "auth.forbidden": "You do not have permission to access this resource.",
+  "resource.not_found": "The requested resource was not found.",
+  "resource.conflict": "The resource already exists or a conflict occurred.",
+  "rate_limit.exceeded": "Too many requests. Please try again in {{.seconds}} seconds.",
+  "auth.invalid_token": "Access token is invalid or expired.",
+  "userinfo.success": "User information retrieved successfully."
 }

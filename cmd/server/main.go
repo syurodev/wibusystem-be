@@ -2,146 +2,129 @@ package main
 
 import (
 	"context"
-	"log"
+	"net/http"
 	"os"
 	"os/signal"
-	"strconv"
 	"syscall"
+	"system/internal/app/router"
 	"time"
 
-	"wibusystem/internal/infrastructure/database"
-	catalogHttp "wibusystem/internal/modules/catalog/handler/http"
-	catalogRepo "wibusystem/internal/modules/catalog/repository/postgres"
-	catalogService "wibusystem/internal/modules/catalog/service"
-	identityHttp "wibusystem/internal/modules/identity/handler/http"
-	identityRepo "wibusystem/internal/modules/identity/repository/postgres"
-	identityService "wibusystem/internal/modules/identity/service"
-	"wibusystem/internal/platform/config"
-	"wibusystem/internal/platform/i18n"
+	"go.uber.org/zap"
 
-	"github.com/gofiber/fiber/v2"
+	"system/configs"
+	"system/internal/platform/database"
+	"system/internal/platform/i18n"
+	"system/internal/platform/logger"
 )
 
 func main() {
-	// Load configuration
-	cfg := config.Load()
-
-	// Initialize i18n Translator
-	i18nConfig := i18n.Config{
-		BundlePath:         cfg.Localization.BundlePath,
-		DefaultLanguage:    cfg.Localization.DefaultLanguage,
-		SupportedLanguages: cfg.Localization.SupportedLanguages,
-		QueryParam:         cfg.Localization.QueryParam,
-		HeaderName:         cfg.Localization.HeaderName,
-		CookieName:         cfg.Localization.CookieName,
-	}
-	translator, err := i18n.NewTranslator(i18nConfig)
+	// 1. Tải cấu hình từ file .env
+	cfg, err := configs.LoadConfig(".env")
 	if err != nil {
-		log.Fatalf("Failed to initialize i18n translator: %v", err)
+		// Log.Fatal hoặc panic nếu cấu hình bị lỗi
+		panic("Failed to load configuration: " + err.Error())
 	}
-	log.Println("✅ i18n Translator initialized")
 
-	// Initialize database
-	db, err := database.New(context.Background(), &cfg.Database)
+	// 2. Khởi tạo Logger
+	appLogger, err := logger.InitLogger(cfg.Server.IsProd)
 	if err != nil {
-		log.Fatalf("Failed to connect to database: %v", err)
+		panic("Failed to initialize logger: " + err.Error())
 	}
+
+	// Đảm bảo logger buffer được flush khi main kết thúc
+	defer logger.SyncLogger()
+
+	appLogger.Info("Application logger initialized successfully.")
+
+	// 3. Khởi tạo I18n
+	if err := i18n.InitI18n(appLogger); err != nil {
+		appLogger.Fatal("Failed to initialize i18n bundle.", zap.Error(err))
+	}
+
+	appLogger.Info("I18n bundle initialized successfully.")
+
+	// 4. Khởi tạo Database Connection
+	// Tạo context với timeout cho việc khởi tạo database
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	db, err := database.NewPostgresDB(ctx, &cfg.DB, cfg.Log.DBLogQueries, appLogger)
+	if err != nil {
+		appLogger.Fatal("Failed to initialize database connection", zap.Error(err))
+	}
+
+	// Đảm bảo database connection được đóng khi application shutdown
 	defer db.Close()
 
-	log.Println("✅ Database connected successfully")
+	appLogger.Info("Database connection initialized successfully.")
 
-	// Run migrations
-	if err := db.RunMigrations(cfg.Database.MigrationsPath); err != nil {
-		log.Fatalf("Failed to run migrations: %v", err)
+	// 5. Health check database
+	healthInfo, err := db.Health(context.Background())
+	if err != nil {
+		appLogger.Warn("Database health check warning", zap.Error(err))
+	} else {
+		appLogger.Info("Database health check passed", zap.Any("health_info", healthInfo))
 	}
 
-	log.Println("✅ Migrations completed successfully")
+	// 6. Khởi tạo Redis Connection
+	redisCtx, redisCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer redisCancel()
 
-	// --- Initialize Identity Module ---
-	log.Println("Initializing Identity Module...")
-	userRepo := identityRepo.NewUserRepository(db.Pool(), cfg.Database.IdentitySchema)
-	tenantRepo := identityRepo.NewTenantRepository(db.Pool(), cfg.Database.IdentitySchema)
-	tenantMemberRepo := identityRepo.NewTenantMemberRepository(db.Pool(), cfg.Database.IdentitySchema)
-	sessionRepo := identityRepo.NewSessionRepository(db.Pool(), cfg.Database.IdentitySchema)
+	rdb, err := database.NewRedisClient(redisCtx, &cfg.Redis, appLogger)
+	if err != nil {
+		appLogger.Fatal("Failed to initialize Redis connection", zap.Error(err))
+	}
 
-	authService := identityService.NewAuthService(userRepo, sessionRepo)
-	userService := identityService.NewUserService(userRepo)
-	tenantService := identityService.NewTenantService(tenantRepo, tenantMemberRepo, userRepo)
-	log.Println("✅ Identity Module initialized")
+	// Đảm bảo Redis connection được đóng khi application shutdown
+	defer rdb.Close()
 
-	// --- Initialize Catalog Module ---
-	log.Println("Initializing Catalog Module...")
-	novelRepo := catalogRepo.NewNovelRepositoryPG(db.Pool())
-	volumeRepo := catalogRepo.NewVolumeRepositoryPG(db.Pool())
-	chapterRepo := catalogRepo.NewChapterRepositoryPG(db.Pool())
-	creatorRepo := catalogRepo.NewCreatorRepositoryPG(db.Pool())
-	genreRepo := catalogRepo.NewGenreRepositoryPG(db.Pool())
-	characterRepo := catalogRepo.NewCharacterRepositoryPG(db.Pool())
+	appLogger.Info("Redis connection initialized successfully.")
 
-	novelSvc := catalogService.NewNovelService(novelRepo)
-	volumeSvc := catalogService.NewVolumeService(volumeRepo, novelRepo)
-	chapterSvc := catalogService.NewChapterService(chapterRepo, volumeRepo)
-	creatorSvc := catalogService.NewCreatorService(creatorRepo)
-	genreSvc := catalogService.NewGenreService(genreRepo)
-	characterSvc := catalogService.NewCharacterService(characterRepo, novelRepo)
-	log.Println("✅ Catalog Module initialized")
+	// 7. Health check Redis
+	redisHealthInfo, err := rdb.Health(context.Background())
+	if err != nil {
+		appLogger.Warn("Redis health check warning", zap.Error(err))
+	} else {
+		appLogger.Info("Redis health check passed", zap.Any("health_info", redisHealthInfo))
+	}
 
-	// Create Fiber app
-	app := fiber.New(fiber.Config{
-		ErrorHandler: func(c *fiber.Ctx, err error) error {
-			log.Printf("Error: %v", err)
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-				"error": "Internal Server Error",
-			})
-		},
-		ReadTimeout:  15 * time.Second,
-		WriteTimeout: 15 * time.Second,
-		IdleTimeout:  60 * time.Second,
-	})
+	// 8. Khởi tạo Gin Router
+	appRouter := router.NewRouter(cfg, i18n.GetInstance(), appLogger, db, rdb)
+	appLogger.Info("Gin router initialized successfully.")
 
-	// Add i18n middleware
-	app.Use(i18n.LocaleMiddleware(translator))
+	// 9. Khởi tạo và chạy HTTP Server
+	srv := &http.Server{
+		Addr:    ":" + cfg.Server.Port,
+		Handler: appRouter,
+	}
 
-	// Setup routes
-	identityHttp.SetupRouter(app, identityHttp.RouterConfig{
-		AuthService:    authService,
-		UserService:    userService,
-		TenantService:  tenantService,
-		Environment:    cfg.Server.Environment,
-		AllowedOrigins: cfg.Security.CORS.AllowOrigins,
-	})
-
-	catalogHttp.SetupCatalogRoutes(app, novelSvc, volumeSvc, chapterSvc, creatorSvc, genreSvc, characterSvc)
-
-	log.Println("✅ Routes configured")
-
-	// Setup graceful shutdown
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
-
-	// Start server in a goroutine
 	go func() {
-		portStr := strconv.Itoa(cfg.Server.Port)
-		log.Printf("🚀 Server starting on http://localhost:%s", portStr)
-
-		if err := app.Listen(":" + portStr); err != nil {
-			log.Printf("Server error: %v", err)
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			appLogger.Fatal("Failed to start HTTP server", zap.Error(err))
 		}
 	}()
 
-	// Wait for shutdown signal
-	<-sigChan
-	log.Println("Shutting down gracefully...")
+	appLogger.Info("HTTP Server started", zap.String("port", cfg.Server.Port))
 
-	// Create shutdown context with timeout
-	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	// 10. Setup graceful shutdown
+	// Tạo channel để listen shutdown signals
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+
+	appLogger.Info("Application started successfully. Press Ctrl+C to shutdown.")
+
+	// Đợi signal shutdown
+	<-quit
+
+	appLogger.Info("Shutting down application gracefully...")
+
+	// Thực hiện graceful shutdown cho server
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer shutdownCancel()
 
-	// Shutdown Fiber server
-	if err := app.ShutdownWithContext(shutdownCtx); err != nil {
-		log.Printf("Error during server shutdown: %v", err)
+	if err := srv.Shutdown(shutdownCtx); err != nil {
+		appLogger.Error("Server forced to shutdown", zap.Error(err))
 	}
 
-	log.Println("✅ Shutdown completed")
-	// Database will be closed by defer db.Close()
+	appLogger.Info("Application shutdown completed.")
 }
