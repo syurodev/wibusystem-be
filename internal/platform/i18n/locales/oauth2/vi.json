@@ -1,0 +1,20 @@
+{
+  "client.created": "Tạo OAuth2 client thành công.",
+  "client.updated": "Cập nhật OAuth2 client thành công.",
+  "client.deleted": "Xóa OAuth2 client thành công.",
+  "client.retrieved": "Lấy thông tin OAuth2 client thành công.",
+  "client.listed": "Lấy danh sách OAuth2 clients thành công.",
+  "client.secret_regenerated": "Tạo lại client secret thành công.",
+  "client.not_found": "Không tìm thấy OAuth2 client.",
+  "client.create_failed": "Không thể tạo OAuth2 client.",
+  "client.update_failed": "Không thể cập nhật OAuth2 client.",
+  "client.delete_failed": "Không thể xóa OAuth2 client.",
+  "client.list_failed": "Không thể lấy danh sách OAuth2 clients.",
+  "client.secret_generation_failed": "Không thể tạo client secret.",
+  "client.secret_hash_failed": "Không thể hash client secret.",
+  "client.public_no_secret": "Không thể tạo lại secret cho public clients.",
+  "validation.invalid_grant_type": "Grant type không hợp lệ: {{.type}}",
+  "validation.invalid_response_type": "Response type không hợp lệ: {{.type}}",
+  "validation.invalid_client_id": "Định dạng client ID không hợp lệ.",
+  "validation.invalid_tenant_id": "Định dạng tenant ID không hợp lệ."
+}

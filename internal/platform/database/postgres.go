@@ -169,9 +169,9 @@ func (db *PostgresDB) Stats() *pgxpool.Stat {
 //   - ctx: Context với timeout
 //
 // Returns:
-//   - map[string]interface{}: Thông tin health check
+//   - map[string]any: Thông tin health check
 //   - error: Lỗi nếu health check failed
-func (db *PostgresDB) Health(ctx context.Context) (map[string]interface{}, error) {
+func (db *PostgresDB) Health(ctx context.Context) (map[string]any, error) {
 	// Ping database
 	if err := db.Ping(ctx); err != nil {
 		return nil, fmt.Errorf("database ping failed: %w", err)
@@ -181,7 +181,7 @@ func (db *PostgresDB) Health(ctx context.Context) (map[string]interface{}, error
 	stats := db.Stats()
 
 	// Trả về health info
-	healthInfo := map[string]interface{}{
+	healthInfo := map[string]any{
 		"status":              "healthy",
 		"max_connections":     db.config.MaxOpenConns,
 		"open_connections":    stats.TotalConns(),
@@ -273,7 +273,7 @@ func newPgxZapLogger(logger *zap.Logger) *pgxZapLogger {
 
 // Log implements tracelog.Logger interface.
 // Được gọi bởi pgx tracer để log queries.
-func (l *pgxZapLogger) Log(ctx context.Context, level tracelog.LogLevel, msg string, data map[string]interface{}) {
+func (l *pgxZapLogger) Log(ctx context.Context, level tracelog.LogLevel, msg string, data map[string]any) {
 	// Convert pgx log level to zap log level
 	var zapLevel zapcore.Level
 	switch level {

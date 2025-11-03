@@ -177,7 +177,7 @@ func ExampleMonitoring(db *PostgresDB, logger *zap.Logger) {
 }
 
 // Example 8: Health check endpoint (dùng trong HTTP handler)
-func ExampleHealthCheck(db *PostgresDB) (map[string]interface{}, error) {
+func ExampleHealthCheck(db *PostgresDB) (map[string]any, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 

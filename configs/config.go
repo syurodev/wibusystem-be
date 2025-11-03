@@ -21,6 +21,7 @@ type Config struct {
 	CORS   CORSConfig
 	Log    LogConfig
 	OAuth2 OAuthConfig
+	Email  EmailConfig
 }
 
 // OAuthConfig chứa cấu hình cho OAuth 2.0 Server.
@@ -83,6 +84,17 @@ type CORSConfig struct {
 type LogConfig struct {
 	Level        string // info, debug, error
 	DBLogQueries bool
+}
+
+// EmailConfig chứa cấu hình cho Email Service (Resend).
+type EmailConfig struct {
+	Provider         string // resend, sendgrid, ses, etc.
+	APIKey           string
+	FromEmail        string
+	FromName         string
+	BaseURL          string // Base URL for email links (e.g., https://yourdomain.com)
+	VerificationURL  string // URL template for email verification
+	PasswordResetURL string // URL template for password reset
 }
 
 // LoadConfig tải file .env và ánh xạ các biến môi trường vào struct Config.
@@ -164,6 +176,15 @@ func LoadConfig(envPath string) (*Config, error) {
 	if len(cfg.OAuth2.HMACSecret) < 32 {
 		return nil, fmt.Errorf("OAUTH2_HMAC_SECRET must be at least 32 bytes long")
 	}
+
+	// EMAIL CONFIG
+	cfg.Email.Provider = getEnv("EMAIL_PROVIDER", "resend")
+	cfg.Email.APIKey = getEnv("EMAIL_API_KEY", "")
+	cfg.Email.FromEmail = getEnv("EMAIL_FROM_EMAIL", "noreply@localhost")
+	cfg.Email.FromName = getEnv("EMAIL_FROM_NAME", "System")
+	cfg.Email.BaseURL = getEnv("EMAIL_BASE_URL", "http://localhost:8080")
+	cfg.Email.VerificationURL = getEnv("EMAIL_VERIFICATION_URL", cfg.Email.BaseURL+"/oauth2/verify-email?token={{.Token}}")
+	cfg.Email.PasswordResetURL = getEnv("EMAIL_PASSWORD_RESET_URL", cfg.Email.BaseURL+"/oauth2/reset-password?token={{.Token}}")
 
 	return cfg, nil
 }

@@ -326,7 +326,7 @@ var tenantID uuid.NullUUID
     client.Scopes = scopes
 
     // Bạn có thể thêm tenant_id vào siêu dữ liệu của client nếu logic ứng dụng của bạn cần
-    // client.Metadata = map\[string\]interface{}{"tenant_id": tenantID}
+    // client.Metadata = map[string]any{"tenant_id": tenantID}
 
     return &client, nil
 }
@@ -1107,7 +1107,7 @@ func main() {
 21. Releases · gofrs/uuid - GitHub, truy cập vào tháng 10 26, 2025, [https://github.com/gofrs/uuid/releases](https://github.com/gofrs/uuid/releases)
 22. uuid package - github.com/gofrs/uuid - Go Packages, truy cập vào tháng 10 26, 2025, [https://pkg.go.dev/github.com/gofrs/uuid](https://pkg.go.dev/github.com/gofrs/uuid)
 23. I wrote a UUIDv7 implementation in Go with json.Marshaler and driver.Valuer support : r/golang - Reddit, truy cập vào tháng 10 26, 2025, [https://www.reddit.com/r/golang/comments/1b6wc2b/i_wrote_a_uuidv7_implementation_in_go_with/](https://www.reddit.com/r/golang/comments/1b6wc2b/i_wrote_a_uuidv7_implementation_in_go_with/)
-24. OAuth2 & OIDC フレームワークfositeの分析 - \[型定義\]ストレージ - Zenn, truy cập vào tháng 10 26, 2025, [https://zenn.dev/abcb2/books/analyze-fosite/viewer/storage](https://zenn.dev/abcb2/books/analyze-fosite/viewer/storage)
+24. OAuth2 & OIDC フレームワークfositeの分析 - [型定義]ストレージ - Zenn, truy cập vào tháng 10 26, 2025, [https://zenn.dev/abcb2/books/analyze-fosite/viewer/storage](https://zenn.dev/abcb2/books/analyze-fosite/viewer/storage)
 25. Go 製の認可サーバー、IdP 実装用ライブラリ Fosite - Zenn, truy cập vào tháng 10 26, 2025, [https://zenn.dev/inabajunmr/articles/introduce-ory-fosite](https://zenn.dev/inabajunmr/articles/introduce-ory-fosite)
 26. Implementing an oauth 2 server using Go - Charles Muchogo, truy cập vào tháng 10 26, 2025, [https://charles.muchogo.com/posts/articles/authserver_in_go/](https://charles.muchogo.com/posts/articles/authserver_in_go/)
 27. github.com/pltfrms/fosite v0.48.0 on Go - Libraries.io - security & maintenance data for open source software, truy cập vào tháng 10 26, 2025, [https://libraries.io/go/github.com%2Fpltfrms%2Ffosite](https://libraries.io/go/github.com%2Fpltfrms%2Ffosite)

@@ -1,0 +1,20 @@
+{
+  "client.created": "OAuth2 client created successfully.",
+  "client.updated": "OAuth2 client updated successfully.",
+  "client.deleted": "OAuth2 client deleted successfully.",
+  "client.retrieved": "OAuth2 client retrieved successfully.",
+  "client.listed": "OAuth2 clients listed successfully.",
+  "client.secret_regenerated": "Client secret regenerated successfully.",
+  "client.not_found": "OAuth2 client not found.",
+  "client.create_failed": "Failed to create OAuth2 client.",
+  "client.update_failed": "Failed to update OAuth2 client.",
+  "client.delete_failed": "Failed to delete OAuth2 client.",
+  "client.list_failed": "Failed to list OAuth2 clients.",
+  "client.secret_generation_failed": "Failed to generate client secret.",
+  "client.secret_hash_failed": "Failed to hash client secret.",
+  "client.public_no_secret": "Cannot regenerate secret for public clients.",
+  "validation.invalid_grant_type": "Invalid grant type: {{.type}}",
+  "validation.invalid_response_type": "Invalid response type: {{.type}}",
+  "validation.invalid_client_id": "Invalid client ID format.",
+  "validation.invalid_tenant_id": "Invalid tenant ID format."
+}

@@ -299,14 +299,14 @@ type AccessResponder
 type AccessResponse
 func NewAccessResponse() *AccessResponse
 func (a *AccessResponse) GetAccessToken() string
-func (a *AccessResponse) GetExtra(key string) interface{}
+func (a *AccessResponse) GetExtra(key string) any
 func (a *AccessResponse) GetTokenType() string
 func (a *AccessResponse) SetAccessToken(token string)
 func (a *AccessResponse) SetExpiresIn(expiresIn time.Duration)
-func (a *AccessResponse) SetExtra(key string, value interface{})
+func (a *AccessResponse) SetExtra(key string, value any)
 func (a *AccessResponse) SetScopes(scopes Arguments)
 func (a *AccessResponse) SetTokenType(name string)
-func (a *AccessResponse) ToMap() map[string]interface{}
+func (a *AccessResponse) ToMap() map[string]any
 type AccessTokenIssuerProvider
 type AccessTokenLifespanProvider
 type AllowedPromptValuesProvider
@@ -440,7 +440,7 @@ func (d *DefaultResponseModeHandler) WriteAuthorizeResponse(ctx context.Context,
 type DefaultSession
 func (s *DefaultSession) Clone() Session
 func (s *DefaultSession) GetExpiresAt(key TokenType) time.Time
-func (s *DefaultSession) GetExtraClaims() map[string]interface{}
+func (s *DefaultSession) GetExtraClaims() map[string]any
 func (s *DefaultSession) GetSubject() string
 func (s *DefaultSession) GetUsername() string
 func (s *DefaultSession) SetExpiresAt(key TokenType, exp time.Time)
@@ -514,13 +514,13 @@ type PushedAuthorizeResponder
 type PushedAuthorizeResponse
 func (a *PushedAuthorizeResponse) AddHeader(key, value string)
 func (a *PushedAuthorizeResponse) GetExpiresIn() int
-func (a *PushedAuthorizeResponse) GetExtra(key string) interface{}
+func (a *PushedAuthorizeResponse) GetExtra(key string) any
 func (a *PushedAuthorizeResponse) GetHeader() http.Header
 func (a *PushedAuthorizeResponse) GetRequestURI() string
 func (a *PushedAuthorizeResponse) SetExpiresIn(seconds int)
-func (a *PushedAuthorizeResponse) SetExtra(key string, value interface{})
+func (a *PushedAuthorizeResponse) SetExtra(key string, value any)
 func (a *PushedAuthorizeResponse) SetRequestURI(requestURI string)
-func (a *PushedAuthorizeResponse) ToMap() map[string]interface{}
+func (a *PushedAuthorizeResponse) ToMap() map[string]any
 type RFC6749Error
 func ErrorToRFC6749Error(err error) *RFC6749Error
 func (e *RFC6749Error) Cause() error
@@ -539,13 +539,13 @@ func (e *RFC6749Error) ToValues() url.Values
 func (e *RFC6749Error) UnmarshalJSON(b []byte) error
 func (e RFC6749Error) Unwrap() error
 func (e *RFC6749Error) WithDebug(debug string) *RFC6749Error
-func (e *RFC6749Error) WithDebugf(debug string, args ...interface{}) *RFC6749Error
+func (e *RFC6749Error) WithDebugf(debug string, args ...any) *RFC6749Error
 func (e *RFC6749Error) WithDescription(description string) *RFC6749Error
 func (e *RFC6749Error) WithExposeDebug(exposeDebug bool) *RFC6749Error
 func (e *RFC6749Error) WithHint(hint string) *RFC6749Error
-func (e *RFC6749Error) WithHintIDOrDefaultf(ID string, def string, args ...interface{}) *RFC6749Error
+func (e *RFC6749Error) WithHintIDOrDefaultf(ID string, def string, args ...any) *RFC6749Error
 func (e *RFC6749Error) WithHintTranslationID(ID string) *RFC6749Error
-func (e *RFC6749Error) WithHintf(hint string, args ...interface{}) *RFC6749Error
+func (e *RFC6749Error) WithHintf(hint string, args ...any) *RFC6749Error
 func (e RFC6749Error) WithLegacyFormat(useLegacyFormat bool) *RFC6749Error
 func (e *RFC6749Error) WithLocalizer(catalog i18n.MessageCatalog, lang language.Tag) *RFC6749Error
 func (e *RFC6749Error) WithTrace(err error) *RFC6749Error
@@ -1004,10 +1004,10 @@ AccessRequester is a token endpoint's request context.
 type AccessResponder ¶
 type AccessResponder interface {
 	// SetExtra sets a key value pair for the access response.
-	SetExtra(key string, value interface{})
+	SetExtra(key string, value any)
 
 	// GetExtra returns a key's value.
-	GetExtra(key string) interface{}
+	GetExtra(key string) any
 
 	SetExpiresIn(time.Duration)
 
@@ -1026,13 +1026,13 @@ type AccessResponder interface {
 	GetTokenType() (token string)
 
 	// ToMap converts the response to a map.
-	ToMap() map[string]interface{}
+	ToMap() map[string]any
 }
 AccessResponder is a token endpoint's response.
 
 type AccessResponse ¶
 type AccessResponse struct {
-	Extra       map[string]interface{}
+	Extra       map[string]any
 	AccessToken string
 	TokenType   string
 }
@@ -1041,7 +1041,7 @@ func NewAccessResponse() *AccessResponse
 func (*AccessResponse) GetAccessToken ¶
 func (a *AccessResponse) GetAccessToken() string
 func (*AccessResponse) GetExtra ¶
-func (a *AccessResponse) GetExtra(key string) interface{}
+func (a *AccessResponse) GetExtra(key string) any
 func (*AccessResponse) GetTokenType ¶
 func (a *AccessResponse) GetTokenType() string
 func (*AccessResponse) SetAccessToken ¶
@@ -1049,13 +1049,13 @@ func (a *AccessResponse) SetAccessToken(token string)
 func (*AccessResponse) SetExpiresIn ¶
 func (a *AccessResponse) SetExpiresIn(expiresIn time.Duration)
 func (*AccessResponse) SetExtra ¶
-func (a *AccessResponse) SetExtra(key string, value interface{})
+func (a *AccessResponse) SetExtra(key string, value any)
 func (*AccessResponse) SetScopes ¶
 func (a *AccessResponse) SetScopes(scopes Arguments)
 func (*AccessResponse) SetTokenType ¶
 func (a *AccessResponse) SetTokenType(name string)
 func (*AccessResponse) ToMap ¶
-func (a *AccessResponse) ToMap() map[string]interface{}
+func (a *AccessResponse) ToMap() map[string]any
 type AccessTokenIssuerProvider ¶
 added in v0.43.0
 type AccessTokenIssuerProvider interface {
@@ -1928,7 +1928,7 @@ type DefaultSession struct {
 	ExpiresAt map[TokenType]time.Time `json:"expires_at"`
 	Username  string                  `json:"username"`
 	Subject   string                  `json:"subject"`
-	Extra     map[string]interface{}  `json:"extra"`
+	Extra     map[string]any  `json:"extra"`
 }
 DefaultSession is a default implementation of the session interface.
 
@@ -1940,7 +1940,7 @@ added in v0.5.0
 func (s *DefaultSession) GetExpiresAt(key TokenType) time.Time
 func (*DefaultSession) GetExtraClaims ¶
 added in v0.40.0
-func (s *DefaultSession) GetExtraClaims() map[string]interface{}
+func (s *DefaultSession) GetExtraClaims() map[string]any
 GetExtraClaims implements ExtraClaimsSession for DefaultSession. The returned value can be modified in-place.
 
 func (*DefaultSession) GetSubject ¶
@@ -1992,7 +1992,7 @@ added in v0.40.0
 type ExtraClaimsSession interface {
 	// GetExtraClaims returns a map to store extra claims.
 	// The returned value can be modified in-place.
-	GetExtraClaims() map[string]interface{}
+	GetExtraClaims() map[string]any
 }
 ExtraClaimsSession provides an interface for session to store any extra claims.
 
@@ -2653,13 +2653,13 @@ type PushedAuthorizeResponder interface {
 	AddHeader(key, value string)
 
 	// SetExtra sets a key value pair for the response.
-	SetExtra(key string, value interface{})
+	SetExtra(key string, value any)
 
 	// GetExtra returns a key's value.
-	GetExtra(key string) interface{}
+	GetExtra(key string) any
 
 	// ToMap converts the response to a map.
-	ToMap() map[string]interface{}
+	ToMap() map[string]any
 }
 PushedAuthorizeResponder is the response object for PAR
 
@@ -2669,7 +2669,7 @@ type PushedAuthorizeResponse struct {
 	RequestURI string `json:"request_uri"`
 	ExpiresIn  int    `json:"expires_in"`
 	Header     http.Header
-	Extra      map[string]interface{}
+	Extra      map[string]any
 }
 PushedAuthorizeResponse is the response object for PAR
 
@@ -2685,7 +2685,7 @@ GetExpiresIn gets
 
 func (*PushedAuthorizeResponse) GetExtra ¶
 added in v0.43.0
-func (a *PushedAuthorizeResponse) GetExtra(key string) interface{}
+func (a *PushedAuthorizeResponse) GetExtra(key string) any
 GetExtra gets
 
 func (*PushedAuthorizeResponse) GetHeader ¶
@@ -2705,7 +2705,7 @@ SetExpiresIn sets
 
 func (*PushedAuthorizeResponse) SetExtra ¶
 added in v0.43.0
-func (a *PushedAuthorizeResponse) SetExtra(key string, value interface{})
+func (a *PushedAuthorizeResponse) SetExtra(key string, value any)
 SetExtra sets
 
 func (*PushedAuthorizeResponse) SetRequestURI ¶
@@ -2715,7 +2715,7 @@ SetRequestURI sets
 
 func (*PushedAuthorizeResponse) ToMap ¶
 added in v0.43.0
-func (a *PushedAuthorizeResponse) ToMap() map[string]interface{}
+func (a *PushedAuthorizeResponse) ToMap() map[string]any
 ToMap converts to a map
 
 type RFC6749Error ¶
@@ -2782,7 +2782,7 @@ added in v0.15.0
 func (e *RFC6749Error) WithDebug(debug string) *RFC6749Error
 func (*RFC6749Error) WithDebugf ¶
 added in v0.21.0
-func (e *RFC6749Error) WithDebugf(debug string, args ...interface{}) *RFC6749Error
+func (e *RFC6749Error) WithDebugf(debug string, args ...any) *RFC6749Error
 func (*RFC6749Error) WithDescription ¶
 added in v0.16.4
 func (e *RFC6749Error) WithDescription(description string) *RFC6749Error
@@ -2796,7 +2796,7 @@ added in v0.21.0
 func (e *RFC6749Error) WithHint(hint string) *RFC6749Error
 func (*RFC6749Error) WithHintIDOrDefaultf ¶
 added in v0.41.0
-func (e *RFC6749Error) WithHintIDOrDefaultf(ID string, def string, args ...interface{}) *RFC6749Error
+func (e *RFC6749Error) WithHintIDOrDefaultf(ID string, def string, args ...any) *RFC6749Error
 WithHintIDOrDefaultf accepts the ID of the hint message
 
 func (*RFC6749Error) WithHintTranslationID ¶
@@ -2806,7 +2806,7 @@ WithHintTranslationID accepts the ID of the hint message and should be paired wi
 
 func (*RFC6749Error) WithHintf ¶
 added in v0.21.0
-func (e *RFC6749Error) WithHintf(hint string, args ...interface{}) *RFC6749Error
+func (e *RFC6749Error) WithHintf(hint string, args ...any) *RFC6749Error
 func (RFC6749Error) WithLegacyFormat ¶
 added in v0.36.0
 func (e RFC6749Error) WithLegacyFormat(useLegacyFormat bool) *RFC6749Error

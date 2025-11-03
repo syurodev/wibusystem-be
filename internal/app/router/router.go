@@ -4,10 +4,13 @@ import (
 	"net/http"
 	"system/configs"
 	v1 "system/internal/app/handler/v1"
+	"system/internal/app/handler/v1/auth"
 	oauth2_handler "system/internal/app/handler/v1/oauth2"
+	"system/internal/app/handler/v1/oauth2_admin"
 	"system/internal/oauth2"
 	fosite_storage "system/internal/oauth2/storage"
 	"system/internal/pkg/repository"
+	"system/internal/pkg/service"
 	"system/internal/platform/database"
 	"system/internal/platform/i18n"
 	"system/internal/platform/logger"
@@ -29,6 +32,12 @@ func NewRouter(cfg *configs.Config, i18nInstance *i18n.I18n, zapLogger *zap.Logg
 
 	router := gin.New()
 
+	// Load HTML templates
+	router.LoadHTMLGlob("web/templates/**/*")
+
+	// Serve static files
+	router.Static("/images", "./web/images")
+
 	// Middleware
 	router.Use(logger.GinZap(zapLogger, cfg.Server.IsProd))
 	router.Use(gin.Recovery())
@@ -45,19 +54,46 @@ func NewRouter(cfg *configs.Config, i18nInstance *i18n.I18n, zapLogger *zap.Logg
 	// Repositories
 	oauth2ClientRepo := repository.NewOAuth2ClientRepository(db.Pool)
 	oauth2SessionRepo := repository.NewOAuth2SessionRepository(db.Pool)
+	userRepo := repository.NewUserRepository(db.Pool)
+	sessionRepo := repository.NewSessionRepository(rdb)
+	authRequestRepo := repository.NewAuthRequestRepository(rdb)
+	consentRepo := repository.NewConsentRepository(db.Pool)
+	emailVerificationRepo := repository.NewEmailVerificationRepository(db.Pool)
+	passwordResetRepo := repository.NewPasswordResetRepository(db.Pool)
 
 	// Fosite Storage
 	sqlStore := fosite_storage.NewSQLStore(oauth2ClientRepo, oauth2SessionRepo)
 	redisStore := fosite_storage.NewRedisStore(rdb)
-	_ = fosite_storage.NewHybridStore(sqlStore, redisStore) // Gán cho _ cho đến khi dùng
 
 	// Fosite Provider
 	hybridStore := fosite_storage.NewHybridStore(sqlStore, redisStore)
 	oauth2Provider := oauth2.NewOAuth2Provider(hybridStore, &cfg.OAuth2)
 
+	// Services
+	oauth2Service := service.NewOAuth2Service(
+		userRepo,
+		sessionRepo,
+		authRequestRepo,
+		consentRepo,
+	)
+
+	authService := service.NewAuthService(
+		userRepo,
+		emailVerificationRepo,
+		passwordResetRepo,
+	)
+
+	emailService := service.NewEmailService(&cfg.Email, zapLogger)
+
 	// Handlers
-	mockStore := oauth2_handler.NewMockStore() // Vẫn dùng mock store cho UserInfo handler
-	oauth2Handler := oauth2_handler.NewHandler(&cfg.OAuth2, oauth2Provider, mockStore)
+	oauth2Handler := oauth2_handler.NewHandler(
+		&cfg.OAuth2,
+		oauth2Provider,
+		oauth2Service,
+		authRequestRepo,
+	)
+
+	authHandler := auth.NewHandler(authService, emailService)
 
 	// --- Đăng ký Routes ---
 	apiV1 := router.Group("/api/v1")
@@ -73,7 +109,27 @@ func NewRouter(cfg *configs.Config, i18nInstance *i18n.I18n, zapLogger *zap.Logg
 	oauth2Group := router.Group("/oauth2")
 	{
 		oauth2Handler.RegisterRoutes(oauth2Group)
+
+		// Auth pages under /oauth2 for consistency with login page
+		oauth2Group.GET("/register", authHandler.RegisterPage)
+		oauth2Group.GET("/verify-email", authHandler.VerifyEmailPage)
+		oauth2Group.GET("/forgot-password", authHandler.ForgotPasswordPage)
+		oauth2Group.GET("/reset-password", authHandler.ResetPasswordPage)
 	}
+
+	// Auth API endpoints
+	authAPIGroup := apiV1.Group("/auth")
+	{
+		authAPIGroup.POST("/register", authHandler.Register)
+		authAPIGroup.GET("/verify-email", authHandler.VerifyEmail)
+		authAPIGroup.POST("/verify-email", authHandler.VerifyEmail)
+		authAPIGroup.POST("/forgot-password", authHandler.ForgotPassword)
+		authAPIGroup.POST("/reset-password", authHandler.ResetPassword)
+	}
+
+	// OAuth2 Admin API
+	oauth2AdminHandler := oauth2_admin.NewHandler(oauth2ClientRepo)
+	oauth2_admin.RegisterRoutes(apiV1, oauth2AdminHandler)
 
 	return router
 }

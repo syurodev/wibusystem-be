@@ -1,0 +1,355 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Sign In</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        height: 100%;
+        overflow: hidden;
+      }
+
+      body {
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          "Helvetica Neue", Arial, sans-serif;
+      }
+
+      .card {
+        height: 100vh;
+        display: grid;
+        grid-template-columns: 45% 55%;
+      }
+
+      .illustration {
+        background: linear-gradient(
+          135deg,
+          #fef3c7 0%,
+          #fca5a5 50%,
+          #c084fc 100%
+        );
+        position: relative;
+        padding: 3rem;
+        display: flex;
+        flex-direction: column;
+      }
+
+      .logo {
+        height: 40px;
+        width: auto;
+        object-fit: contain;
+        object-position: left;
+      }
+
+      .artwork {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        position: relative;
+      }
+
+      .shape {
+        position: absolute;
+        border-radius: 50% 40% 60% 50%;
+        filter: blur(60px);
+        opacity: 0.6;
+      }
+
+      .shape1 {
+        width: 280px;
+        height: 320px;
+        background: #93c5fd;
+        top: 20%;
+        left: 10%;
+      }
+
+      .shape2 {
+        width: 300px;
+        height: 300px;
+        background: #a78bfa;
+        top: 30%;
+        left: 25%;
+      }
+
+      .shape3 {
+        width: 200px;
+        height: 280px;
+        background: #f0abfc;
+        top: 45%;
+        left: 40%;
+      }
+
+      .content {
+        background: white;
+        padding: 3rem 4rem;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        overflow-y: auto;
+      }
+
+      .content-wrapper {
+        max-width: 480px;
+        margin: 0 auto;
+        width: 100%;
+      }
+
+      h1 {
+        font-size: 2rem;
+        font-weight: 700;
+        color: #1f2937;
+        margin-bottom: 0.5rem;
+        line-height: 1.2;
+      }
+
+      .subtitle {
+        color: #6b7280;
+        margin-bottom: 2.5rem;
+        font-size: 0.9375rem;
+        line-height: 1.5;
+      }
+
+      .form-group {
+        margin-bottom: 1.5rem;
+      }
+
+      label {
+        display: block;
+        margin-bottom: 0.5rem;
+        color: #374151;
+        font-weight: 500;
+        font-size: 0.875rem;
+      }
+
+      input[type="email"],
+      input[type="password"] {
+        width: 100%;
+        padding: 0.875rem 1rem;
+        border: none;
+        background: #f3f4f6;
+        border-radius: 12px;
+        font-size: 0.9375rem;
+        transition: background 0.15s ease-in-out;
+        color: #1f2937;
+      }
+
+      input[type="email"]:focus,
+      input[type="password"]:focus {
+        outline: none;
+        background: #e5e7eb;
+      }
+
+      input::placeholder {
+        color: #9ca3af;
+      }
+
+      .checkbox-group {
+        display: flex;
+        align-items: center;
+        margin-bottom: 1.5rem;
+      }
+
+      .checkbox-group > label {
+        margin-bottom: 0;
+      }
+
+      input[type="checkbox"] {
+        width: 18px;
+        height: 18px;
+        margin-right: 0.5rem;
+        cursor: pointer;
+      }
+
+      .checkbox-label {
+        font-size: 0.875rem;
+        color: #6b7280;
+        cursor: pointer;
+        user-select: none;
+      }
+
+      button {
+        width: 100%;
+        padding: 0.875rem;
+        background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+        color: white;
+        border: none;
+        border-radius: 12px;
+        font-size: 0.9375rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+        box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+      }
+
+      button:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 6px 16px rgba(59, 130, 246, 0.4);
+      }
+
+      button:active {
+        transform: translateY(0);
+      }
+
+      .error {
+        background: #fee2e2;
+        color: #dc2626;
+        padding: 0.875rem;
+        border-radius: 12px;
+        margin-bottom: 1.5rem;
+        font-size: 0.875rem;
+        border: 1px solid #fecaca;
+        display: none;
+      }
+
+      .footer-link {
+        text-align: center;
+        margin-top: 1.5rem;
+        color: #6b7280;
+        font-size: 0.875rem;
+      }
+
+      .footer-link a {
+        color: #3b82f6;
+        text-decoration: none;
+        font-weight: 500;
+        margin-left: 0.25rem;
+      }
+
+      .footer-link a:hover {
+        text-decoration: underline;
+      }
+
+      /* Responsive */
+      @media (max-width: 968px) {
+        .card {
+          grid-template-columns: 1fr;
+        }
+
+        .illustration {
+          display: none;
+        }
+
+        .content {
+          padding: 2rem;
+        }
+      }
+
+      @media (max-width: 480px) {
+        .content {
+          padding: 1.5rem;
+        }
+
+        h1 {
+          font-size: 1.75rem;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <div class="illustration">
+        <img src="/images/logo.png" alt="Logo" class="logo" />
+        <div class="artwork">
+          <div class="shape shape1"></div>
+          <div class="shape shape2"></div>
+          <div class="shape shape3"></div>
+        </div>
+      </div>
+
+      <div class="content">
+        <div class="content-wrapper">
+          <h1>Sign In</h1>
+          <p class="subtitle">Enter your credentials to access your account</p>
+
+          <div class="error" id="error"></div>
+
+          <form id="loginForm" action="/oauth2/login" method="POST">
+            <input type="hidden" name="request_id" value="{{ .RequestID }}" />
+
+            <div class="form-group">
+              <label for="email">Email address</label>
+              <input
+                type="email"
+                id="email"
+                name="email"
+                required
+                autocomplete="email"
+                placeholder="your@email.com"
+              />
+            </div>
+
+            <div class="form-group">
+              <label for="password">Password</label>
+              <input
+                type="password"
+                id="password"
+                name="password"
+                required
+                autocomplete="current-password"
+                placeholder="Enter your password"
+              />
+            </div>
+
+            <div class="checkbox-group">
+              <input type="checkbox" id="remember" name="remember" />
+              <label for="remember" class="checkbox-label"
+                >Remember this computer</label
+              >
+            </div>
+
+            <button type="submit">Sign In</button>
+          </form>
+
+          <div class="footer-link">
+            Don't have an account? <a href="/oauth2/register">Sign up</a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      document
+        .getElementById("loginForm")
+        .addEventListener("submit", async (e) => {
+          e.preventDefault();
+          const form = e.target;
+          const formData = new FormData(form);
+          const error = document.getElementById("error");
+
+          try {
+            const response = await fetch(form.action, {
+              method: "POST",
+              body: formData,
+              redirect: "manual",
+            });
+
+            if (
+              response.type === "opaqueredirect" ||
+              response.status === 302 ||
+              response.status === 303
+            ) {
+              window.location.href =
+                response.headers.get("Location") ||
+                "/oauth2/auth?request_id=" + formData.get("request_id");
+            } else if (!response.ok) {
+              const data = await response.json();
+              error.textContent = data.message || "Invalid email or password";
+              error.style.display = "block";
+            }
+          } catch (err) {
+            error.textContent = "An error occurred. Please try again.";
+            error.style.display = "block";
+          }
+        });
+    </script>
+  </body>
+</html>

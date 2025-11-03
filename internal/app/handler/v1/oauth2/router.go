@@ -6,7 +6,20 @@ import (
 
 // RegisterRoutes đăng ký các routes cho module OAuth2.
 func (h *Handler) RegisterRoutes(group *gin.RouterGroup) {
-	group.GET("/userinfo", h.UserInfo)
+	// Core OAuth2 endpoints
+	group.GET("/auth", h.Authorize)         // Authorization endpoint
+	group.POST("/token", h.Token)           // Token endpoint
+	group.GET("/userinfo", h.UserInfo)      // UserInfo endpoint
+	group.POST("/revoke", h.Revoke)         // Token revocation endpoint (RFC 7009)
+	group.POST("/introspect", h.Introspect) // Token introspection endpoint (RFC 7662)
+
+	// Login flow
+	group.GET("/login", h.LoginPage)    // Login page
+	group.POST("/login", h.LoginSubmit) // Login form submit
+
+	// Consent flow
+	group.GET("/consent", h.ConsentPage)    // Consent page
+	group.POST("/consent", h.ConsentSubmit) // Consent form submit
 }
 
 // RegisterWellKnownRoutes đăng ký các routes cho /.well-known.

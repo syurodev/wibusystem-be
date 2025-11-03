@@ -2,12 +2,12 @@ package storage
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"system/internal/domain"
 	"time"
 
 	"github.com/gofrs/uuid/v5"
+	"github.com/jackc/pgx/v5"
 	"github.com/ory/fosite"
 )
 
@@ -35,10 +35,10 @@ func (s *SQLStore) GetClient(ctx context.Context, id string) (fosite.Client, err
 
 	domainClient, err := s.clientRepo.GetClientByID(ctx, clientID)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, fosite.ErrNotFound.WithWrap(err)
+		if err == pgx.ErrNoRows {
+			return nil, fosite.ErrNotFound.WithWrap(err).WithDebug("Client not found in database")
 		}
-		return nil, fosite.ErrServerError.WithWrap(err)
+		return nil, fosite.ErrServerError.WithWrap(err).WithDebug("Database error: " + err.Error())
 	}
 
 	client := &fosite.DefaultClient{
@@ -85,7 +85,7 @@ func (s *SQLStore) CreateRefreshTokenSession(ctx context.Context, signature stri
 func (s *SQLStore) GetRefreshTokenSession(ctx context.Context, signature string, session fosite.Session) (fosite.Requester, error) {
 	data, err := s.sessionRepo.GetSessionBySignature(ctx, signature)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if err == pgx.ErrNoRows {
 			return nil, fosite.ErrNotFound.WithWrap(err)
 		}
 		return nil, fosite.ErrServerError.WithWrap(err)

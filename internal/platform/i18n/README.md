@@ -96,7 +96,7 @@ func ValidateEmail(c *gin.Context) {
 
     message := localizer.MustLocalize(&i18n.LocalizeConfig{
         MessageID: "validation.required",
-        TemplateData: map[string]interface{}{
+        TemplateData: map[string]any{
             "field": "email",
         },
     })
@@ -185,7 +185,7 @@ Sử dụng `{{.VariableName}}` trong JSON:
 ```go
 message := localizer.MustLocalize(&i18n.LocalizeConfig{
     MessageID: "user.verification_sent",
-    TemplateData: map[string]interface{}{
+    TemplateData: map[string]any{
         "email": "user@example.com",
     },
 })
@@ -331,7 +331,7 @@ c.JSON(200, gin.H{"message": "User created successfully"})
 // ✅ ĐÚNG
 message := localizer.MustLocalize(&i18n.LocalizeConfig{
     MessageID: "validation.required",
-    TemplateData: map[string]interface{}{"field": "email"},
+    TemplateData: map[string]any{"field": "email"},
 })
 
 // ❌ SAI - Hard-coded
@@ -401,7 +401,7 @@ message, err := localizer.Localize(&i18n.LocalizeConfig{
 
 ```go
 // ✅ ĐÚNG - Field name match
-TemplateData: map[string]interface{}{"Name": "John"}
+TemplateData: map[string]any{"Name": "John"}
 ```
 
 ## Examples

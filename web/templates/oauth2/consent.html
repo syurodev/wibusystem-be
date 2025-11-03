@@ -1,0 +1,356 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Grant Access</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        height: 100%;
+        overflow: hidden;
+      }
+
+      body {
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          "Helvetica Neue", Arial, sans-serif;
+      }
+
+      .card {
+        height: 100vh;
+        display: grid;
+        grid-template-columns: 45% 55%;
+      }
+
+      .illustration {
+        background: linear-gradient(
+          135deg,
+          #ddd6fe 0%,
+          #c7d2fe 50%,
+          #fca5a5 100%
+        );
+        position: relative;
+        padding: 3rem;
+        display: flex;
+        flex-direction: column;
+      }
+
+      .logo {
+        height: 40px;
+        width: auto;
+        object-fit: contain;
+        object-position: left;
+      }
+
+      .lock-icon {
+        position: absolute;
+        top: 2.5rem;
+        right: 2.5rem;
+        width: 48px;
+        height: 48px;
+        background: rgba(255, 255, 255, 0.9);
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.25rem;
+      }
+
+      .artwork {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        position: relative;
+      }
+
+      .shape {
+        position: absolute;
+        border-radius: 50% 40% 60% 50%;
+        filter: blur(60px);
+        opacity: 0.6;
+      }
+
+      .shape1 {
+        width: 280px;
+        height: 320px;
+        background: #93c5fd;
+        top: 20%;
+        left: 10%;
+      }
+
+      .shape2 {
+        width: 300px;
+        height: 300px;
+        background: #a78bfa;
+        top: 30%;
+        left: 25%;
+      }
+
+      .shape3 {
+        width: 200px;
+        height: 280px;
+        background: #f0abfc;
+        top: 45%;
+        left: 40%;
+      }
+
+      .content {
+        background: white;
+        padding: 3rem 4rem;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        overflow-y: auto;
+      }
+
+      .content-wrapper {
+        max-width: 520px;
+        margin: 0 auto;
+        width: 100%;
+      }
+
+      h1 {
+        font-size: 2rem;
+        font-weight: 700;
+        color: #1f2937;
+        margin-bottom: 0.5rem;
+        line-height: 1.2;
+      }
+
+      .subtitle {
+        color: #6b7280;
+        margin-bottom: 2rem;
+        font-size: 0.9375rem;
+        line-height: 1.5;
+      }
+
+      .client-info {
+        background: #f9fafb;
+        padding: 1.25rem;
+        border-radius: 12px;
+        margin-bottom: 1.5rem;
+        border-left: 3px solid #3b82f6;
+      }
+
+      .client-name {
+        font-weight: 600;
+        color: #1f2937;
+        font-size: 1rem;
+        margin-bottom: 0.25rem;
+      }
+
+      .client-desc {
+        color: #6b7280;
+        font-size: 0.875rem;
+      }
+
+      .scopes-title {
+        font-weight: 600;
+        color: #1f2937;
+        margin-bottom: 1rem;
+        font-size: 0.9375rem;
+      }
+
+      .scope-list {
+        list-style: none;
+        margin-bottom: 2rem;
+      }
+
+      .scope-item {
+        padding: 1rem;
+        background: #f9fafb;
+        border-radius: 12px;
+        margin-bottom: 0.75rem;
+        display: flex;
+        align-items: flex-start;
+        gap: 0.875rem;
+      }
+
+      .scope-icon {
+        width: 20px;
+        height: 20px;
+        background: #10b981;
+        border-radius: 50%;
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 0.75rem;
+        margin-top: 2px;
+      }
+
+      .scope-content {
+        flex: 1;
+      }
+
+      .scope-name {
+        font-weight: 500;
+        color: #1f2937;
+        margin-bottom: 0.25rem;
+        font-size: 0.875rem;
+      }
+
+      .scope-desc {
+        color: #6b7280;
+        font-size: 0.8125rem;
+      }
+
+      .buttons {
+        display: flex;
+        gap: 1rem;
+      }
+
+      button {
+        flex: 1;
+        padding: 0.875rem;
+        border: none;
+        border-radius: 12px;
+        font-size: 0.9375rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+
+      .btn-allow {
+        background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+        color: white;
+        box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+      }
+
+      .btn-allow:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 6px 16px rgba(59, 130, 246, 0.4);
+      }
+
+      .btn-deny {
+        background: #f3f4f6;
+        color: #374151;
+      }
+
+      .btn-deny:hover {
+        background: #e5e7eb;
+      }
+
+      .footer {
+        margin-top: 1.5rem;
+        text-align: center;
+        color: #9ca3af;
+        font-size: 0.8125rem;
+      }
+
+      /* Responsive */
+      @media (max-width: 968px) {
+        .card {
+          grid-template-columns: 1fr;
+        }
+
+        .illustration {
+          display: none;
+        }
+
+        .content {
+          padding: 2rem;
+        }
+      }
+
+      @media (max-width: 480px) {
+        .content {
+          padding: 1.5rem;
+        }
+
+        h1 {
+          font-size: 1.75rem;
+        }
+
+        .buttons {
+          flex-direction: column-reverse;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <div class="illustration">
+        <img src="/images/logo.png" alt="Logo" class="logo" />
+        <div class="lock-icon">🔒</div>
+        <div class="artwork">
+          <div class="shape shape1"></div>
+          <div class="shape shape2"></div>
+          <div class="shape shape3"></div>
+        </div>
+      </div>
+
+      <div class="content">
+        <div class="content-wrapper">
+          <h1>Grant Access</h1>
+          <p class="subtitle">
+            This application is requesting access to your account
+          </p>
+
+          <div class="client-info">
+            <div class="client-name">{{ .ClientName }}</div>
+            <div class="client-desc">wants to access your account</div>
+          </div>
+
+          <div class="scopes-title">This application will be able to:</div>
+          <ul class="scope-list">
+            {{ range .Scopes }}
+            <li class="scope-item">
+              <div class="scope-icon">✓</div>
+              <div class="scope-content">
+                <div class="scope-name">{{ .Name }}</div>
+                <div class="scope-desc">{{ .Description }}</div>
+              </div>
+            </li>
+            {{ end }}
+          </ul>
+
+          <form action="/oauth2/consent" method="POST">
+            <input type="hidden" name="request_id" value="{{ .RequestID }}" />
+
+            <div class="buttons">
+              <button type="button" class="btn-deny" onclick="denyAccess()">
+                Deny
+              </button>
+              <button
+                type="submit"
+                name="action"
+                value="allow"
+                class="btn-allow"
+              >
+                Allow Access
+              </button>
+            </div>
+          </form>
+
+          <div class="footer">
+            You can revoke access at any time in your account settings
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      function denyAccess() {
+        if (confirm("Are you sure you want to deny access?")) {
+          const form = document.querySelector("form");
+          const input = document.createElement("input");
+          input.type = "hidden";
+          input.name = "action";
+          input.value = "deny";
+          form.appendChild(input);
+          form.submit();
+        }
+      }
+    </script>
+  </body>
+</html>

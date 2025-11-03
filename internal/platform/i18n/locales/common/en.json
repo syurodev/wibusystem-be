@@ -10,5 +10,9 @@
   "resource.conflict": "The resource already exists or a conflict occurred.",
   "rate_limit.exceeded": "Too many requests. Please try again in {{.seconds}} seconds.",
   "auth.invalid_token": "Access token is invalid or expired.",
+  "auth.missing_authorization_header": "Missing Authorization header.",
+  "auth.invalid_authorization_format": "Invalid Authorization header format. Expected: Bearer <token>",
+  "auth.insufficient_scope": "The access token does not have the required scope.",
+  "auth.middleware_error": "Authentication middleware error.",
   "userinfo.success": "User information retrieved successfully."
 }

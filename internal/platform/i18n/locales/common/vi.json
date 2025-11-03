@@ -10,5 +10,9 @@
   "resource.conflict": "Tài nguyên đã tồn tại hoặc có xung đột dữ liệu.",
   "rate_limit.exceeded": "Quá nhiều yêu cầu. Vui lòng thử lại sau {{.seconds}} giây.",
   "auth.invalid_token": "Access token không hợp lệ hoặc đã hết hạn.",
+  "auth.missing_authorization_header": "Thiếu Authorization header.",
+  "auth.invalid_authorization_format": "Định dạng Authorization header không hợp lệ. Mong đợi: Bearer <token>",
+  "auth.insufficient_scope": "Access token không có quyền truy cập cần thiết.",
+  "auth.middleware_error": "Lỗi middleware xác thực.",
   "userinfo.success": "Lấy thông tin người dùng thành công."
 }

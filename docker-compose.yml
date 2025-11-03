@@ -1,7 +1,6 @@
 version: "3.8"
 
 services:
-  # System Database (Modular Monolith - All schemas in one DB)
   system_dev:
     image: postgres:18.0
     container_name: system_dev
@@ -40,10 +39,53 @@ services:
     networks:
       - wibusystem_backend
 
+  grafana:
+    image: grafana/grafana:12.3.0
+    container_name: grafana
+    restart: unless-stopped
+    ports:
+      - "5555:3000" # Truy cập Grafana tại http://localhost:5555
+    volumes:
+      - grafana_data:/var/lib/grafana
+      # Tự động thêm Loki làm Nguồn dữ liệu
+      - ./grafana-datasource.yml:/etc/grafana/provisioning/datasources/loki-datasource.yml
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin # Đổi password này nếu muốn
+    networks:
+      - wibusystem_backend
+  loki:
+    image: grafana/loki:3.5
+    container_name: loki
+    restart: unless-stopped
+    ports:
+      - "3100:3100" # Port nội bộ cho Promtail và Grafana
+    command: -config.file=/etc/loki/loki-config.yml
+    volumes:
+      - loki_data:/loki
+      - ./loki-config.yml:/etc/loki/loki-config.yml
+    networks:
+      - wibusystem_backend
+
+  promtail:
+    image: grafana/promtail:3.5
+    container_name: promtail
+    restart: unless-stopped
+    command: -config.file=/etc/promtail/promtail-config.yml
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock # Cho phép Promtail đọc log từ Docker
+      - ./promtail-config.yml:/etc/promtail/promtail-config.yml
+    networks:
+      - wibusystem_backend
+
 volumes:
   system_data:
     driver: local
   redis_data:
+    driver: local
+  grafana_data:
+    driver: local
+  loki_data:
     driver: local
 
 networks:

@@ -49,18 +49,18 @@ func NewRedisClient(ctx context.Context, cfg *configs.RedisConfig, logger *zap.L
 		MinIdleConns: cfg.MinIdleConns, // Số lượng idle connections tối thiểu
 
 		// Timeouts
-		DialTimeout:  5 * time.Second,  // Timeout khi tạo connection mới
-		ReadTimeout:  3 * time.Second,  // Timeout khi đọc data
-		WriteTimeout: 3 * time.Second,  // Timeout khi ghi data
-		PoolTimeout:  4 * time.Second,  // Timeout khi chờ connection từ pool
+		DialTimeout:  5 * time.Second, // Timeout khi tạo connection mới
+		ReadTimeout:  3 * time.Second, // Timeout khi đọc data
+		WriteTimeout: 3 * time.Second, // Timeout khi ghi data
+		PoolTimeout:  4 * time.Second, // Timeout khi chờ connection từ pool
 
 		// Connection Lifecycle
-		ConnMaxIdleTime: 5 * time.Minute, // Đóng idle connections sau 5 phút
+		ConnMaxIdleTime: 5 * time.Minute,  // Đóng idle connections sau 5 phút
 		ConnMaxLifetime: 30 * time.Minute, // Đóng connections sau 30 phút (refresh)
 
 		// Retry Strategy
-		MaxRetries:      cfg.MaxRetries,     // Số lần retry tối đa khi command fail
-		MinRetryBackoff: 8 * time.Millisecond,  // Backoff tối thiểu giữa các retry
+		MaxRetries:      cfg.MaxRetries,         // Số lần retry tối đa khi command fail
+		MinRetryBackoff: 8 * time.Millisecond,   // Backoff tối thiểu giữa các retry
 		MaxRetryBackoff: 512 * time.Millisecond, // Backoff tối đa
 
 		// Health Check
@@ -136,9 +136,9 @@ func (r *RedisClient) Stats() *redis.PoolStats {
 //   - ctx: Context với timeout
 //
 // Returns:
-//   - map[string]interface{}: Thông tin health check
+//   - map[string]any: Thông tin health check
 //   - error: Lỗi nếu health check failed
-func (r *RedisClient) Health(ctx context.Context) (map[string]interface{}, error) {
+func (r *RedisClient) Health(ctx context.Context) (map[string]any, error) {
 	// 1. Ping Redis
 	start := time.Now()
 	if err := r.Ping(ctx); err != nil {
@@ -156,13 +156,13 @@ func (r *RedisClient) Health(ctx context.Context) (map[string]interface{}, error
 	}
 
 	// 4. Trả về health info
-	healthInfo := map[string]interface{}{
-		"status":   "healthy",
-		"latency":  latency.String(),
+	healthInfo := map[string]any{
+		"status":     "healthy",
+		"latency":    latency.String(),
 		"latency_ms": latency.Milliseconds(),
 
 		// Pool Stats
-		"pool": map[string]interface{}{
+		"pool": map[string]any{
 			"total_conns": stats.TotalConns,
 			"idle_conns":  stats.IdleConns,
 			"stale_conns": stats.StaleConns,
@@ -172,10 +172,10 @@ func (r *RedisClient) Health(ctx context.Context) (map[string]interface{}, error
 		},
 
 		// Config
-		"config": map[string]interface{}{
-			"db":              r.config.DB,
-			"pool_size":       r.config.PoolSize,
-			"min_idle_conns":  r.config.MinIdleConns,
+		"config": map[string]any{
+			"db":             r.config.DB,
+			"pool_size":      r.config.PoolSize,
+			"min_idle_conns": r.config.MinIdleConns,
 		},
 	}
 
@@ -202,7 +202,7 @@ func (r *RedisClient) Health(ctx context.Context) (map[string]interface{}, error
 // Example:
 //
 //	err := redis.Set(ctx, "user:123", userData, 1*time.Hour)
-func (r *RedisClient) Set(ctx context.Context, key string, value interface{}, expiration time.Duration) error {
+func (r *RedisClient) Set(ctx context.Context, key string, value any, expiration time.Duration) error {
 	return r.Client.Set(ctx, key, value, expiration).Err()
 }
 
@@ -351,7 +351,7 @@ func (r *RedisClient) Decr(ctx context.Context, key string) (int64, error) {
 // Example:
 //
 //	err := redis.HSet(ctx, "user:123", "name", "John", "email", "john@example.com")
-func (r *RedisClient) HSet(ctx context.Context, key string, values ...interface{}) error {
+func (r *RedisClient) HSet(ctx context.Context, key string, values ...any) error {
 	return r.Client.HSet(ctx, key, values...).Err()
 }
 

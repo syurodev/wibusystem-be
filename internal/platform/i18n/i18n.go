@@ -38,7 +38,7 @@ func InitI18n(log *zap.Logger) error {
 		log:    log,
 	}
 
-	domains := []string{"common"}
+	domains := []string{"common", "oauth2", "auth"}
 	languages := []string{"en", "vi"}
 
 	for _, domain := range domains {

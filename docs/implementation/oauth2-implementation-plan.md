@@ -56,7 +56,7 @@ GET /.well-known/openid-configuration
 func (h *Handler) Discovery(c *gin.Context) {
     baseURL := h.config.Issuer // "https://auth.example.com"
 
-    discovery := map[string]interface{}{
+    discovery := map[string]any{
         "issuer": baseURL,
         "authorization_endpoint": baseURL + "/oauth2/auth",
         "token_endpoint": baseURL + "/oauth2/token",
@@ -130,8 +130,8 @@ func (h *Handler) JWKS(c *gin.Context) {
     // Get public key từ RSA private key
     publicKey := &h.privateKey.PublicKey
 
-    jwks := map[string]interface{}{
-        "keys": []map[string]interface{}{
+    jwks := map[string]any{
+        "keys": []map[string]any{
             {
                 "kty": "RSA",
                 "use": "sig",
@@ -768,7 +768,7 @@ func (h *Handler) PushedAuthorizationRequest(c *gin.Context) {
     }
 
     // 2. Parse authorization parameters
-    params := make(map[string]interface{})
+    params := make(map[string]any)
     for key, values := range c.Request.Form {
         if len(values) > 0 {
             params[key] = values[0]

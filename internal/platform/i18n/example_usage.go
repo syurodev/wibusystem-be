@@ -43,7 +43,7 @@ func ExampleValidationError(c *gin.Context) {
 	// Translate với template data
 	message := localizer.MustLocalize(&i18n.LocalizeConfig{
 		MessageID: "validation.required",
-		TemplateData: map[string]interface{}{
+		TemplateData: map[string]any{
 			"field": "email",
 		},
 	})
@@ -64,7 +64,7 @@ func ExampleStandardResponse(c *gin.Context) {
 	response.Success(c, http.StatusOK, "user.created", nil, nil)
 
 	// Error response với template data
-	response.Error(c, http.StatusBadRequest, "validation.required", map[string]interface{}{
+	response.Error(c, http.StatusBadRequest, "validation.required", map[string]any{
 		"field": "password",
 	})
 }
@@ -158,7 +158,7 @@ func ExamplePluralization(c *gin.Context) {
 	message := localizer.MustLocalize(&i18n.LocalizeConfig{
 		MessageID: "item.count",
 		PluralCount: count,
-		TemplateData: map[string]interface{}{
+		TemplateData: map[string]any{
 			"Count": count,
 		},
 	})
@@ -182,7 +182,7 @@ func (s *UserService) CreateUser(email string) (string, error) {
 		// Return translated error message
 		return "", fmt.Errorf(s.localizer.MustLocalize(&i18n.LocalizeConfig{
 			MessageID: "validation.required",
-			TemplateData: map[string]interface{}{
+			TemplateData: map[string]any{
 				"field": "email",
 			},
 		}))
@@ -207,7 +207,7 @@ func ExampleRateLimitMessage(c *gin.Context) {
 
 	message := localizer.MustLocalize(&i18n.LocalizeConfig{
 		MessageID: "rate_limit.exceeded",
-		TemplateData: map[string]interface{}{
+		TemplateData: map[string]any{
 			"seconds": retryAfter,
 		},
 	})
