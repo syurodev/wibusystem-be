@@ -28,6 +28,7 @@
 ```
 
 **✨ Lợi ích:**
+
 - Không cần thêm MongoDB container
 - Tận dụng Loki stack đã có
 - Grafana sẵn sàng để query & visualize
@@ -74,6 +75,7 @@
 ```
 
 **Cách hoạt động:**
+
 1. **Application** log events với Zap (structured JSON)
 2. **Promtail** collect logs từ stdout/files
 3. **Loki** store và index logs với labels
@@ -84,6 +86,7 @@
 ## Layer 1: Application Logs (Zap → Stdout/File → Promtail → Loki)
 
 ### Purpose
+
 - Runtime debugging
 - Performance monitoring
 - Error tracking
@@ -92,6 +95,7 @@
 ### Output Strategy
 
 **Dual Output (Recommended):**
+
 ```
 Zap Logger
   ├─ Stdout (primary) → Promtail → Loki
@@ -99,6 +103,7 @@ Zap Logger
 ```
 
 **File backup rotation:**
+
 ```
 logs/
   ├── app.log              # Current log
@@ -108,6 +113,7 @@ logs/
 ```
 
 **Rotation Policy (File backup only):**
+
 - Rotate daily
 - Keep last 7 days locally
 - Max size: 100MB per file
@@ -115,6 +121,7 @@ logs/
 - Loki retention: 90 days (configurable)
 
 **Implementation:**
+
 ```go
 // Use: go.uber.org/zap + lumberjack for file rotation
 import (
@@ -200,6 +207,7 @@ grep "user_id.*00000000" logs/app.log | jq .
 ## Layer 2: Security Audit Logs (Loki)
 
 ### Purpose
+
 - Security investigation
 - Compliance (GDPR, SOC2, HIPAA)
 - Forensics
@@ -207,17 +215,17 @@ grep "user_id.*00000000" logs/app.log | jq .
 
 ### Why Loki (Not MongoDB/PostgreSQL)?
 
-| Criteria | Loki | MongoDB | PostgreSQL |
-|----------|------|---------|------------|
-| **Infrastructure** | ✅ Đã có sẵn | ❌ Cần thêm container | ⚠️ Có rồi (nhưng cho transactional) |
-| **Write Performance** | ✅ Excellent (append-only) | ✅ Excellent | ⚠️ Good |
-| **Log-optimized** | ✅ Designed cho logs | ⚠️ General purpose | ⚠️ General purpose |
-| **Query Language** | ✅ LogQL (simple) | ✅ Rich aggregation | ✅ SQL |
-| **Compression** | ✅ Excellent (chunking) | ✅ Built-in | ⚠️ Need TOAST |
-| **Retention** | ✅ Time-based | ✅ TTL indexes | ⚠️ Manual partitioning |
-| **Horizontal Scaling** | ✅ Easy | ✅ Easy sharding | ⚠️ Complex |
-| **Integration** | ✅ Grafana native | ⚠️ Need tools | ⚠️ Need tools |
-| **Cost** | ✅ Free (existing) | ⚠️ Resource overhead | ⚠️ Schema overhead |
+| Criteria               | Loki                       | MongoDB               | PostgreSQL                          |
+| ---------------------- | -------------------------- | --------------------- | ----------------------------------- |
+| **Infrastructure**     | ✅ Đã có sẵn               | ❌ Cần thêm container | ⚠️ Có rồi (nhưng cho transactional) |
+| **Write Performance**  | ✅ Excellent (append-only) | ✅ Excellent          | ⚠️ Good                             |
+| **Log-optimized**      | ✅ Designed cho logs       | ⚠️ General purpose    | ⚠️ General purpose                  |
+| **Query Language**     | ✅ LogQL (simple)          | ✅ Rich aggregation   | ✅ SQL                              |
+| **Compression**        | ✅ Excellent (chunking)    | ✅ Built-in           | ⚠️ Need TOAST                       |
+| **Retention**          | ✅ Time-based              | ✅ TTL indexes        | ⚠️ Manual partitioning              |
+| **Horizontal Scaling** | ✅ Easy                    | ✅ Easy sharding      | ⚠️ Complex                          |
+| **Integration**        | ✅ Grafana native          | ⚠️ Need tools         | ⚠️ Need tools                       |
+| **Cost**               | ✅ Free (existing)         | ⚠️ Resource overhead  | ⚠️ Schema overhead                  |
 
 **Decision:** Loki cho audit logs (tận dụng stack có sẵn), PostgreSQL cho transactional data
 
@@ -230,6 +238,7 @@ grep "user_id.*00000000" logs/app.log | jq .
 **⚠️ CRITICAL:** Loki labels phải có **low cardinality** để tránh performance issues.
 
 **Good Labels (Low Cardinality):**
+
 ```
 - log_type: "audit" | "application"
 - event_category: "auth" | "authz" | "token" | "admin" | "security"
@@ -239,6 +248,7 @@ grep "user_id.*00000000" logs/app.log | jq .
 ```
 
 **Bad Labels (High Cardinality - AVOID!):**
+
 ```
 ❌ user_id (millions of unique values)
 ❌ client_id (thousands of unique values)
@@ -297,6 +307,7 @@ grep "user_id.*00000000" logs/app.log | jq .
 **Purpose:** Track authentication attempts
 
 **Event Types:**
+
 - `login_success`
 - `login_failed` (with reason)
 - `logout`
@@ -306,6 +317,7 @@ grep "user_id.*00000000" logs/app.log | jq .
 - `password_reset_completed`
 
 **Example Log:**
+
 ```json
 {
   "timestamp": "2024-11-03T10:30:45.123Z",
@@ -343,6 +355,7 @@ grep "user_id.*00000000" logs/app.log | jq .
 **Purpose:** Track authorization grants and consents
 
 **Event Types:**
+
 - `consent_granted`
 - `consent_denied`
 - `consent_revoked`
@@ -351,6 +364,7 @@ grep "user_id.*00000000" logs/app.log | jq .
 - `authorization_failed` (with reason)
 
 **Example Log:**
+
 ```json
 {
   "timestamp": "2024-11-03T10:35:20.456Z",
@@ -381,6 +395,7 @@ grep "user_id.*00000000" logs/app.log | jq .
 **Purpose:** Track token lifecycle
 
 **Event Types:**
+
 - `access_token_issued`
 - `access_token_revoked`
 - `refresh_token_issued`
@@ -391,6 +406,7 @@ grep "user_id.*00000000" logs/app.log | jq .
 - `token_introspected`
 
 **Example Log:**
+
 ```json
 {
   "timestamp": "2024-11-03T10:35:25.789Z",
@@ -421,6 +437,7 @@ grep "user_id.*00000000" logs/app.log | jq .
 **Purpose:** Track admin/privileged actions
 
 **Event Types:**
+
 - `client_created`
 - `client_updated`
 - `client_deleted`
@@ -433,6 +450,7 @@ grep "user_id.*00000000" logs/app.log | jq .
 - `tokens_revoked_by_admin`
 
 **Example Log:**
+
 ```json
 {
   "timestamp": "2024-11-03T09:00:00.000Z",
@@ -467,6 +485,7 @@ grep "user_id.*00000000" logs/app.log | jq .
 **Purpose:** Track security violations and anomalies
 
 **Event Types:**
+
 - `token_reuse_detected`
 - `rate_limit_exceeded`
 - `invalid_client_credentials`
@@ -477,12 +496,14 @@ grep "user_id.*00000000" logs/app.log | jq .
 - `invalid_redirect_uri`
 
 **Severity Levels:**
+
 - `info`: Informational
 - `warn`: Suspicious activity
 - `error`: Likely attack
 - `critical`: Confirmed breach/attack
 
 **Example Log:**
+
 ```json
 {
   "timestamp": "2024-11-03T14:30:00.000Z",
@@ -525,6 +546,7 @@ internal/
 ```
 
 **Key Changes from MongoDB design:**
+
 - No MongoDB client/connection needed
 - AuditLogger chỉ là wrapper around Zap logger
 - Logs đi qua stdout → Promtail → Loki (automatic)
@@ -718,7 +740,7 @@ func (l *AuditLogger) LogClientCreated(ctx context.Context, adminID, clientID, c
     )
 }
 
-func (l *AuditLogger) LogClientUpdated(ctx context.Context, adminID, clientID string, changes map[string]interface{}) {
+func (l *AuditLogger) LogClientUpdated(ctx context.Context, adminID, clientID string, changes map[string]any) {
     l.logger.Info("OAuth2 client updated",
         zap.String("event_category", "admin"),
         zap.String("event_type", "client_updated"),
@@ -730,7 +752,7 @@ func (l *AuditLogger) LogClientUpdated(ctx context.Context, adminID, clientID st
 }
 
 // Security Events
-func (l *AuditLogger) LogSecurityEvent(ctx context.Context, eventType, severity, description string, userID, clientID, ip string, metadata map[string]interface{}) {
+func (l *AuditLogger) LogSecurityEvent(ctx context.Context, eventType, severity, description string, userID, clientID, ip string, metadata map[string]any) {
     l.logger.Error("Security event detected",
         zap.String("event_category", "security"),
         zap.String("event_type", eventType),
@@ -747,7 +769,7 @@ func (l *AuditLogger) LogTokenReuse(ctx context.Context, tokenSig, userID, clien
     l.LogSecurityEvent(ctx, "token_reuse_detected", "critical",
         "Refresh token was reused after rotation",
         userID, clientID, ip,
-        map[string]interface{}{
+        map[string]any{
             "token_signature": tokenSig,
             "action_taken":    "revoked_token_family",
         },
@@ -756,6 +778,7 @@ func (l *AuditLogger) LogTokenReuse(ctx context.Context, tokenSig, userID, clien
 ```
 
 **Key Changes:**
+
 - ❌ No MongoDB connection needed
 - ✅ Simple wrapper around Zap logger
 - ✅ Structured logging with consistent fields
@@ -842,6 +865,7 @@ const (
 ```
 
 **Simpler Design:**
+
 - ❌ No complex struct definitions needed
 - ✅ Use constants for event types và categories
 - ✅ Type-safe trong code
@@ -913,6 +937,7 @@ func (h *Handler) LoginSubmit(c *gin.Context) {
 ```
 
 **Simpler API:**
+
 - Pass parameters directly, không cần struct
 - Type-safe và clear
 - IDE autocomplete works better
@@ -943,9 +968,9 @@ scrape_configs:
       - host: unix:///var/run/docker.sock
         refresh_interval: 5s
     relabel_configs:
-      - source_labels: ['__meta_docker_container_name']
-        regex: '/(.*)'
-        target_label: 'container'
+      - source_labels: ["__meta_docker_container_name"]
+        regex: "/(.*)"
+        target_label: "container"
     pipeline_stages:
       # Parse JSON logs
       - json:
@@ -1000,6 +1025,7 @@ scrape_configs:
 ```
 
 **Key Points:**
+
 - Extract labels từ JSON fields
 - Chỉ promote low-cardinality fields thành labels
 - High-cardinality data (user_id, ip, etc.) ở trong JSON body
@@ -1016,6 +1042,7 @@ LogQL syntax: `{label_selector} | line_filter | json_parser | filter_expression`
 ### Common Queries
 
 #### 1. Find all login attempts for a user (filter trong JSON)
+
 ```logql
 {log_type="audit", event_category="auth", event_type="login_success"}
 | json
@@ -1023,11 +1050,13 @@ LogQL syntax: `{label_selector} | line_filter | json_parser | filter_expression`
 ```
 
 #### 2. Find failed login attempts in last 24h
+
 ```logql
 {log_type="audit", event_category="auth", event_type="login_failed"} [24h]
 ```
 
 #### 3. Find all consents granted to a client
+
 ```logql
 {log_type="audit", event_category="authz", event_type="consent_granted"}
 | json
@@ -1035,11 +1064,13 @@ LogQL syntax: `{label_selector} | line_filter | json_parser | filter_expression`
 ```
 
 #### 4. Count tokens issued today (aggregation)
+
 ```logql
 sum(count_over_time({log_type="audit", event_category="token", event_type="access_token_issued"} [24h]))
 ```
 
 Hoặc group by client:
+
 ```logql
 sum by (client_id) (
   count_over_time({log_type="audit", event_category="token", event_type="access_token_issued"} [24h] | json)
@@ -1047,11 +1078,13 @@ sum by (client_id) (
 ```
 
 #### 5. Find security events by severity
+
 ```logql
 {log_type="audit", event_category="security", severity=~"error|critical"} [7d]
 ```
 
 #### 6. User activity timeline (all events for a user)
+
 ```logql
 {log_type="audit"}
 | json
@@ -1059,6 +1092,7 @@ sum by (client_id) (
 ```
 
 #### 7. Failed logins by email (detect brute force)
+
 ```logql
 sum by (email) (
   count_over_time({log_type="audit", event_type="login_failed"} [15m] | json)
@@ -1066,16 +1100,19 @@ sum by (email) (
 ```
 
 #### 8. Token reuse detection events
+
 ```logql
 {log_type="audit", event_category="security", event_type="token_reuse_detected", severity="critical"}
 ```
 
 #### 9. All admin actions
+
 ```logql
 {log_type="audit", event_category="admin"}
 ```
 
 #### 10. Logs with specific IP address
+
 ```logql
 {log_type="audit"}
 | json
@@ -1085,11 +1122,13 @@ sum by (email) (
 ### Advanced Queries
 
 #### Rate of login failures (per minute)
+
 ```logql
 rate({log_type="audit", event_type="login_failed"} [5m])
 ```
 
 #### Top 10 users with most logins
+
 ```logql
 topk(10,
   sum by (user_id) (
@@ -1099,6 +1138,7 @@ topk(10,
 ```
 
 #### Logins from suspicious countries
+
 ```logql
 {log_type="audit", event_category="auth", event_type="login_success"}
 | json
@@ -1108,17 +1148,20 @@ topk(10,
 ### Grafana Dashboard Queries
 
 #### Panel: Login Success Rate (over time)
+
 ```logql
 sum(rate({log_type="audit", event_type="login_success"} [5m])) /
 sum(rate({log_type="audit", event_category="auth"} [5m]))
 ```
 
 #### Panel: Security Events by Severity
+
 ```logql
 sum by (severity) (count_over_time({log_type="audit", event_category="security"} [24h]))
 ```
 
 #### Panel: Token Issuance by Grant Type
+
 ```logql
 sum by (grant_type) (
   count_over_time({log_type="audit", event_type="access_token_issued"} [1h] | json)
@@ -1170,7 +1213,7 @@ func (h *AdminHandler) GetAuthEvents(c *gin.Context) {
     }
     defer resp.Body.Close()
 
-    var result map[string]interface{}
+    var result map[string]any
     json.NewDecoder(resp.Body).Decode(&result)
 
     c.JSON(200, result)
@@ -1194,6 +1237,7 @@ func (h *AdminHandler) GetSecurityEvents(c *gin.Context) {
 ```
 
 **Loki Query API Endpoints:**
+
 - `/loki/api/v1/query` - Instant query
 - `/loki/api/v1/query_range` - Range query
 - `/loki/api/v1/labels` - Get available labels
@@ -1226,31 +1270,31 @@ curl -X POST \
 
 Tất cả logs (application + audit) đều đi qua Loki:
 
-| Metric | Value |
-|--------|-------|
-| **Log rate** | ~100 requests/sec × 800 bytes = 80 KB/sec |
-| **Daily volume** | 80 KB/sec × 86400 sec = ~6.9 GB/day (raw) |
+| Metric               | Value                                       |
+| -------------------- | ------------------------------------------- |
+| **Log rate**         | ~100 requests/sec × 800 bytes = 80 KB/sec   |
+| **Daily volume**     | 80 KB/sec × 86400 sec = ~6.9 GB/day (raw)   |
 | **Loki compression** | ~700 MB/day (Loki chunks ~10:1 compression) |
-| **90-day retention** | 700 MB × 90 = **~63 GB** |
+| **90-day retention** | 700 MB × 90 = **~63 GB**                    |
 
 ### Breakdown by Category
 
-| Log Type | Events/Day | Avg Size | Daily (Raw) | Daily (Compressed) |
-|----------|-----------|----------|-------------|---------------------|
-| Application | 8,640,000 | 400 bytes | ~3.5 GB | ~350 MB |
-| Audit: Auth | 10,000 | 500 bytes | 5 MB | 0.5 MB |
-| Audit: Authz | 5,000 | 600 bytes | 3 MB | 0.3 MB |
-| Audit: Token | 20,000 | 400 bytes | 8 MB | 0.8 MB |
-| Audit: Admin | 100 | 800 bytes | 80 KB | 8 KB |
-| Audit: Security | 500 | 700 bytes | 350 KB | 35 KB |
-| **Total** | **~8.6M** | - | **~6.9 GB/day** | **~700 MB/day** |
+| Log Type        | Events/Day | Avg Size  | Daily (Raw)     | Daily (Compressed) |
+| --------------- | ---------- | --------- | --------------- | ------------------ |
+| Application     | 8,640,000  | 400 bytes | ~3.5 GB         | ~350 MB            |
+| Audit: Auth     | 10,000     | 500 bytes | 5 MB            | 0.5 MB             |
+| Audit: Authz    | 5,000      | 600 bytes | 3 MB            | 0.3 MB             |
+| Audit: Token    | 20,000     | 400 bytes | 8 MB            | 0.8 MB             |
+| Audit: Admin    | 100        | 800 bytes | 80 KB           | 8 KB               |
+| Audit: Security | 500        | 700 bytes | 350 KB          | 35 KB              |
+| **Total**       | **~8.6M**  | -         | **~6.9 GB/day** | **~700 MB/day**    |
 
 ### Local File Backup (Optional)
 
-| Metric | Value |
-|--------|-------|
-| **Rotation** | Daily |
-| **Retention** | 7 days (local disk) |
+| Metric         | Value                   |
+| -------------- | ----------------------- |
+| **Rotation**   | Daily                   |
+| **Retention**  | 7 days (local disk)     |
 | **Compressed** | ~700 MB × 7 = **~5 GB** |
 
 **Total Storage (Loki + Local backup):** ~68 GB (90 days)
@@ -1261,17 +1305,18 @@ Tất cả logs (application + audit) đều đi qua Loki:
 
 ### Infrastructure Cost (Monthly)
 
-| Resource | Cost | Notes |
-|----------|------|-------|
-| **Disk space** | $6-10 | 70 GB × $0.10/GB (cheap HDD) |
-| **Loki** | $0 | Already running in docker-compose |
-| **Promtail** | $0 | Already running |
-| **Grafana** | $0 | Already running |
-| **CPU overhead** | <2% | Promtail + Loki (lightweight) |
-| **Memory** | ~200 MB | Loki + Promtail + buffers |
-| **Total** | **~$10/month** | Extremely cheap! |
+| Resource         | Cost           | Notes                             |
+| ---------------- | -------------- | --------------------------------- |
+| **Disk space**   | $6-10          | 70 GB × $0.10/GB (cheap HDD)      |
+| **Loki**         | $0             | Already running in docker-compose |
+| **Promtail**     | $0             | Already running                   |
+| **Grafana**      | $0             | Already running                   |
+| **CPU overhead** | <2%            | Promtail + Loki (lightweight)     |
+| **Memory**       | ~200 MB        | Loki + Promtail + buffers         |
+| **Total**        | **~$10/month** | Extremely cheap!                  |
 
 **Comparisons:**
+
 - MongoDB-based design: ~$5/month (but need to add MongoDB)
 - ELK Stack: ~$100-500/month (dedicated servers, heavy resources)
 - Commercial SaaS logging: $50-200/month (Datadog, Splunk, etc.)
@@ -1283,18 +1328,21 @@ Tất cả logs (application + audit) đều đi qua Loki:
 ## Maintenance
 
 ### Daily Tasks (Automated)
+
 - ✅ Log rotation (automatic via lumberjack for local files)
 - ✅ Old log compression (automatic)
 - ✅ Loki retention cleanup (automatic based on config)
 - ✅ Promtail log collection (automatic)
 
 ### Weekly Tasks
+
 - Check Loki disk space usage
 - Review security events in Grafana
 - Check Promtail/Loki health status
 - Monitor label cardinality
 
 ### Monthly Tasks
+
 - Review Loki retention policies (90 days default)
 - Analyze log patterns in Grafana
 - Review dashboard performance
@@ -1306,7 +1354,7 @@ Update `loki-config.yml`:
 
 ```yaml
 limits_config:
-  retention_period: 2160h  # 90 days
+  retention_period: 2160h # 90 days
 
 compactor:
   working_directory: /loki/compactor
@@ -1338,11 +1386,13 @@ Single Loki instance      →     Loki cluster (HA)
 **Migration Paths:**
 
 1. **Scale Loki horizontally:**
+
    - Multiple Loki instances với load balancer
    - S3/GCS backend for chunks
    - Separate read/write paths
 
 2. **Export to Cloud:**
+
    - Grafana Cloud Logs (managed Loki)
    - AWS CloudWatch Logs
    - Google Cloud Logging
@@ -1361,26 +1411,31 @@ Single Loki instance      →     Loki cluster (HA)
 ### ✅ What You Get
 
 1. **Unified logging system:**
+
    - All logs (application + audit) qua Loki
    - Structured JSON logs
    - Automatic collection via Promtail
 
 2. **Low resource usage:**
+
    - ~68 GB storage (90 days retention)
    - <2% CPU overhead
    - ~$10/month cost
 
 3. **Compliance-ready:**
+
    - Immutable audit trail
    - Configurable retention (90 days default, có thể lên 1 year+)
    - LogQL query capabilities
 
 4. **Zero new infrastructure:**
+
    - Uses existing Loki + Promtail + Grafana stack
    - No MongoDB needed
    - Simpler architecture
 
 5. **Built-in visualization:**
+
    - Grafana dashboards ready to use
    - Real-time log exploration
    - Alerting capabilities
@@ -1393,24 +1448,28 @@ Single Loki instance      →     Loki cluster (HA)
 ### 📋 Implementation Checklist
 
 #### Phase 1: Logger Setup (Week 1)
+
 - [ ] Setup Zap with dual output (stdout + file via lumberjack)
 - [ ] Add `log_type`, `event_category`, `event_type`, `severity` fields
 - [ ] Test JSON output format
 - [ ] Verify logs appear in stdout
 
 #### Phase 2: Promtail Configuration (Week 1)
+
 - [ ] Update `promtail-config.yml` với JSON parsing
 - [ ] Configure label extraction (low cardinality only!)
 - [ ] Test Promtail collecting logs from Docker
 - [ ] Verify logs arrive in Loki
 
 #### Phase 3: Audit Logger Implementation (Week 2)
+
 - [ ] Create `internal/platform/logger/audit.go` (Zap wrapper)
 - [ ] Define event constants in `internal/domain/audit.go`
 - [ ] Implement audit methods (LogLoginSuccess, LogTokenIssued, etc.)
 - [ ] Add unit tests
 
 #### Phase 4: Integration (Week 2-3)
+
 - [ ] Add audit logging to login flow
 - [ ] Add audit logging to token endpoint
 - [ ] Add audit logging to consent flow
@@ -1418,12 +1477,14 @@ Single Loki instance      →     Loki cluster (HA)
 - [ ] Add security event logging (token reuse, etc.)
 
 #### Phase 5: Loki Configuration (Week 3)
+
 - [ ] Update `loki-config.yml` với retention policy (90 days)
 - [ ] Enable compactor for cleanup
 - [ ] Configure storage limits
 - [ ] Test retention cleanup
 
 #### Phase 6: Grafana Dashboards (Week 3-4)
+
 - [ ] Create dashboard: Authentication Events
 - [ ] Create dashboard: Token Lifecycle
 - [ ] Create dashboard: Security Events
@@ -1431,6 +1492,7 @@ Single Loki instance      →     Loki cluster (HA)
 - [ ] Setup alerts (failed logins, security events)
 
 #### Phase 7: Testing & Documentation (Week 4)
+
 - [ ] Test all log flows end-to-end
 - [ ] Verify LogQL queries work
 - [ ] Document common queries

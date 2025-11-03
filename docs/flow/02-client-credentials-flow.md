@@ -3,12 +3,14 @@
 ## Tổng quan
 
 Client Credentials Flow là luồng OAuth2 dành cho **server-to-server authentication**, không có sự tham gia của user. Flow này dùng cho các trường hợp:
+
 - Backend services gọi API của nhau
 - Microservices authentication
 - Scheduled jobs/cron jobs cần access API
 - CLI tools/scripts
 
 **Đặc điểm:**
+
 - ✅ Đơn giản nhất trong các OAuth2 flows
 - ✅ Không có user context
 - ✅ Token không chứa user information
@@ -37,7 +39,7 @@ Client Credentials Flow là luồng OAuth2 dành cho **server-to-server authenti
           │  1. POST /oauth2/token
           │     Authorization: Basic base64(client_id:client_secret)
           │     Content-Type: application/x-www-form-urlencoded
-          │     
+          │
           │     grant_type=client_credentials
           │     scope=api:read api:write
           │
@@ -145,18 +147,21 @@ Client Credentials Flow là luồng OAuth2 dành cho **server-to-server authenti
 Client gửi POST request đến `/oauth2/token` với:
 
 **Headers:**
+
 ```
 Authorization: Basic Y2xpZW50X2lkOmNsaWVudF9zZWNyZXQ=
 Content-Type: application/x-www-form-urlencoded
 ```
 
 **Body:**
+
 ```
 grant_type=client_credentials
 scope=api:read api:write
 ```
 
 **Authorization Header Format:**
+
 ```
 Basic base64_encode(client_id + ":" + client_secret)
 ```
@@ -166,6 +171,7 @@ Basic base64_encode(client_id + ":" + client_secret)
 ### **Bước 2-3: Parse Client Credentials**
 
 Server parse `Authorization` header:
+
 1. Check header starts with "Basic "
 2. Decode Base64 string
 3. Split by ":" to get client_id và client_secret
@@ -177,6 +183,7 @@ Server parse `Authorization` header:
 Server thực hiện các validation:
 
 #### 4.1. Query Client từ Database
+
 ```sql
 SELECT id, client_name, secret_hash, grant_types, scopes
 FROM oauth2.oauth2_clients
@@ -184,11 +191,13 @@ WHERE id = $1 AND active = true;
 ```
 
 Kiểm tra:
+
 - ✅ Client tồn tại
 - ✅ Client active (không bị disabled)
 - ✅ Client không expired
 
 #### 4.2. Verify Grant Type
+
 ```go
 // Check grant_types contains "client_credentials"
 if !contains(client.GrantTypes, "client_credentials") {
@@ -197,10 +206,11 @@ if !contains(client.GrantTypes, "client_credentials") {
 ```
 
 #### 4.3. Verify Client Secret
+
 ```go
 // Compare provided secret with hashed secret
 err := bcrypt.CompareHashAndPassword(
-    client.SecretHash, 
+    client.SecretHash,
     []byte(providedSecret)
 )
 if err != nil {
@@ -226,6 +236,7 @@ for _, requestedScope := range requestedScopes {
 ```
 
 **Scope Validation Rules:**
+
 - ✅ Client chỉ được request scopes đã được cấp phép
 - ✅ Nếu không request scope nào → grant default scopes
 - ✅ Invalid scope → reject toàn bộ request
@@ -237,6 +248,7 @@ for _, requestedScope := range requestedScopes {
 Server tạo JWT access token:
 
 #### Token Structure
+
 ```json
 {
   "header": {
@@ -257,6 +269,7 @@ Server tạo JWT access token:
 ```
 
 #### Claims Explanation
+
 - `iss` (Issuer): Authorization server URL
 - `sub` (Subject): Client ID (không phải user ID!)
 - `aud` (Audience): Resource servers có thể accept token này
@@ -267,6 +280,7 @@ Server tạo JWT access token:
 - `scope`: Các scopes được grant
 
 #### Token Signing
+
 ```go
 // Sign JWT with HMAC-SHA256
 token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
@@ -290,11 +304,13 @@ EX 3600
 ```
 
 **Key Components:**
+
 - **Key**: `access_token:` prefix + token signature
 - **Value**: JSON với token metadata
 - **TTL**: Match với token expiration (3600 seconds)
 
 **Purpose:**
+
 - Fast token introspection
 - Immediate revocation capability
 - Tracking active tokens
@@ -315,12 +331,14 @@ Server trả về token theo RFC 6749:
 ```
 
 **Response Fields:**
+
 - `access_token`: JWT token string
 - `token_type`: Luôn là "Bearer"
 - `expires_in`: Seconds until expiration
 - `scope`: Space-separated granted scopes
 
 **Note:** Client Credentials Flow **KHÔNG** có refresh_token vì:
+
 - Không có user session cần maintain
 - Client có thể request token mới bất cứ lúc nào
 - Token thường short-lived (1 hour)
@@ -332,6 +350,7 @@ Server trả về token theo RFC 6749:
 Client lưu token:
 
 #### In-Memory (Recommended)
+
 ```go
 // Lưu trong RAM, tự động mất khi process restart
 var accessToken string
@@ -347,12 +366,14 @@ func getToken() string {
 ```
 
 #### Cache/Redis (For Distributed Systems)
+
 ```go
 // Share token across multiple instances
 redis.Set("service_token", accessToken, tokenExpiry)
 ```
 
 **Security Best Practices:**
+
 - ⚠️ Never log token values
 - ⚠️ Never commit tokens to source control
 - ✅ Store in environment variables or secret management systems
@@ -371,6 +392,7 @@ curl -X GET https://api.example.com/resource \
 ```
 
 Resource Server validates token:
+
 1. **Parse JWT** và verify signature
 2. **Check expiration** (exp claim)
 3. **Check revocation** (query Redis blacklist)
@@ -384,11 +406,13 @@ Resource Server validates token:
 ### 1. **Client Secret Management**
 
 #### Storage
+
 - ✅ Store hashed (BCrypt) trong database
 - ✅ Never log client secrets
 - ✅ Use secret management systems (Vault, AWS Secrets Manager)
 
 #### Rotation
+
 ```sql
 -- Regular secret rotation
 UPDATE oauth2.oauth2_clients
@@ -397,6 +421,7 @@ WHERE id = $2;
 ```
 
 **Rotation Strategy:**
+
 - Rotate every 90 days
 - Rotate immediately nếu nghi ngờ bị compromise
 - Support multiple active secrets during rotation period
@@ -406,11 +431,13 @@ WHERE id = $2;
 ### 2. **Scope-Based Access Control**
 
 #### Scope Naming Convention
+
 ```
 resource:action
 ```
 
 Examples:
+
 - `api:read` - Read API resources
 - `api:write` - Create/update API resources
 - `api:delete` - Delete API resources
@@ -418,6 +445,7 @@ Examples:
 - `reports:generate` - Generate reports
 
 #### Scope Hierarchy
+
 ```
 api:admin (implies all below)
   ├─ api:write (implies api:read)
@@ -430,11 +458,13 @@ api:admin (implies all below)
 ### 3. **Rate Limiting**
 
 #### Token Request Rate Limiting
+
 ```
 Limit: 100 requests / hour per client_id
 ```
 
 **Implementation:**
+
 ```redis
 INCR rate_limit:token:{client_id}:{hour}
 EXPIRE rate_limit:token:{client_id}:{hour} 3600
@@ -444,6 +474,7 @@ GET rate_limit:token:{client_id}:{hour}
 ```
 
 #### API Rate Limiting per Token
+
 ```
 Limit: 1000 requests / minute per token
 ```
@@ -453,11 +484,13 @@ Limit: 1000 requests / minute per token
 ### 4. **Token Revocation**
 
 #### Immediate Revocation
+
 ```redis
 SET revoked:access_token:{signature} "revoked" EX 3600
 ```
 
 Client secret changed/rotated → invalidate ALL tokens:
+
 ```redis
 -- Add client to revoked list
 SET revoked:client:{client_id} "all_tokens" EX 86400
@@ -473,6 +506,7 @@ END
 ### 5. **Audit Logging**
 
 Log mọi token requests:
+
 ```json
 {
   "event": "token_issued",
@@ -497,10 +531,10 @@ Service A cần gọi Service B:
 // Service A
 func callServiceB() {
     token := getClientCredentialsToken()
-    
+
     req, _ := http.NewRequest("GET", "http://service-b/api/data", nil)
     req.Header.Set("Authorization", "Bearer " + token)
-    
+
     resp, _ := http.DefaultClient.Do(req)
     // Process response
 }
@@ -510,26 +544,26 @@ func getClientCredentialsToken() string {
     if cachedToken != "" && !isExpired(cachedToken) {
         return cachedToken
     }
-    
+
     // Request new token
     data := url.Values{
         "grant_type": {"client_credentials"},
         "scope": {"service-b:read"},
     }
-    
-    req, _ := http.NewRequest("POST", "http://auth-server/oauth2/token", 
+
+    req, _ := http.NewRequest("POST", "http://auth-server/oauth2/token",
         strings.NewReader(data.Encode()))
     req.SetBasicAuth(clientID, clientSecret)
     req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-    
+
     resp, _ := http.DefaultClient.Do(req)
     var tokenResp TokenResponse
     json.NewDecoder(resp.Body).Decode(&tokenResp)
-    
+
     // Cache token
     cachedToken = tokenResp.AccessToken
     tokenExpiry = time.Now().Add(time.Duration(tokenResp.ExpiresIn) * time.Second)
-    
+
     return cachedToken
 }
 ```
@@ -578,10 +612,10 @@ func main() {
         TokenURL:     "http://auth-server/oauth2/token",
         Scopes:       []string{"admin:manage"},
     }
-    
+
     // Auto-handles token refresh
     httpClient := config.Client(context.Background())
-    
+
     // Use client for API calls
     rootCmd := &cobra.Command{
         Use: "admin-cli",
@@ -590,7 +624,7 @@ func main() {
             // Process response
         },
     }
-    
+
     rootCmd.Execute()
 }
 ```
@@ -601,12 +635,12 @@ func main() {
 
 ### Common Errors
 
-| Error Code | Description | Cause | Solution |
-|------------|-------------|-------|----------|
-| `invalid_client` | Client authentication failed | Wrong client_id/secret | Verify credentials |
-| `unauthorized_client` | Client not authorized for grant type | Grant type not allowed | Enable client_credentials in client config |
-| `invalid_scope` | Requested scope invalid | Scope not in allowed list | Check client allowed scopes |
-| `server_error` | Internal server error | Database/Redis down | Check server logs |
+| Error Code            | Description                          | Cause                     | Solution                                   |
+| --------------------- | ------------------------------------ | ------------------------- | ------------------------------------------ |
+| `invalid_client`      | Client authentication failed         | Wrong client_id/secret    | Verify credentials                         |
+| `unauthorized_client` | Client not authorized for grant type | Grant type not allowed    | Enable client_credentials in client config |
+| `invalid_scope`       | Requested scope invalid              | Scope not in allowed list | Check client allowed scopes                |
+| `server_error`        | Internal server error                | Database/Redis down       | Check server logs                          |
 
 ### Error Response Example
 
@@ -625,6 +659,7 @@ func main() {
 ### 1. **Token Caching**
 
 #### Client-Side Caching
+
 ```go
 type TokenCache struct {
     mu          sync.RWMutex
@@ -635,17 +670,18 @@ type TokenCache struct {
 func (c *TokenCache) GetToken() string {
     c.mu.RLock()
     defer c.mu.RUnlock()
-    
+
     if time.Now().Before(c.expiresAt.Add(-5 * time.Minute)) {
         return c.accessToken
     }
-    
+
     // Token expired or near expiry, need refresh
     return ""
 }
 ```
 
 **Benefits:**
+
 - Reduce token requests to auth server
 - Lower latency for API calls
 - Less load on Redis/database
@@ -693,16 +729,19 @@ for i := 0; i < 100; i++ {
 ### Key Metrics
 
 1. **Token Request Rate**
+
    - Requests per second
    - Success rate
    - Error rate by error type
 
 2. **Token Lifetime**
+
    - Average token usage duration
    - Token reuse count
    - Premature token refresh rate
 
 3. **Client Activity**
+
    - Active clients count
    - Top clients by request volume
    - Inactive clients
@@ -716,6 +755,7 @@ for i := 0; i < 100; i++ {
 ### Alerting
 
 Set up alerts for:
+
 - ⚠️ Authentication failure rate > 10%
 - ⚠️ Rate limit hits > 100/hour
 - 🚨 Revoked token usage attempts
@@ -725,14 +765,14 @@ Set up alerts for:
 
 ## Comparison with Other Flows
 
-| Feature | Client Credentials | Authorization Code | Refresh Token |
-|---------|-------------------|-------------------|---------------|
-| User context | ❌ No | ✅ Yes | ✅ Yes |
-| Refresh token | ❌ No | ✅ Yes | N/A |
-| PKCE | ❌ No | ✅ Yes | ❌ No |
-| Client secret required | ✅ Yes | Depends | ✅ Yes |
-| Browser redirect | ❌ No | ✅ Yes | ❌ No |
-| Use case | Service-to-service | User login | Token refresh |
+| Feature                | Client Credentials | Authorization Code | Refresh Token |
+| ---------------------- | ------------------ | ------------------ | ------------- |
+| User context           | ❌ No              | ✅ Yes             | ✅ Yes        |
+| Refresh token          | ❌ No              | ✅ Yes             | N/A           |
+| PKCE                   | ❌ No              | ✅ Yes             | ❌ No         |
+| Client secret required | ✅ Yes             | Depends            | ✅ Yes        |
+| Browser redirect       | ❌ No              | ✅ Yes             | ❌ No         |
+| Use case               | Service-to-service | User login         | Token refresh |
 
 ---
 
@@ -777,14 +817,14 @@ func TestClientCredentialsFlow(t *testing.T) {
         // Verify request
         assert.Equal(t, "POST", r.Method)
         assert.Equal(t, "/oauth2/token", r.URL.Path)
-        
+
         // Verify Authorization header
         auth := r.Header.Get("Authorization")
         assert.True(t, strings.HasPrefix(auth, "Basic "))
-        
+
         // Return mock token
         w.Header().Set("Content-Type", "application/json")
-        json.NewEncoder(w).Encode(map[string]interface{}{
+        json.NewEncoder(w).Encode(map[string]any{
             "access_token": "mock_token",
             "token_type":   "Bearer",
             "expires_in":   3600,
@@ -792,7 +832,7 @@ func TestClientCredentialsFlow(t *testing.T) {
         })
     }))
     defer server.Close()
-    
+
     // Test client
     token, err := requestToken(server.URL, "client_id", "client_secret", []string{"api:read"})
     assert.NoError(t, err)

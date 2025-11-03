@@ -5,6 +5,7 @@
 Refresh Token Flow cho phép client lấy access token mới **mà không cần user đăng nhập lại**. Đây là cơ chế quan trọng để duy trì user session lâu dài trong khi vẫn giữ access token có thời gian sống ngắn (short-lived).
 
 **Đặc điểm:**
+
 - ✅ Duy trì user session lâu dài
 - ✅ Không cần user interaction
 - ✅ Access token ngắn hạn (1 hour) + Refresh token dài hạn (30 days)
@@ -41,7 +42,7 @@ Refresh Token Flow cho phép client lấy access token mới **mà không cần 
          │  2. POST /oauth2/token
          │     Authorization: Basic base64(client_id:client_secret)
          │     Content-Type: application/x-www-form-urlencoded
-         │     
+         │
          │     grant_type=refresh_token
          │     refresh_token=eyJhbGc...
          │     scope=openid profile email (optional)
@@ -140,29 +141,30 @@ Client kiểm tra access token expiration:
 ```javascript
 // Check token expiration
 function isTokenExpired(token) {
-    if (!token) return true;
-    
-    try {
-        // Decode JWT (without verification)
-        const payload = JSON.parse(atob(token.split('.')[1]));
-        const expiresAt = payload.exp * 1000; // Convert to milliseconds
-        const now = Date.now();
-        
-        // Check if expired or will expire in next 5 minutes
-        return expiresAt < (now + 5 * 60 * 1000);
-    } catch (e) {
-        return true;
-    }
+  if (!token) return true;
+
+  try {
+    // Decode JWT (without verification)
+    const payload = JSON.parse(atob(token.split(".")[1]));
+    const expiresAt = payload.exp * 1000; // Convert to milliseconds
+    const now = Date.now();
+
+    // Check if expired or will expire in next 5 minutes
+    return expiresAt < now + 5 * 60 * 1000;
+  } catch (e) {
+    return true;
+  }
 }
 
 // Before API call
 if (isTokenExpired(accessToken)) {
-    // Refresh token
-    await refreshAccessToken();
+  // Refresh token
+  await refreshAccessToken();
 }
 ```
 
 **Proactive Refresh Strategy:**
+
 - ✅ Refresh 5 minutes before expiration
 - ✅ Avoid "token expired" errors during user activity
 - ✅ Better user experience (no interruption)
@@ -183,11 +185,13 @@ grant_type=refresh_token&refresh_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...&s
 ```
 
 **Request Parameters:**
+
 - `grant_type`: Must be "refresh_token"
 - `refresh_token`: The refresh token received earlier
 - `scope` (optional): Can request subset of original scopes
 
 **Client Authentication:**
+
 - **Confidential clients**: Require client_secret (Authorization header)
 - **Public clients**: No secret needed (client_id in body)
 
@@ -234,6 +238,7 @@ GET refresh_token:{signature}
 ```
 
 Response:
+
 ```json
 {
   "user_id": "00000000-0000-0000-0000-000000000001",
@@ -250,6 +255,7 @@ Response:
 **Validation Checks:**
 
 1. **Exists**: Token session found in Redis
+
    ```go
    if session == nil {
        return fosite.ErrInvalidGrant.WithHint("Refresh token not found")
@@ -257,6 +263,7 @@ Response:
    ```
 
 2. **Not Expired**: Current time < expires_at
+
    ```go
    if time.Now().After(session.ExpiresAt) {
        return fosite.ErrInvalidGrant.WithHint("Refresh token expired")
@@ -264,6 +271,7 @@ Response:
    ```
 
 3. **Active**: Token not revoked
+
    ```go
    if !session.Active {
        return fosite.ErrInvalidGrant.WithHint("Refresh token revoked")
@@ -271,6 +279,7 @@ Response:
    ```
 
 4. **Client Match**: Token belongs to requesting client
+
    ```go
    if session.ClientID != requestingClientID {
        return fosite.ErrInvalidGrant.WithHint("Token belongs to different client")
@@ -311,17 +320,18 @@ for _, scope := range requestedScopes {
 ```
 
 **Scope Downgrade Rules:**
+
 - ✅ Can request fewer scopes than original
 - ❌ Cannot request MORE scopes than original
 - ✅ If no scope requested → grant all original scopes
 
 **Examples:**
 
-| Original Scopes | Requested Scopes | Result |
-|----------------|------------------|--------|
-| `openid profile email` | `openid profile` | ✅ Allowed |
-| `openid profile` | `openid profile email` | ❌ Invalid scope |
-| `openid profile email` | (empty) | ✅ Grant all: `openid profile email` |
+| Original Scopes        | Requested Scopes       | Result                               |
+| ---------------------- | ---------------------- | ------------------------------------ |
+| `openid profile email` | `openid profile`       | ✅ Allowed                           |
+| `openid profile`       | `openid profile email` | ❌ Invalid scope                     |
+| `openid profile email` | (empty)                | ✅ Grant all: `openid profile email` |
 
 ---
 
@@ -334,7 +344,7 @@ Server generates new access token và optionally new refresh token:
 ```go
 // Create new access token
 accessToken := &jwt.Token{
-    Header: map[string]interface{}{
+    Header: map[string]any{
         "alg": "HS256",
         "typ": "JWT",
     },
@@ -373,17 +383,18 @@ newSession := &RefreshTokenSession{
 ```
 
 **Why Token Rotation?**
+
 - 🔒 Limits exposure window nếu token bị stolen
 - 🔒 Detects token theft (if both old and new tokens used)
 - 🔒 Automatic cleanup of unused tokens
 
 **Configuration Options:**
 
-| Strategy | Description | Security | Compatibility |
-|----------|-------------|----------|---------------|
+| Strategy     | Description                     | Security        | Compatibility          |
+| ------------ | ------------------------------- | --------------- | ---------------------- |
 | **Rotation** | New refresh token every refresh | ⭐⭐⭐⭐⭐ High | May break some clients |
-| **Reuse** | Same refresh token | ⭐⭐⭐ Medium | Better compatibility |
-| **Hybrid** | Rotate after N uses or X days | ⭐⭐⭐⭐ High | Good balance |
+| **Reuse**    | Same refresh token              | ⭐⭐⭐ Medium   | Better compatibility   |
+| **Hybrid**   | Rotate after N uses or X days   | ⭐⭐⭐⭐ High   | Good balance           |
 
 Project của bạn sử dụng **Rotation** strategy (khuyến nghị).
 
@@ -432,6 +443,7 @@ if !session.Active {
 Server saves new token sessions to Redis:
 
 #### Access Token Session
+
 ```redis
 SET access_token:{new_access_signature} {
     "user_id": "00000000-0000-0000-0000-000000000001",
@@ -444,6 +456,7 @@ EX 3600  # 1 hour TTL
 ```
 
 #### Refresh Token Session
+
 ```redis
 SET refresh_token:{new_refresh_signature} {
     "user_id": "00000000-0000-0000-0000-000000000001",
@@ -474,6 +487,7 @@ Server returns new tokens:
 ```
 
 **Response Fields:**
+
 - `access_token`: New JWT access token
 - `token_type`: Always "Bearer"
 - `expires_in`: Seconds until access token expires (3600)
@@ -488,60 +502,60 @@ Client replaces old tokens with new ones:
 
 ```javascript
 async function refreshAccessToken() {
-    const refreshToken = localStorage.getItem('refresh_token');
-    
-    const response = await fetch('http://localhost:8080/oauth2/token', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-            'Authorization': 'Basic ' + btoa(CLIENT_ID + ':' + CLIENT_SECRET)
-        },
-        body: new URLSearchParams({
-            grant_type: 'refresh_token',
-            refresh_token: refreshToken
-        })
-    });
-    
-    if (!response.ok) {
-        // Refresh failed → redirect to login
-        redirectToLogin();
-        return;
-    }
-    
-    const tokens = await response.json();
-    
-    // Update stored tokens
-    localStorage.setItem('access_token', tokens.access_token);
-    localStorage.setItem('refresh_token', tokens.refresh_token);  // Important: Update refresh token too!
-    
-    return tokens.access_token;
+  const refreshToken = localStorage.getItem("refresh_token");
+
+  const response = await fetch("http://localhost:8080/oauth2/token", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+      Authorization: "Basic " + btoa(CLIENT_ID + ":" + CLIENT_SECRET),
+    },
+    body: new URLSearchParams({
+      grant_type: "refresh_token",
+      refresh_token: refreshToken,
+    }),
+  });
+
+  if (!response.ok) {
+    // Refresh failed → redirect to login
+    redirectToLogin();
+    return;
+  }
+
+  const tokens = await response.json();
+
+  // Update stored tokens
+  localStorage.setItem("access_token", tokens.access_token);
+  localStorage.setItem("refresh_token", tokens.refresh_token); // Important: Update refresh token too!
+
+  return tokens.access_token;
 }
 
 // Usage
 async function callAPI() {
-    let accessToken = localStorage.getItem('access_token');
-    
-    // Check expiration
-    if (isTokenExpired(accessToken)) {
-        accessToken = await refreshAccessToken();
-    }
-    
-    // Make API call
-    const response = await fetch('https://api.example.com/data', {
-        headers: {
-            'Authorization': 'Bearer ' + accessToken
-        }
+  let accessToken = localStorage.getItem("access_token");
+
+  // Check expiration
+  if (isTokenExpired(accessToken)) {
+    accessToken = await refreshAccessToken();
+  }
+
+  // Make API call
+  const response = await fetch("https://api.example.com/data", {
+    headers: {
+      Authorization: "Bearer " + accessToken,
+    },
+  });
+
+  // Handle 401 → retry with refresh
+  if (response.status === 401) {
+    accessToken = await refreshAccessToken();
+    return fetch("https://api.example.com/data", {
+      headers: { Authorization: "Bearer " + accessToken },
     });
-    
-    // Handle 401 → retry with refresh
-    if (response.status === 401) {
-        accessToken = await refreshAccessToken();
-        return fetch('https://api.example.com/data', {
-            headers: { 'Authorization': 'Bearer ' + accessToken }
-        });
-    }
-    
-    return response;
+  }
+
+  return response;
 }
 ```
 
@@ -554,6 +568,7 @@ async function callAPI() {
 ### 1. **Token Rotation**
 
 **Benefits:**
+
 - 🔒 Detects token theft
 - 🔒 Limits token lifetime
 - 🔒 Automatic cleanup
@@ -569,19 +584,20 @@ T3: Attacker tries to use stolen refresh_token → ERROR!
 ```
 
 When old refresh token used:
+
 ```go
 if !session.Active && session.RotatedTo != "" {
     // Token was rotated → possible theft detected!
-    
+
     // 1. Log security event
     logSecurityAlert("refresh_token_reuse", session.UserID, session.ClientID)
-    
+
     // 2. Revoke entire token family
     revokeTokenFamily(session.UserID, session.ClientID)
-    
+
     // 3. Notify user
     sendSecurityEmail(session.UserID, "Suspicious activity detected")
-    
+
     return fosite.ErrInvalidGrant.WithHint("Token reuse detected")
 }
 ```
@@ -600,6 +616,7 @@ if session.ClientID != request.ClientID {
 ```
 
 **Benefits:**
+
 - Stolen refresh token cannot be used by different client
 - Even if client_id known, client_secret required
 
@@ -607,11 +624,11 @@ if session.ClientID != request.ClientID {
 
 ### 3. **Expiration Strategy**
 
-| Token Type | Lifetime | Rationale |
-|-----------|----------|-----------|
-| Access Token | 1 hour | Short enough to limit damage if stolen |
-| Refresh Token | 30 days | Long enough for good UX, short enough to enforce re-auth |
-| Remember Me | 90 days | Optional extended session |
+| Token Type    | Lifetime | Rationale                                                |
+| ------------- | -------- | -------------------------------------------------------- |
+| Access Token  | 1 hour   | Short enough to limit damage if stolen                   |
+| Refresh Token | 30 days  | Long enough for good UX, short enough to enforce re-auth |
+| Remember Me   | 90 days  | Optional extended session                                |
 
 **Absolute Expiration:**
 
@@ -636,12 +653,13 @@ Project của bạn dùng **Absolute Expiration** (khuyến nghị).
 ### 4. **Revocation Scenarios**
 
 #### User Logout
+
 ```go
 // Revoke all tokens for user
 func RevokeAllUserTokens(userID string) {
     // Add to revocation list
     redis.Set("revoked:user:" + userID, "all", 30*24*time.Hour)
-    
+
     // Delete all sessions
     keys := redis.Keys("*_token:*:user:" + userID)
     redis.Del(keys...)
@@ -649,15 +667,16 @@ func RevokeAllUserTokens(userID string) {
 ```
 
 #### Password Change
+
 ```go
 // Revoke all tokens issued before password change
 func OnPasswordChange(userID string) {
     user := getUser(userID)
-    
+
     // Update password_changed_at
     user.PasswordChangedAt = time.Now()
     saveUser(user)
-    
+
     // Tokens issued before this time are invalid
     redis.Set("revoked:user:" + userID + ":before", user.PasswordChangedAt, 30*24*time.Hour)
 }
@@ -669,12 +688,13 @@ if user.PasswordChangedAt.After(session.IssuedAt) {
 ```
 
 #### Account Suspension
+
 ```go
 // Immediate revocation
 func SuspendAccount(userID string) {
     // Mark user as suspended
     updateUserStatus(userID, "suspended")
-    
+
     // Revoke all tokens
     RevokeAllUserTokens(userID)
 }
@@ -686,17 +706,18 @@ func SuspendAccount(userID string) {
 
 ### Common Errors
 
-| Error | Cause | Client Action |
-|-------|-------|---------------|
-| `invalid_grant` - "Refresh token expired" | Token lifetime exceeded | Redirect to login |
-| `invalid_grant` - "Refresh token revoked" | User logged out / password changed | Redirect to login |
-| `invalid_grant` - "Token reuse detected" | Security violation | Redirect to login + alert |
-| `invalid_client` | Wrong client credentials | Fix client config |
-| `invalid_scope` | Requested scope not originally granted | Request valid scopes |
+| Error                                     | Cause                                  | Client Action             |
+| ----------------------------------------- | -------------------------------------- | ------------------------- |
+| `invalid_grant` - "Refresh token expired" | Token lifetime exceeded                | Redirect to login         |
+| `invalid_grant` - "Refresh token revoked" | User logged out / password changed     | Redirect to login         |
+| `invalid_grant` - "Token reuse detected"  | Security violation                     | Redirect to login + alert |
+| `invalid_client`                          | Wrong client credentials               | Fix client config         |
+| `invalid_scope`                           | Requested scope not originally granted | Request valid scopes      |
 
 ### Error Response Examples
 
 #### Expired Token
+
 ```json
 {
   "error": "invalid_grant",
@@ -706,6 +727,7 @@ func SuspendAccount(userID string) {
 ```
 
 #### Token Reuse
+
 ```json
 {
   "error": "invalid_grant",
@@ -723,18 +745,22 @@ func SuspendAccount(userID string) {
 #### ✅ DO
 
 1. **Store tokens securely**
+
    - Web: httpOnly cookies (preferred) or localStorage
    - Mobile: Keychain (iOS) / KeyStore (Android)
 
 2. **Refresh proactively**
+
    - Refresh 5 minutes before expiration
    - Avoid token expiration during user activity
 
 3. **Handle refresh failures gracefully**
+
    - Redirect to login on refresh failure
    - Don't retry infinitely
 
 4. **Update both tokens**
+
    - Replace BOTH access and refresh tokens after refresh
 
 5. **Implement retry logic**
@@ -743,10 +769,12 @@ func SuspendAccount(userID string) {
 #### ❌ DON'T
 
 1. **Don't expose refresh tokens**
+
    - Never log refresh tokens
    - Never send in URL parameters
 
 2. **Don't ignore rotation**
+
    - Must use new refresh token from response
 
 3. **Don't refresh on every request**
@@ -760,18 +788,22 @@ func SuspendAccount(userID string) {
 #### ✅ DO
 
 1. **Implement token rotation**
+
    - Invalidate old refresh token
    - Issue new refresh token
 
 2. **Detect token reuse**
+
    - Log security events
    - Revoke token family
 
 3. **Set appropriate TTLs**
+
    - Access: 1 hour
    - Refresh: 30 days
 
 4. **Implement revocation**
+
    - User logout
    - Password change
    - Account suspension
@@ -784,9 +816,11 @@ func SuspendAccount(userID string) {
 #### ❌ DON'T
 
 1. **Don't reuse refresh tokens**
+
    - Always rotate (unless good reason)
 
 2. **Don't skip validation**
+
    - Verify client
    - Check expiration
    - Verify not revoked
@@ -801,11 +835,13 @@ func SuspendAccount(userID string) {
 ### Key Metrics
 
 1. **Refresh Token Usage**
+
    - Refresh requests per minute
    - Success rate
    - Average token lifetime before refresh
 
 2. **Security Events**
+
    - Token reuse attempts
    - Failed refresh attempts
    - Revocation events
@@ -830,42 +866,46 @@ func SuspendAccount(userID string) {
 
 ```javascript
 // Test 1: Normal refresh flow
-test('should refresh tokens successfully', async () => {
-    const response = await refreshToken(validRefreshToken);
-    expect(response.access_token).toBeDefined();
-    expect(response.refresh_token).toBeDefined();
-    expect(response.refresh_token).not.toEqual(validRefreshToken); // Rotation
+test("should refresh tokens successfully", async () => {
+  const response = await refreshToken(validRefreshToken);
+  expect(response.access_token).toBeDefined();
+  expect(response.refresh_token).toBeDefined();
+  expect(response.refresh_token).not.toEqual(validRefreshToken); // Rotation
 });
 
 // Test 2: Expired refresh token
-test('should reject expired refresh token', async () => {
-    await expect(refreshToken(expiredRefreshToken))
-        .rejects.toThrow('invalid_grant');
+test("should reject expired refresh token", async () => {
+  await expect(refreshToken(expiredRefreshToken)).rejects.toThrow(
+    "invalid_grant"
+  );
 });
 
 // Test 3: Token reuse detection
-test('should detect token reuse', async () => {
-    // First refresh
-    await refreshToken(validRefreshToken);
-    
-    // Try to use same token again
-    await expect(refreshToken(validRefreshToken))
-        .rejects.toThrow('Token reuse detected');
+test("should detect token reuse", async () => {
+  // First refresh
+  await refreshToken(validRefreshToken);
+
+  // Try to use same token again
+  await expect(refreshToken(validRefreshToken)).rejects.toThrow(
+    "Token reuse detected"
+  );
 });
 
 // Test 4: Scope downgrade
-test('should allow scope downgrade', async () => {
-    const response = await refreshToken(validRefreshToken, {
-        scope: 'openid profile'  // Original: openid profile email
-    });
-    expect(response.scope).toEqual('openid profile');
+test("should allow scope downgrade", async () => {
+  const response = await refreshToken(validRefreshToken, {
+    scope: "openid profile", // Original: openid profile email
+  });
+  expect(response.scope).toEqual("openid profile");
 });
 
 // Test 5: Invalid scope expansion
-test('should reject scope expansion', async () => {
-    await expect(refreshToken(validRefreshToken, {
-        scope: 'openid profile email admin'  // admin not in original
-    })).rejects.toThrow('invalid_scope');
+test("should reject scope expansion", async () => {
+  await expect(
+    refreshToken(validRefreshToken, {
+      scope: "openid profile email admin", // admin not in original
+    })
+  ).rejects.toThrow("invalid_scope");
 });
 ```
 

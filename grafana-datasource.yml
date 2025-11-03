@@ -1,0 +1,9 @@
+apiVersion: 1
+datasources:
+  - name: Loki
+    type: loki
+    access: proxy # Grafana sẽ thay mặt bạn truy vấn Loki
+    url: http://loki:3100 # Địa chỉ của Loki (cùng network)
+    isDefault: true
+    version: 1
+    editable: false

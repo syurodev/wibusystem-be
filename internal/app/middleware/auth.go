@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"net/http"
+	"slices"
 	"strings"
 	"system/pkg/util/errcode"
 	"system/pkg/util/response"
@@ -12,7 +13,7 @@ import (
 
 // OAuth2Provider interface để inject vào middleware
 type OAuth2Provider interface {
-	IntrospectToken(ctx interface{}, token string, tokenUse fosite.TokenUse, session fosite.Session, scopes ...string) (fosite.TokenUse, fosite.AccessRequester, error)
+	IntrospectToken(ctx any, token string, tokenUse fosite.TokenUse, session fosite.Session, scopes ...string) (fosite.TokenUse, fosite.AccessRequester, error)
 }
 
 // RequireAuth là middleware xác thực Bearer Token sử dụng OAuth2 introspection.
@@ -83,13 +84,7 @@ func RequireScope(requiredScope string) gin.HandlerFunc {
 		}
 
 		// Kiểm tra required scope có trong granted scopes không
-		hasScope := false
-		for _, scope := range scopes {
-			if scope == requiredScope {
-				hasScope = true
-				break
-			}
-		}
+		hasScope := slices.Contains(scopes, requiredScope)
 
 		if !hasScope {
 			response.AbortWithError(c, http.StatusForbidden, errcode.AuthInsufficientScope.String(), "auth.insufficient_scope")

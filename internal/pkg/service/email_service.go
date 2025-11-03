@@ -36,7 +36,7 @@ type EmailData struct {
 	ToEmail   string
 	ToName    string
 	Subject   string
-	Variables map[string]interface{}
+	Variables map[string]any
 }
 
 // SendVerificationEmail gửi email xác thực với token.
@@ -53,7 +53,7 @@ func (s *EmailService) SendVerificationEmail(ctx context.Context, toEmail, toNam
 	)
 
 	// Prepare template data
-	data := map[string]interface{}{
+	data := map[string]any{
 		"Name":            toName,
 		"VerificationURL": verificationURL,
 		"Token":           token,
@@ -107,7 +107,7 @@ func (s *EmailService) SendPasswordResetEmail(ctx context.Context, toEmail, toNa
 	)
 
 	// Prepare template data
-	data := map[string]interface{}{
+	data := map[string]any{
 		"Name":     toName,
 		"ResetURL": resetURL,
 		"Token":    token,
@@ -150,7 +150,7 @@ func (s *EmailService) SendPasswordResetEmail(ctx context.Context, toEmail, toNa
 // SendWelcomeEmail gửi email chào mừng sau khi verify thành công.
 func (s *EmailService) SendWelcomeEmail(ctx context.Context, toEmail, toName string) error {
 	// Prepare template data
-	data := map[string]interface{}{
+	data := map[string]any{
 		"Name":    toName,
 		"BaseURL": s.config.BaseURL,
 	}
@@ -178,7 +178,7 @@ func (s *EmailService) SendWelcomeEmail(ctx context.Context, toEmail, toName str
 }
 
 // renderTemplate renders email HTML template with data.
-func (s *EmailService) renderTemplate(templateName string, data map[string]interface{}) (string, error) {
+func (s *EmailService) renderTemplate(templateName string, data map[string]any) (string, error) {
 	tmpl, err := template.ParseFiles(fmt.Sprintf("web/templates/emails/%s.html", templateName))
 	if err != nil {
 		return "", fmt.Errorf("failed to parse template: %w", err)

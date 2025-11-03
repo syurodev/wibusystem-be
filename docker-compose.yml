@@ -1,5 +1,3 @@
-version: "3.8"
-
 services:
   system_dev:
     image: postgres:18.0
@@ -40,7 +38,7 @@ services:
       - wibusystem_backend
 
   grafana:
-    image: grafana/grafana:12.3.0
+    image: grafana/grafana:12.3.0-19020365962
     container_name: grafana
     restart: unless-stopped
     ports:
