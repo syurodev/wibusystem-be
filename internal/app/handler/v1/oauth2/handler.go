@@ -250,12 +250,25 @@ func (h *Handler) Token(c *gin.Context) {
 // Đây là bước đầu tiên trong Authorization Code Flow
 func (h *Handler) Authorize(c *gin.Context) {
 	ctx := c.Request.Context()
+	requestID := c.Query("request_id")
 
-	// Parse authorization request từ query parameters
-	ar, err := h.provider.NewAuthorizeRequest(ctx, c.Request)
-	if err != nil {
-		writeOAuth2Error(c, err)
-		return
+	var ar fosite.AuthorizeRequester
+	var err error
+
+	if requestID != "" && c.Query("client_id") == "" {
+		// Quay lại từ login/consent với request_id, lấy lại request đã lưu
+		ar, err = h.authRequestRepo.GetAuthRequest(ctx, requestID)
+		if err != nil {
+			writeOAuth2Error(c, fosite.ErrInvalidRequest.WithWrap(err).WithDebug("Invalid or expired authorization request"))
+			return
+		}
+	} else {
+		// Parse authorization request từ query parameters
+		ar, err = h.provider.NewAuthorizeRequest(ctx, c.Request)
+		if err != nil {
+			writeOAuth2Error(c, err)
+			return
+		}
 	}
 
 	// Kiểm tra xem user đã đăng nhập chưa (check session cookie)

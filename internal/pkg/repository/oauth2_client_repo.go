@@ -27,7 +27,7 @@ func (r *oauth2ClientRepository) GetClientByID(ctx context.Context, id uuid.UUID
 	query := `
 		SELECT id, client_name, secret_hash, redirect_uris, grant_types, response_types,
 		       scopes, is_public, is_internal, token_endpoint_auth_method, tenant_id,
-		       client_uri, logo_url, created_at, updated_at
+		       client_uri, logo_url, active, created_at, updated_at
 		FROM identify.oauth2_clients
 		WHERE id=$1
 	`
