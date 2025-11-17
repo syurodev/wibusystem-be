@@ -74,10 +74,14 @@ func (s *SQLStore) SetClientAssertionJWT(ctx context.Context, jti string, exp ti
 func (s *SQLStore) CreateRefreshTokenSession(ctx context.Context, signature string, accessSignature string, requester fosite.Requester) error {
 	data, err := json.Marshal(requester)
 	if err != nil {
+		zap.L().Error("sql store: marshal refresh token session failed", zap.String("signature", signature), zap.Error(err))
 		return fosite.ErrServerError.WithWrap(err)
 	}
 
-	return s.sessionRepo.CreateSession(
+	// Debug: log the JSON data to check if it's valid
+	zap.L().Debug("sql store: marshaled session data", zap.String("signature", signature), zap.String("data", string(data)))
+
+	if err := s.sessionRepo.CreateSession(
 		ctx,
 		signature,
 		requester.GetID(),
@@ -86,7 +90,11 @@ func (s *SQLStore) CreateRefreshTokenSession(ctx context.Context, signature stri
 		requester.GetSession().GetExpiresAt(fosite.RefreshToken),
 		requester.GetClient().GetID(),
 		requester.GetSession().GetSubject(),
-	)
+	); err != nil {
+		zap.L().Error("sql store: create refresh token session failed", zap.String("signature", signature), zap.Error(err))
+		return fosite.ErrServerError.WithWrap(err)
+	}
+	return nil
 }
 
 func (s *SQLStore) GetRefreshTokenSession(ctx context.Context, signature string, session fosite.Session) (fosite.Requester, error) {

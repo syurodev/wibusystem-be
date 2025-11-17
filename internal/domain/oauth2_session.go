@@ -16,4 +16,10 @@ type OAuth2SessionRepository interface {
 
 	// DeleteSessionBySignature xóa một session khỏi database.
 	DeleteSessionBySignature(ctx context.Context, signature string) error
+
+	// RevokeAllUserSessions đánh dấu inactive tất cả sessions của một user (theo subject_id).
+	RevokeAllUserSessions(ctx context.Context, subjectID string) error
+
+	// GetActiveSessionsBySubject lấy tất cả sessions đang active của một user.
+	GetActiveSessionsBySubject(ctx context.Context, subjectID string) ([]string, error)
 }

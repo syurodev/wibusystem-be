@@ -75,6 +75,7 @@ func NewRouter(cfg *configs.Config, i18nInstance *i18n.I18n, zapLogger *zap.Logg
 		sessionRepo,
 		authRequestRepo,
 		consentRepo,
+		oauth2SessionRepo,
 	)
 
 	authService := service.NewAuthService(

@@ -75,20 +75,44 @@ Tài liệu chi tiết về các luồng OAuth2 được implement trong hệ th
 
 ---
 
+### 4. [Logout Flow](./04-logout-flow.md)
+**Mục đích:** User logout khỏi Authorization Server (RP-Initiated Logout)
+
+**Khi nào dùng:**
+- ✅ User muốn logout khỏi application
+- ✅ Security requirement: force logout tất cả sessions
+- ✅ Revoke tokens khi account bị compromise
+- ✅ End session sau khi hoàn thành task
+
+**Đặc điểm:**
+- Support cả GET và POST methods
+- Xóa session cookie
+- Optionally revoke OAuth2 tokens
+- Redirect về client app sau logout
+- Tuân thủ OpenID Connect RP-Initiated Logout spec
+
+**Actions thực hiện:**
+- ✅ Delete user session (Redis)
+- ✅ Clear session cookie
+- ✅ Optionally mark tokens inactive (PostgreSQL)
+- ✅ Redirect to post_logout_redirect_uri
+
+---
+
 ## 🔄 Flow Comparison
 
-| Aspect | Authorization Code | Client Credentials | Refresh Token |
-|--------|-------------------|-------------------|---------------|
-| **User Context** | ✅ Yes | ❌ No | ✅ Yes (from original) |
-| **User Interaction** | ✅ Required | ❌ Not required | ❌ Not required |
-| **Browser Redirect** | ✅ Yes | ❌ No | ❌ No |
-| **PKCE** | ✅ Yes | ❌ No | ❌ No |
-| **Consent Screen** | ✅ Yes | ❌ No | ❌ No |
-| **Access Token** | ✅ 1 hour | ✅ 1 hour | ✅ 1 hour |
-| **Refresh Token** | ✅ 30 days | ❌ No | ✅ 30 days (rotated) |
-| **ID Token** | ✅ Yes | ❌ No | ❌ No |
-| **Client Secret** | Optional* | ✅ Required | ✅ Required* |
-| **Use Case** | User login | Service auth | Silent refresh |
+| Aspect | Authorization Code | Client Credentials | Refresh Token | Logout |
+|--------|-------------------|-------------------|---------------|--------|
+| **User Context** | ✅ Yes | ❌ No | ✅ Yes (from original) | ✅ Yes |
+| **User Interaction** | ✅ Required | ❌ Not required | ❌ Not required | Optional |
+| **Browser Redirect** | ✅ Yes | ❌ No | ❌ No | ✅ Yes (optional) |
+| **PKCE** | ✅ Yes | ❌ No | ❌ No | ❌ No |
+| **Consent Screen** | ✅ Yes | ❌ No | ❌ No | ❌ No |
+| **Access Token** | ✅ 1 hour | ✅ 1 hour | ✅ 1 hour | ❌ N/A |
+| **Refresh Token** | ✅ 30 days | ❌ No | ✅ 30 days (rotated) | ❌ N/A |
+| **ID Token** | ✅ Yes | ❌ No | ❌ No | ❌ N/A |
+| **Client Secret** | Optional* | ✅ Required | ✅ Required* | ❌ Not required |
+| **Use Case** | User login | Service auth | Silent refresh | User logout |
 
 \* Confidential clients require secret, public clients don't
 
@@ -366,15 +390,23 @@ Client App updates stored tokens
 
 ### Scenario 5: User Logout
 
-**Actions:**
-1. Revoke refresh token (POST `/oauth2/revoke`)
-2. Clear tokens from client storage
-3. Redirect to logout page
-4. Clear session cookie
+**Flow:** Logout Flow (RP-Initiated Logout)
+
+1. User clicks "Logout" in client app
+2. Client redirects to `/oauth2/logout?post_logout_redirect_uri=...`
+3. Server deletes session from Redis
+4. Server optionally marks all tokens inactive
+5. Server clears session cookie
+6. Redirect back to client app
+7. Client clears stored tokens
+8. User logged out ✅
+
+**Duration:** ~1 second (transparent redirect)
 
 **Flows affected:**
-- ❌ Refresh Token Flow (token revoked)
-- ❌ Access Token (will expire in ≤ 1 hour)
+- ❌ Authorization Code Flow (session cleared)
+- ❌ Refresh Token Flow (tokens optionally revoked)
+- ✅ Access Token (may still be valid ≤ 1 hour if not revoked)
 
 ---
 
@@ -412,15 +444,28 @@ Client App updates stored tokens
 - [ ] Token family revocation
 - [ ] Grace period (optional)
 
+### Logout Flow
+- [x] `/oauth2/logout` endpoint (GET/POST)
+- [x] Session cleanup (Redis)
+- [x] Session cookie clearing
+- [x] Optional token revocation (PostgreSQL)
+- [x] Redirect URI handling
+- [x] State parameter preservation
+- [ ] Redirect URI validation (security)
+- [x] Support id_token_hint parameter
+- [x] Error handling
+- [x] Audit logging
+
 ### Common Requirements
-- [ ] `/oauth2/token` endpoint (handles all grant types)
-- [ ] `/oauth2/revoke` endpoint
-- [ ] `/oauth2/introspect` endpoint
-- [ ] `/oauth2/userinfo` endpoint (OIDC)
-- [ ] `/.well-known/openid-configuration` (OIDC Discovery)
-- [ ] `/.well-known/jwks.json` (OIDC JWKS)
+- [x] `/oauth2/token` endpoint (handles all grant types)
+- [x] `/oauth2/revoke` endpoint
+- [x] `/oauth2/introspect` endpoint
+- [x] `/oauth2/userinfo` endpoint (OIDC)
+- [x] `/oauth2/logout` endpoint (OIDC RP-Initiated Logout)
+- [x] `/.well-known/openid-configuration` (OIDC Discovery)
+- [x] `/.well-known/jwks.json` (OIDC JWKS)
 - [ ] Token validation middleware
-- [ ] Error handling (RFC 6749 format)
+- [x] Error handling (RFC 6749 format)
 - [ ] Audit logging
 - [ ] Monitoring & metrics
 
@@ -463,6 +508,22 @@ curl -X POST http://localhost:8080/oauth2/token \
   -u "client_id:client_secret" \
   -d "grant_type=refresh_token" \
   -d "refresh_token=REFRESH_TOKEN"
+```
+
+### Test Logout Flow
+
+```bash
+# Simple logout (no redirect)
+curl -X GET http://localhost:8080/oauth2/logout \
+  -b "session_id=YOUR_SESSION_ID"
+
+# Logout with redirect
+curl -X GET "http://localhost:8080/oauth2/logout?post_logout_redirect_uri=http://localhost:3000/goodbye&state=xyz789" \
+  -b "session_id=YOUR_SESSION_ID" \
+  -L  # Follow redirects
+
+# From browser (recommended)
+open "http://localhost:8080/oauth2/logout?post_logout_redirect_uri=http://localhost:3000/"
 ```
 
 ---

@@ -13,10 +13,11 @@ import (
 
 // OAuth2Service chứa business logic cho OAuth2 operations.
 type OAuth2Service struct {
-	userRepo        domain.UserRepository
-	sessionRepo     domain.SessionRepository
-	authRequestRepo domain.AuthRequestRepository
-	consentRepo     domain.ConsentRepository
+	userRepo             domain.UserRepository
+	sessionRepo          domain.SessionRepository
+	authRequestRepo      domain.AuthRequestRepository
+	consentRepo          domain.ConsentRepository
+	oauth2SessionRepo    domain.OAuth2SessionRepository
 }
 
 // NewOAuth2Service tạo instance mới của OAuth2Service.
@@ -25,12 +26,14 @@ func NewOAuth2Service(
 	sessionRepo domain.SessionRepository,
 	authRequestRepo domain.AuthRequestRepository,
 	consentRepo domain.ConsentRepository,
+	oauth2SessionRepo domain.OAuth2SessionRepository,
 ) *OAuth2Service {
 	return &OAuth2Service{
-		userRepo:        userRepo,
-		sessionRepo:     sessionRepo,
-		authRequestRepo: authRequestRepo,
-		consentRepo:     consentRepo,
+		userRepo:          userRepo,
+		sessionRepo:       sessionRepo,
+		authRequestRepo:   authRequestRepo,
+		consentRepo:       consentRepo,
+		oauth2SessionRepo: oauth2SessionRepo,
 	}
 }
 
@@ -123,4 +126,34 @@ func (s *OAuth2Service) RevokeUserConsent(ctx context.Context, userID, clientID 
 // GetUserConsents lấy danh sách consents của user.
 func (s *OAuth2Service) GetUserConsents(ctx context.Context, userID uuid.UUID, includeRevoked bool) ([]*domain.OAuth2Consent, error) {
 	return s.consentRepo.GetUserConsents(ctx, userID, includeRevoked)
+}
+
+// LogoutUser thực hiện logout hoàn toàn: xóa session và optionally revoke tokens.
+func (s *OAuth2Service) LogoutUser(ctx context.Context, sessionID string, revokeTokens bool) error {
+	// Get userID từ session trước khi xóa
+	userID, err := s.sessionRepo.GetSession(ctx, sessionID)
+	if err != nil {
+		// Session không tồn tại hoặc đã expired - không coi là lỗi
+		return nil
+	}
+
+	// Xóa session khỏi Redis
+	if err := s.sessionRepo.DeleteSession(ctx, sessionID); err != nil {
+		return err
+	}
+
+	// Revoke tất cả OAuth2 tokens nếu được yêu cầu
+	if revokeTokens && userID != "" {
+		if err := s.oauth2SessionRepo.RevokeAllUserSessions(ctx, userID); err != nil {
+			// Log error nhưng không fail logout
+			return err
+		}
+	}
+
+	return nil
+}
+
+// RevokeUserTokens revokes tất cả OAuth2 tokens của một user.
+func (s *OAuth2Service) RevokeUserTokens(ctx context.Context, userID uuid.UUID) error {
+	return s.oauth2SessionRepo.RevokeAllUserSessions(ctx, userID.String())
 }

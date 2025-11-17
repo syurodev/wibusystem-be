@@ -12,6 +12,8 @@ func (h *Handler) RegisterRoutes(group *gin.RouterGroup) {
 	group.GET("/userinfo", h.UserInfo)      // UserInfo endpoint
 	group.POST("/revoke", h.Revoke)         // Token revocation endpoint (RFC 7009)
 	group.POST("/introspect", h.Introspect) // Token introspection endpoint (RFC 7662)
+	group.GET("/logout", h.Logout)          // RP-Initiated Logout endpoint (OpenID Connect)
+	group.POST("/logout", h.Logout)         // Support both GET and POST for logout
 
 	// Login flow
 	group.GET("/login", h.LoginPage)    // Login page
