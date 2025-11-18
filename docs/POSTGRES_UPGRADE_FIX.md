@@ -1,5 +1,20 @@
 # PostgreSQL Upgrade Fix
 
+## ⚠️ BREAKING CHANGE trong PostgreSQL 18
+
+PostgreSQL 18 Docker images đã thay đổi cách cấu hình mount point:
+
+- **Trước đây (PostgreSQL ≤17)**: Mount `/var/lib/postgresql/data`
+- **Bây giờ (PostgreSQL 18+)**: Mount `/var/lib/postgresql` (không có `/data`)
+
+**Thay đổi này đã được áp dụng trong `docker-compose.yml`**
+
+Tài liệu tham khảo:
+- https://github.com/docker-library/postgres/pull/1259
+- https://github.com/docker-library/postgres/issues/37
+
+---
+
 ## 🔴 Lỗi
 
 ```
@@ -8,9 +23,22 @@ This is usually the result of upgrading the Docker image without
 upgrading the underlying database using "pg_upgrade"
 ```
 
+hoặc
+
+```
+Error: in 18+, these Docker images are configured to store database data in a
+       format which is compatible with "pg_ctlcluster" (specifically, using
+       major-version-specific directory names).
+
+       The suggested container configuration for 18+ is to place a single mount
+       at /var/lib/postgresql which will then place PostgreSQL data in a
+       subdirectory.
+```
+
 ## 🎯 Nguyên Nhân
 
-Docker volume `system_data` chứa data từ **PostgreSQL version cũ** (17 hoặc thấp hơn), không tương thích với **PostgreSQL 18**.
+1. **Mount point cũ**: `docker-compose.yml` dùng mount point cũ `/var/lib/postgresql/data`
+2. **Data incompatibility**: Docker volume chứa data từ PostgreSQL version cũ (17 hoặc thấp hơn)
 
 ---
 
@@ -39,7 +67,7 @@ Script sẽ tự động:
 
 **Step 1: Stop containers**
 ```bash
-docker-compose down
+docker compose down
 ```
 
 **Step 2: Remove old volume**
@@ -47,9 +75,9 @@ docker-compose down
 docker volume rm wibusystem-backend_system_data
 ```
 
-**Step 3: Start PostgreSQL**
+**Step 3: Start PostgreSQL (with new mount point)**
 ```bash
-docker-compose up -d system_dev
+docker compose up -d system_dev
 ```
 
 **Step 4: Wait for ready (20 seconds)**
@@ -59,7 +87,7 @@ sleep 20
 
 **Step 5: Verify PostgreSQL**
 ```bash
-docker-compose exec system_dev psql -U system_dev -d system_dev -c "SELECT version();"
+docker compose exec system_dev psql -U system_dev -d system_dev -c "SELECT version();"
 ```
 
 Should show: `PostgreSQL 18.0`
@@ -90,7 +118,7 @@ Should see all tables from migrations.
 
 **Step 8: Start all services**
 ```bash
-docker-compose up -d
+docker compose up -d
 ```
 
 ---
@@ -99,10 +127,10 @@ docker-compose up -d
 
 ```bash
 # Check PostgreSQL version
-docker-compose exec system_dev psql -U system_dev -d system_dev -c "SELECT version();"
+docker compose exec system_dev psql -U system_dev -d system_dev -c "SELECT version();"
 
 # Check tables exist
-docker-compose exec system_dev psql -U system_dev -d system_dev -c "\dt identify.*"
+docker compose exec system_dev psql -U system_dev -d system_dev -c "\dt identify.*"
 
 # Check migrations applied
 make migrate-version
@@ -219,7 +247,7 @@ make migrate-install
 
 **Check database reachable**:
 ```bash
-docker-compose exec system_dev psql -U system_dev -d system_dev -c "SELECT 1;"
+docker compose exec system_dev psql -U system_dev -d system_dev -c "SELECT 1;"
 ```
 
 **Check migrations directory**:
@@ -240,8 +268,8 @@ make migrate-up
 
 **Create role manually**:
 ```bash
-docker-compose exec system_dev psql -U postgres -c "CREATE ROLE system_dev WITH LOGIN PASSWORD 'system_dev';"
-docker-compose exec system_dev psql -U postgres -c "CREATE DATABASE system_dev OWNER system_dev;"
+docker compose exec system_dev psql -U postgres -c "CREATE ROLE system_dev WITH LOGIN PASSWORD 'system_dev';"
+docker compose exec system_dev psql -U postgres -c "CREATE DATABASE system_dev OWNER system_dev;"
 ```
 
 ---

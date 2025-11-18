@@ -3,10 +3,11 @@
 # This script will reset PostgreSQL volume and run migrations
 
 echo "==================================================="
-echo "FIX POSTGRESQL VERSION UPGRADE"
+echo "FIX POSTGRESQL 18 UPGRADE - MOUNT POINT FIX"
 echo "==================================================="
 echo ""
-echo "Issue: PostgreSQL 18 incompatible with old data volume"
+echo "Issue: PostgreSQL 18 requires new mount point"
+echo "       Changed: /var/lib/postgresql/data -> /var/lib/postgresql"
 echo "Solution: Reset volume and re-run migrations"
 echo ""
 echo "⚠️  WARNING: This will DELETE all PostgreSQL data!"
@@ -21,7 +22,7 @@ fi
 
 echo ""
 echo "Step 1: Stopping all containers..."
-docker-compose down
+docker compose down
 
 echo ""
 echo "Step 2: Removing PostgreSQL volume..."
@@ -48,8 +49,8 @@ if [[ $REPLY =~ ^[Yy]$ ]]; then
 fi
 
 echo ""
-echo "Step 4: Starting PostgreSQL..."
-docker-compose up -d system_dev
+echo "Step 4: Starting PostgreSQL with new mount point..."
+docker compose up -d system_dev
 
 echo ""
 echo "Step 5: Waiting for PostgreSQL to initialize (20 seconds)..."
@@ -61,14 +62,14 @@ echo ""
 
 echo ""
 echo "Step 6: Verifying PostgreSQL..."
-docker-compose exec -T system_dev psql -U system_dev -d system_dev -c "SELECT version();" 2>/dev/null
+docker compose exec -T system_dev psql -U system_dev -d system_dev -c "SELECT version();" 2>/dev/null
 
 if [ $? -eq 0 ]; then
     echo "✓ PostgreSQL is ready!"
 else
     echo "⚠️  PostgreSQL not ready yet. Waiting 10 more seconds..."
     sleep 10
-    docker-compose exec -T system_dev psql -U system_dev -d system_dev -c "SELECT version();" 2>/dev/null || {
+    docker compose exec -T system_dev psql -U system_dev -d system_dev -c "SELECT version();" 2>/dev/null || {
         echo "❌ PostgreSQL failed to start. Check logs:"
         echo "   docker logs system_dev"
         exit 1
@@ -89,7 +90,7 @@ fi
 
 echo ""
 echo "Step 8: Starting remaining services..."
-docker-compose up -d
+docker compose up -d
 
 echo ""
 echo "==================================================="
@@ -98,11 +99,11 @@ echo "==================================================="
 echo ""
 
 echo "✓ All services status:"
-docker-compose ps
+docker compose ps
 
 echo ""
 echo "✓ PostgreSQL tables:"
-docker-compose exec -T system_dev psql -U system_dev -d system_dev -c "\dt identify.*" 2>/dev/null | head -20
+docker compose exec -T system_dev psql -U system_dev -d system_dev -c "\dt identify.*" 2>/dev/null | head -20
 
 echo ""
 echo "==================================================="
