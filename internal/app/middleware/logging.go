@@ -79,19 +79,31 @@ func LoggingMiddleware(appLogger *zap.Logger, perfLogger *logger.PerformanceLogg
 
 		// Log errors
 		if statusCode >= 500 {
+			// Convert errors to string slice
+			var errorMsgs []string
+			for _, e := range c.Errors {
+				errorMsgs = append(errorMsgs, e.Error())
+			}
+
 			ctxLogger.Error("HTTP request failed with server error",
 				zap.String("method", c.Request.Method),
 				zap.String("path", c.Request.URL.Path),
 				zap.Int("status_code", statusCode),
-				zap.Any("errors", c.Errors.Strings()),
+				zap.Strings("errors", errorMsgs),
 				zap.String("category", "error"),
 			)
 		} else if statusCode >= 400 {
+			// Convert errors to string slice
+			var errorMsgs []string
+			for _, e := range c.Errors {
+				errorMsgs = append(errorMsgs, e.Error())
+			}
+
 			ctxLogger.Warn("HTTP request failed with client error",
 				zap.String("method", c.Request.Method),
 				zap.String("path", c.Request.URL.Path),
 				zap.Int("status_code", statusCode),
-				zap.Any("errors", c.Errors.Strings()),
+				zap.Strings("errors", errorMsgs),
 				zap.String("category", "error"),
 			)
 		}
