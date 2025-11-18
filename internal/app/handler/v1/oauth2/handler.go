@@ -951,11 +951,11 @@ func (h *Handler) Logout(c *gin.Context) {
 	c.SetCookie(
 		"session_id",
 		"",
-		-1,     // MaxAge -1 means delete cookie
-		"/",    // path
-		"",     // domain
-		false,  // secure (set true in production with HTTPS)
-		true,   // httpOnly
+		-1,    // MaxAge -1 means delete cookie
+		"/",   // path
+		"",    // domain
+		false, // secure (set true in production with HTTPS)
+		true,  // httpOnly
 	)
 
 	// 6. Redirect về client (nếu có post_logout_redirect_uri)
