@@ -399,6 +399,11 @@ func (h *Handler) redirectToLogin(c *gin.Context, ar fosite.AuthorizeRequester) 
 	// Get original query string
 	originalParams := c.Request.URL.RawQuery
 
+	h.logger.Debug("Saving query params to Redis",
+		zap.String("request_id", requestID),
+		zap.String("query_params", originalParams),
+	)
+
 	// Save query params string (not the whole object)
 	err := h.authRequestRepo.SaveQueryParams(c.Request.Context(), requestID, originalParams, time.Minute*10)
 	if err != nil {
@@ -526,13 +531,20 @@ func (h *Handler) LoginSubmit(c *gin.Context) {
 		return
 	}
 
+	h.logger.Debug("Loaded query params from Redis",
+		zap.String("request_id", requestID),
+		zap.String("query_params", queryParams),
+	)
+
 	// Redirect back to /oauth2/auth with original params + session cookie
 	// Now /oauth2/auth will see authenticated user and continue flow
+	redirectURL := "/oauth2/auth?" + queryParams
 	h.logger.Info("Login successful, redirecting to authorization endpoint",
 		zap.String("request_id", requestID),
 		zap.String("user_id", user.ID.String()),
+		zap.String("redirect_url", redirectURL),
 	)
-	c.Redirect(http.StatusFound, "/oauth2/auth?"+queryParams)
+	c.Redirect(http.StatusFound, redirectURL)
 }
 
 // ScopeInfo chứa thông tin về scope
