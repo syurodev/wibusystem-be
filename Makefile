@@ -210,6 +210,31 @@ docker-ps: ## Hiển thị docker containers
 docker-restart: docker-down docker-up ## Restart docker services
 
 # =====================================================
+# Seed Commands
+# =====================================================
+.PHONY: seed
+seed: ## Seed roles and permissions
+	@echo "$(BLUE)Seeding roles and permissions...$(NC)"
+	docker exec -i system_dev psql -U $(DB_USER) -d $(DB_NAME) < scripts/seed_roles_permissions.sql
+	@echo "$(GREEN)✓ Seed completed$(NC)"
+
+.PHONY: seed-admin
+seed-admin: ## Seed admin user and internal OAuth2 clients
+	@echo "$(BLUE)Seeding admin user and OAuth2 clients...$(NC)"
+	docker exec -i system_dev psql -U $(DB_USER) -d $(DB_NAME) < scripts/seed_admin_and_clients.sql
+	@echo "$(GREEN)✓ Admin and clients seeded$(NC)"
+
+.PHONY: seed-test
+seed-test: ## Seed test data (users and OAuth2 clients)
+	@echo "$(BLUE)Seeding test data...$(NC)"
+	docker exec -i system_dev psql -U $(DB_USER) -d $(DB_NAME) < scripts/seed_test_data.sql
+	@echo "$(GREEN)✓ Test data seeded$(NC)"
+
+.PHONY: seed-all
+seed-all: seed seed-admin seed-test ## Seed all data (roles, permissions, admin, and test data)
+	@echo "$(GREEN)✓ All seed data completed$(NC)"
+
+# =====================================================
 # Setup Commands
 # =====================================================
 .PHONY: setup
@@ -217,11 +242,14 @@ setup: migrate-install docker-up ## Setup development environment
 	@echo "$(BLUE)Setting up development environment...$(NC)"
 	@sleep 3 # Wait for database to be ready
 	@$(MAKE) migrate-up
+	@$(MAKE) seed
+	@$(MAKE) seed-admin
 	@echo "$(GREEN)✓ Setup completed!$(NC)"
 	@echo ""
 	@echo "$(BLUE)Next steps:$(NC)"
 	@echo "  1. Run '$(GREEN)make run$(NC)' to start the application"
 	@echo "  2. Run '$(GREEN)make test$(NC)' to run tests"
+	@echo "  3. Run '$(GREEN)make seed-test$(NC)' to seed test data (optional)"
 
 .PHONY: dev
 dev: ## Start development environment (docker + migrations + run)

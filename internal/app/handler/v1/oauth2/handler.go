@@ -6,6 +6,7 @@ import (
 	"math/big"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"system/configs"
 	"system/internal/domain"
@@ -16,6 +17,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/gofrs/uuid/v5"
 	"github.com/ory/fosite"
+	"github.com/ory/fosite/handler/openid"
+	"github.com/ory/fosite/token/jwt"
 	"go.uber.org/zap"
 )
 
@@ -27,6 +30,8 @@ type OAuth2Service interface {
 	GetUserByID(ctx context.Context, userID uuid.UUID) (*domain.User, error)
 	CheckUserConsent(ctx context.Context, userID, clientID uuid.UUID) (bool, error)
 	CreateUserConsent(ctx context.Context, userID, clientID uuid.UUID, scopes []string) error
+	LogoutUser(ctx context.Context, sessionID string, revokeTokens bool) error
+	RevokeUserTokens(ctx context.Context, userID uuid.UUID) error
 }
 
 // Handler là struct chứa các dependencies cho OAuth2 handlers.
@@ -125,7 +130,7 @@ func (h *Handler) UserInfo(c *gin.Context) {
 	// IntrospectToken sẽ xác thực token, kiểm tra thời gian sống, và trả về thông tin chi tiết.
 	// Tham số thứ 3 là session, Fosite sẽ điền thông tin vào đây.
 	// Tham số thứ 4 là các scope bắt buộc, ở đây ta không cần, ta chỉ cần biết scope đã được cấp.
-	_, ar, err := h.provider.IntrospectToken(c.Request.Context(), token, fosite.AccessToken, &fosite.DefaultSession{})
+	_, ar, err := h.provider.IntrospectToken(c.Request.Context(), token, fosite.AccessToken, &openid.DefaultSession{})
 	if err != nil {
 		response.Error(c, http.StatusUnauthorized, errcode.AuthInvalidToken.String(), "auth.invalid_token", gin.H{"debug": err.Error()})
 		return
@@ -149,10 +154,9 @@ func (h *Handler) UserInfo(c *gin.Context) {
 		return
 	}
 
-	// Xây dựng claims dựa trên scope
+	// Xây dựng claims dựa trên scope và trả về theo chuẩn OIDC (không bọc success/data)
 	claims := buildUserInfoClaims(user, scopes)
-
-	response.Success(c, http.StatusOK, "userinfo.success", claims, nil)
+	c.JSON(http.StatusOK, claims)
 }
 
 // buildUserInfoClaims lọc và xây dựng các claims cho UserInfo dựa trên scope được cấp phép.
@@ -257,21 +261,18 @@ func (h *Handler) Token(c *gin.Context) {
 	)
 
 	// Tạo session mới cho request này
-	session := &fosite.DefaultSession{}
+	session := &openid.DefaultSession{}
 
 	// Parse và xác thực request từ client
 	accessRequest, err := h.provider.NewAccessRequest(ctx, c.Request, session)
 	if err != nil {
-		// Extract detailed error information from Fosite
-		fositeErr := fosite.ErrorToRFC6749Error(err)
-		h.logger.Error("Failed to create access request",
-			zap.String("error", err.Error()),
-			zap.String("error_name", fositeErr.ErrorField),
-			zap.String("error_description", fositeErr.DescriptionField),
-			zap.String("error_hint", fositeErr.HintField),
-			zap.String("error_debug", fositeErr.DebugField),
-			zap.String("grant_type", grantType),
-			zap.String("client_id", clientID),
+		// Log chi tiết để tìm nguyên nhân 500
+		zap.L().Error("oauth2 token: failed to build access request",
+			zap.Error(err),
+			zap.String("grant_type", c.PostForm("grant_type")),
+			zap.String("client_id", c.PostForm("client_id")),
+			zap.String("code_present", strconv.FormatBool(c.PostForm("code") != "")),
+			zap.String("code_verifier_present", strconv.FormatBool(c.PostForm("code_verifier") != "")),
 		)
 		writeOAuth2Error(c, err)
 		return
@@ -321,10 +322,14 @@ func (h *Handler) Token(c *gin.Context) {
 	// Fosite sẽ tự động generate tokens dựa trên grant type
 	response, err := h.provider.NewAccessResponse(ctx, accessRequest)
 	if err != nil {
-		h.logger.Error("Failed to create access response",
-			zap.String("error", err.Error()),
+		clientID := ""
+		if accessRequest.GetClient() != nil {
+			clientID = accessRequest.GetClient().GetID()
+		}
+		zap.L().Error("oauth2 token: failed to build access response",
+			zap.Error(err),
 			zap.String("grant_type", grantType),
-			zap.String("client_id", accessRequest.GetClient().GetID()),
+			zap.String("client_id", clientID),
 		)
 		writeOAuth2Error(c, err)
 		return
@@ -343,55 +348,37 @@ func (h *Handler) Token(c *gin.Context) {
 // Đây là bước đầu tiên trong Authorization Code Flow
 func (h *Handler) Authorize(c *gin.Context) {
 	ctx := c.Request.Context()
-
-	// Check if this is a resume from login with only request_id
-	// (browser might not follow redirect with full params correctly)
 	requestID := c.Query("request_id")
-	clientID := c.Query("client_id")
 
-	if requestID != "" && clientID == "" {
-		// Only request_id present, no OAuth2 params - load from Redis and redirect
-		h.logger.Info("Resuming authorization from request_id",
-			zap.String("request_id", requestID),
-		)
+	var ar fosite.AuthorizeRequester
+	var err error
 
-		queryParams, err := h.authRequestRepo.GetQueryParams(ctx, requestID)
+	if requestID != "" && c.Query("client_id") == "" {
+		// Quay lại từ login/consent với request_id, lấy lại request đã lưu
+		ar, err = h.authRequestRepo.GetAuthRequest(ctx, requestID)
 		if err != nil {
-			h.logger.Error("Failed to load query params from request_id",
-				zap.String("error", err.Error()),
+			zap.L().Error("oauth2 authorize: failed to restore request by request_id",
 				zap.String("request_id", requestID),
+				zap.Error(err),
 			)
-			h.showErrorPage(c,
-				"invalid_request",
-				"Your authorization request has expired. Please try again.",
-				"Authorization requests are valid for 10 minutes.",
-			)
+			writeOAuth2Error(c, fosite.ErrInvalidRequest.WithWrap(err).WithDebug("Invalid or expired authorization request"))
 			return
 		}
-
-		h.logger.Debug("Loaded query params, redirecting",
-			zap.String("request_id", requestID),
-			zap.String("query_params", queryParams),
-		)
-
-		// Redirect to same endpoint with full OAuth2 params
-		c.Redirect(http.StatusFound, "/oauth2/auth?"+queryParams)
-		return
-	}
-
-	// Parse authorization request từ query parameters
-	ar, err := h.provider.NewAuthorizeRequest(ctx, c.Request)
-	if err != nil {
-		// Log chi tiết lỗi để debug
-		h.logger.Error("OAuth2 authorization request failed",
-			zap.String("error", err.Error()),
-			zap.String("client_id", c.Query("client_id")),
-			zap.String("redirect_uri", c.Query("redirect_uri")),
-			zap.String("response_type", c.Query("response_type")),
-			zap.String("scope", c.Query("scope")),
-		)
-		writeOAuth2Error(c, err)
-		return
+	} else {
+		// Parse authorization request từ query parameters
+		ar, err = h.provider.NewAuthorizeRequest(ctx, c.Request)
+		if err != nil {
+			// Log chi tiết để debug lỗi server_error
+			zap.L().Error("oauth2 authorize: failed to build request",
+				zap.Error(err),
+				zap.String("client_id", c.Query("client_id")),
+				zap.String("redirect_uri", c.Query("redirect_uri")),
+				zap.String("scope", c.Query("scope")),
+				zap.String("response_type", c.Query("response_type")),
+			)
+			writeOAuth2Error(c, err)
+			return
+		}
 	}
 
 	// Kiểm tra xem user đã đăng nhập chưa (check session cookie)
@@ -481,11 +468,11 @@ func (h *Handler) redirectToLogin(c *gin.Context, ar fosite.AuthorizeRequester) 
 	// Save query params string (not the whole object)
 	err := h.authRequestRepo.SaveQueryParams(c.Request.Context(), requestID, originalParams, time.Minute*10)
 	if err != nil {
-		h.logger.Error("Failed to save auth params to Redis",
-			zap.String("error", err.Error()),
+		zap.L().Error("oauth2 authorize: failed to save auth request before login",
 			zap.String("request_id", requestID),
+			zap.Error(err),
 		)
-		writeOAuth2Error(c, fosite.ErrServerError.WithWrap(err).WithDebug("Failed to save auth params"))
+		writeOAuth2Error(c, fosite.ErrServerError.WithWrap(err).WithDebug("Failed to save auth request"))
 		return
 	}
 
@@ -505,6 +492,10 @@ func (h *Handler) redirectToConsent(c *gin.Context, ar fosite.AuthorizeRequester
 	// Lưu authorization request với userID vào Redis
 	err := h.authRequestRepo.SaveAuthRequestWithUserID(c.Request.Context(), requestID, ar, userID, time.Minute*10)
 	if err != nil {
+		zap.L().Error("oauth2 authorize: failed to save auth request before consent",
+			zap.String("request_id", requestID),
+			zap.Error(err),
+		)
 		writeOAuth2Error(c, fosite.ErrServerError.WithWrap(err).WithDebug("Failed to save auth request"))
 		return
 	}
@@ -537,34 +528,38 @@ func (h *Handler) redirectToConsent(c *gin.Context, ar fosite.AuthorizeRequester
 func (h *Handler) finalizeAuthorization(c *gin.Context, ar fosite.AuthorizeRequester, userID string) {
 	ctx := c.Request.Context()
 
-	h.logger.Debug("Finalizing authorization",
-		zap.String("user_id", userID),
-		zap.String("client_id", ar.GetClient().GetID()),
-		zap.String("request_id", ar.GetID()),
-	)
-
-	// Tạo session với user info và expiry times
-	// CRITICAL: Must set ExpiresAt for all token types, otherwise Redis TTL will be negative!
+	// Tạo session với user info
 	now := time.Now().UTC()
-	session := &fosite.DefaultSession{
+	session := &openid.DefaultSession{
 		Subject: userID,
+		Claims: &jwt.IDTokenClaims{
+			Subject:     userID,
+			AuthTime:    now,
+			RequestedAt: ar.GetRequestedAt(),
+		},
+		Headers: &jwt.Headers{},
 		ExpiresAt: map[fosite.TokenType]time.Time{
-			fosite.AuthorizeCode: now.Add(time.Minute * 10),    // Authorization code valid for 10 minutes
-			fosite.AccessToken:   now.Add(time.Hour * 1),       // Access token valid for 1 hour
-			fosite.RefreshToken:  now.Add(time.Hour * 24 * 30), // Refresh token valid for 30 days
+			fosite.AuthorizeCode: now.Add(10 * time.Minute),
+			fosite.AccessToken:   now.Add(time.Hour),
+			fosite.RefreshToken:  now.Add(24 * time.Hour * 30),
+			fosite.IDToken:       now.Add(time.Hour),
 		},
 	}
 
 	// Populate session với các claims cần thiết
 	ar.SetSession(session)
 
+	// V1: chấp thuận toàn bộ scopes đã request (đã kiểm tra consent trước đó)
+	for _, scope := range ar.GetRequestedScopes() {
+		ar.GrantScope(scope)
+	}
+
 	// Tạo authorization response (authorization code)
 	response, err := h.provider.NewAuthorizeResponse(ctx, ar, session)
 	if err != nil {
-		h.logger.Error("Failed to create authorization response",
-			zap.String("error", err.Error()),
-			zap.String("user_id", userID),
-			zap.String("client_id", ar.GetClient().GetID()),
+		zap.L().Error("oauth2 authorize: failed to create authorize response",
+			zap.String("request_id", ar.GetID()),
+			zap.Error(err),
 		)
 		writeOAuth2Error(c, err)
 		return
@@ -874,7 +869,7 @@ func (h *Handler) Introspect(c *gin.Context) {
 	ctx := c.Request.Context()
 
 	// Tạo session cho introspection
-	session := &fosite.DefaultSession{}
+	session := &openid.DefaultSession{}
 
 	// Parse và xác thực introspection request
 	// Fosite sẽ tự động:
@@ -912,4 +907,99 @@ func (h *Handler) Introspect(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, response)
+}
+
+// Logout xử lý endpoint /oauth2/logout
+// Implements OpenID Connect RP-Initiated Logout (https://openid.net/specs/openid-connect-rpinitiated-1_0.html)
+func (h *Handler) Logout(c *gin.Context) {
+	ctx := c.Request.Context()
+
+	// 1. Extract parameters (support both GET and POST)
+	idTokenHint := c.Query("id_token_hint")
+	if idTokenHint == "" {
+		idTokenHint = c.PostForm("id_token_hint")
+	}
+
+	postLogoutRedirectURI := c.Query("post_logout_redirect_uri")
+	if postLogoutRedirectURI == "" {
+		postLogoutRedirectURI = c.PostForm("post_logout_redirect_uri")
+	}
+
+	state := c.Query("state")
+	if state == "" {
+		state = c.PostForm("state")
+	}
+
+	// 2. Get session from cookie
+	sessionID, err := c.Cookie("session_id")
+	var userID string
+	revokeTokens := false // Default: không revoke tokens khi logout (chỉ xóa session)
+
+	// 3. Logout user nếu có session
+	if err == nil && sessionID != "" {
+		// Lấy userID từ session trước khi logout
+		if uid, err := h.oauth2Service.GetUserSession(ctx, sessionID); err == nil {
+			userID = uid
+		}
+
+		// Logout user - xóa session và optionally revoke tokens
+		if err := h.oauth2Service.LogoutUser(ctx, sessionID, revokeTokens); err != nil {
+			zap.L().Error("oauth2 logout: failed to logout user",
+				zap.String("session_id", sessionID),
+				zap.Error(err),
+			)
+		}
+	}
+
+	// 4. Optionally revoke all tokens (nếu được enable)
+	if userID != "" && revokeTokens {
+		userUUID, err := uuid.FromString(userID)
+		if err == nil {
+			if err := h.oauth2Service.RevokeUserTokens(ctx, userUUID); err != nil {
+				zap.L().Error("oauth2 logout: failed to revoke user tokens",
+					zap.String("user_id", userID),
+					zap.Error(err),
+				)
+			}
+		}
+	}
+
+	// 5. Clear session cookie
+	c.SetCookie(
+		"session_id",
+		"",
+		-1,     // MaxAge -1 means delete cookie
+		"/",    // path
+		"",     // domain
+		false,  // secure (set true in production with HTTPS)
+		true,   // httpOnly
+	)
+
+	// 6. Redirect về client (nếu có post_logout_redirect_uri)
+	if postLogoutRedirectURI != "" {
+		// TODO: SECURITY - Validate redirect URI against client's registered post_logout_redirect_uris
+		// For now, we trust it but should add validation in production
+
+		redirectURL := postLogoutRedirectURI
+		if state != "" {
+			// Preserve state parameter
+			if strings.Contains(redirectURL, "?") {
+				redirectURL += "&state=" + state
+			} else {
+				redirectURL += "?state=" + state
+			}
+		}
+
+		zap.L().Info("oauth2 logout: redirecting to post_logout_redirect_uri",
+			zap.String("redirect_uri", redirectURL),
+		)
+
+		c.Redirect(http.StatusFound, redirectURL)
+		return
+	}
+
+	// 7. No redirect URI - return success response
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Logged out successfully",
+	})
 }

@@ -682,12 +682,13 @@ import (
 
 // RedisStore triển khai các interface lưu trữ của Fosite cho dữ liệu tạm thời.
 type RedisStore struct {
-    client *redis.Client
+    client     *redis.Client
+    clientRepo domain.OAuth2ClientRepository
 }
 
 // NewRedisStore tạo một RedisStore mới.
-func NewRedisStore(client *redis.Client) *RedisStore {
-    return &RedisStore{client: client}
+func NewRedisStore(client *redis.Client, clientRepo domain.OAuth2ClientRepository) *RedisStore {
+    return &RedisStore{client: client, clientRepo: clientRepo}
 }
 ```
 
@@ -795,10 +796,10 @@ type HybridStore struct {
     *RedisStore
 }
 
-func NewHybridStore(db *sqlx.DB, client *redis.Client, hasher fosite.Hasher) *HybridStore {
+func NewHybridStore(db *sqlx.DB, client *redis.Client, hasher fosite.Hasher, clientRepo domain.OAuth2ClientRepository) *HybridStore {
     return &HybridStore{
         SQLStore:   NewSQLStore(db, hasher),
-        RedisStore: NewRedisStore(client),
+        RedisStore: NewRedisStore(client, clientRepo),
     }
 }
 ```

@@ -5,10 +5,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"system/internal/domain"
 	"system/internal/platform/database"
 	"time"
 
+	"github.com/gofrs/uuid/v5"
 	"github.com/ory/fosite"
+	"github.com/ory/fosite/handler/openid"
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 )
@@ -24,81 +27,53 @@ const (
 
 // RedisStore triển khai các interface lưu trữ tạm thời của Fosite bằng Redis.
 type RedisStore struct {
-	client        *database.RedisClient
-	logger        *zap.Logger
-	clientManager fosite.ClientManager // For loading clients when deserializing
+	client     *database.RedisClient
+	clientRepo domain.OAuth2ClientRepository
 }
 
 // NewRedisStore tạo một instance mới của RedisStore.
-func NewRedisStore(client *database.RedisClient, logger *zap.Logger) *RedisStore {
-	return &RedisStore{
-		client: client,
-		logger: logger,
-	}
+func NewRedisStore(client *database.RedisClient, clientRepo domain.OAuth2ClientRepository) *RedisStore {
+	return &RedisStore{client: client, clientRepo: clientRepo}
 }
 
-// SetClientManager sets the client manager for loading clients during deserialization
-func (s *RedisStore) SetClientManager(cm fosite.ClientManager) {
-	s.clientManager = cm
-}
-
-// serializableRequest is a wrapper for fosite.Requester that can be JSON serialized
-// It stores only the client_id instead of the full client object (which is an interface)
-type serializableRequest struct {
-	ID                string              `json:"id"`
-	RequestedAt       time.Time           `json:"requestedAt"`
-	ClientID          string              `json:"client_id"`
-	RequestedScopes   []string            `json:"requestedScopes"`
-	GrantedScopes     []string            `json:"grantedScopes"`
-	Form              map[string][]string `json:"form"`
-	Session           json.RawMessage     `json:"session"`
-	RequestedAudience []string            `json:"requestedAudience"`
-	GrantedAudience   []string            `json:"grantedAudience"`
+// storedRequest là dữ liệu đã được strip client để (de)serialize an toàn.
+type storedRequest struct {
+	Request  *fosite.Request        `json:"request"`
+	Session  *openid.DefaultSession `json:"session"`
+	ClientID string                 `json:"client_id"`
 }
 
 // --- oauth2.AuthorizeCodeStorage --- //
 
 func (s *RedisStore) CreateAuthorizeCodeSession(ctx context.Context, signature string, requester fosite.Requester) error {
+	req, ok := requester.(*fosite.Request)
+	if !ok {
+		return fosite.ErrServerError.WithDebug("unexpected requester type for auth code storage")
+	}
+
+	session, ok := req.Session.(*openid.DefaultSession)
+	if !ok || session == nil {
+		return fosite.ErrServerError.WithDebug("unexpected session type for auth code storage")
+	}
+
+	payload := storedRequest{
+		Request:  stripClient(req),
+		Session:  session,
+		ClientID: req.GetClient().GetID(),
+	}
+
 	key := fmt.Sprintf(authCodeKeyPrefix, signature)
 	lifespan := requester.GetSession().GetExpiresAt(fosite.AuthorizeCode).Sub(time.Now().UTC())
-
-	// Serialize session separately
-	sessionData, err := json.Marshal(requester.GetSession())
+	data, err := json.Marshal(payload)
 	if err != nil {
-		s.logger.Error("Failed to marshal session",
-			zap.String("error", err.Error()),
-		)
+		zap.L().Error("redis store: marshal auth code failed", zap.String("signature", signature), zap.Error(err))
 		return fosite.ErrServerError.WithWrap(err)
 	}
-
-	// Create serializable wrapper with only client_id (not full client object)
-	serializable := &serializableRequest{
-		ID:                requester.GetID(),
-		RequestedAt:       requester.GetRequestedAt(),
-		ClientID:          requester.GetClient().GetID(), // Only store ID
-		RequestedScopes:   requester.GetRequestedScopes(),
-		GrantedScopes:     requester.GetGrantedScopes(),
-		Form:              requester.GetRequestForm(),
-		Session:           sessionData,
-		RequestedAudience: requester.GetRequestedAudience(),
-		GrantedAudience:   requester.GetGrantedAudience(),
-	}
-
-	data, err := json.Marshal(serializable)
-	if err != nil {
-		s.logger.Error("Failed to marshal authorization code session",
-			zap.String("error", err.Error()),
-		)
+	if err := s.client.Set(ctx, key, data, lifespan); err != nil {
+		zap.L().Error("redis store: set auth code failed", zap.String("signature", signature), zap.Error(err))
 		return fosite.ErrServerError.WithWrap(err)
 	}
-
-	s.logger.Debug("Saving authorization code to Redis",
-		zap.String("key", key),
-		zap.String("client_id", serializable.ClientID),
-		zap.Duration("lifespan", lifespan),
-	)
-
-	return s.client.Set(ctx, key, data, lifespan)
+	return nil
 }
 
 func (s *RedisStore) GetAuthorizeCodeSession(ctx context.Context, signature string, session fosite.Session) (fosite.Requester, error) {
@@ -124,70 +99,17 @@ func (s *RedisStore) GetAuthorizeCodeSession(ctx context.Context, signature stri
 		)
 		return nil, fosite.ErrServerError.WithWrap(err)
 	}
-
-	s.logger.Debug("Authorization code found in Redis",
-		zap.String("key", key),
-		zap.Int("data_length", len(data)),
-	)
-
-	// Unmarshal into serializable wrapper
-	var serializable serializableRequest
-	if err := json.Unmarshal([]byte(data), &serializable); err != nil {
-		s.logger.Error("Failed to unmarshal authorization code session",
-			zap.String("error", err.Error()),
-			zap.String("key", key),
-			zap.String("data_preview", data[:min(len(data), 200)]),
-		)
-		return nil, fosite.ErrServerError.WithWrap(err).WithDebug("JSON unmarshal failed: " + err.Error())
+	var stored storedRequest
+	if err := json.Unmarshal([]byte(data), &stored); err != nil {
+		return nil, fosite.ErrServerError.WithWrap(err)
 	}
 
-	s.logger.Debug("Deserialized authorization code data",
-		zap.String("client_id", serializable.ClientID),
-		zap.String("request_id", serializable.ID),
-	)
-
-	// Load client from database using ClientManager
-	if s.clientManager == nil {
-		s.logger.Error("ClientManager not set in RedisStore")
-		return nil, fosite.ErrServerError.WithDebug("ClientManager not configured")
-	}
-
-	client, err := s.clientManager.GetClient(ctx, serializable.ClientID)
+	req, err := s.hydrateRequestWithClient(ctx, stored)
 	if err != nil {
-		s.logger.Error("Failed to load client for authorization code",
-			zap.String("error", err.Error()),
-			zap.String("client_id", serializable.ClientID),
-		)
-		return nil, fosite.ErrServerError.WithWrap(err).WithDebug("Failed to load client: " + err.Error())
+		zap.L().Error("redis store: hydrate auth code failed", zap.String("signature", signature), zap.Error(err))
+		return nil, err
 	}
-
-	// Unmarshal session
-	if err := json.Unmarshal(serializable.Session, session); err != nil {
-		s.logger.Error("Failed to unmarshal session",
-			zap.String("error", err.Error()),
-		)
-		return nil, fosite.ErrServerError.WithWrap(err).WithDebug("Session unmarshal failed: " + err.Error())
-	}
-
-	// Reconstruct fosite.Request
-	requester := &fosite.Request{
-		ID:                serializable.ID,
-		RequestedAt:       serializable.RequestedAt,
-		Client:            client, // Client loaded from database
-		RequestedScope:    serializable.RequestedScopes,
-		GrantedScope:      serializable.GrantedScopes,
-		Form:              serializable.Form,
-		Session:           session,
-		RequestedAudience: serializable.RequestedAudience,
-		GrantedAudience:   serializable.GrantedAudience,
-	}
-
-	s.logger.Debug("Authorization code session loaded successfully",
-		zap.String("key", key),
-		zap.String("client_id", client.GetID()),
-	)
-
-	return requester, nil
+	return req, nil
 }
 
 func min(a, b int) int {
@@ -198,19 +120,44 @@ func min(a, b int) int {
 }
 
 func (s *RedisStore) InvalidateAuthorizeCodeSession(ctx context.Context, signature string) error {
-	return s.client.Del(ctx, fmt.Sprintf(authCodeKeyPrefix, signature))
+	if err := s.client.Del(ctx, fmt.Sprintf(authCodeKeyPrefix, signature)); err != nil {
+		zap.L().Error("redis store: invalidate auth code failed", zap.String("signature", signature), zap.Error(err))
+		return fosite.ErrServerError.WithWrap(err)
+	}
+	return nil
 }
 
 // --- openid.OpenIDConnectRequestStorage --- //
 
 func (s *RedisStore) CreateOpenIDConnectSession(ctx context.Context, authorizeCode string, requester fosite.Requester) error {
+	req, ok := requester.(*fosite.Request)
+	if !ok {
+		return fosite.ErrServerError.WithDebug("unexpected requester type for oidc session")
+	}
+
+	session, ok := req.Session.(*openid.DefaultSession)
+	if !ok || session == nil {
+		return fosite.ErrServerError.WithDebug("unexpected session type for oidc session")
+	}
+
+	payload := storedRequest{
+		Request:  stripClient(req),
+		Session:  session,
+		ClientID: req.GetClient().GetID(),
+	}
+
 	key := fmt.Sprintf(oidcSessionKeyPrefix, authorizeCode)
 	lifespan := requester.GetSession().GetExpiresAt(fosite.AuthorizeCode).Sub(time.Now().UTC())
-	data, err := json.Marshal(requester)
+	data, err := json.Marshal(payload)
 	if err != nil {
+		zap.L().Error("redis store: marshal oidc session failed", zap.String("code", authorizeCode), zap.Error(err))
 		return fosite.ErrServerError.WithWrap(err)
 	}
-	return s.client.Set(ctx, key, data, lifespan)
+	if err := s.client.Set(ctx, key, data, lifespan); err != nil {
+		zap.L().Error("redis store: set oidc session failed", zap.String("code", authorizeCode), zap.Error(err))
+		return fosite.ErrServerError.WithWrap(err)
+	}
+	return nil
 }
 
 func (s *RedisStore) GetOpenIDConnectSession(ctx context.Context, authorizeCode string, requester fosite.Requester) (fosite.Requester, error) {
@@ -222,11 +169,18 @@ func (s *RedisStore) GetOpenIDConnectSession(ctx context.Context, authorizeCode 
 		}
 		return nil, fosite.ErrServerError.WithWrap(err)
 	}
-	// Unmarshal vào chính requester được truyền vào, vì nó chứa session
-	if err := json.Unmarshal([]byte(data), requester); err != nil {
+
+	var stored storedRequest
+	if err := json.Unmarshal([]byte(data), &stored); err != nil {
 		return nil, fosite.ErrServerError.WithWrap(err)
 	}
-	return requester, nil
+
+	req, err := s.hydrateRequestWithClient(ctx, stored)
+	if err != nil {
+		zap.L().Error("redis store: hydrate oidc session failed", zap.String("code", authorizeCode), zap.Error(err))
+		return nil, err
+	}
+	return req, nil
 }
 
 func (s *RedisStore) DeleteOpenIDConnectSession(ctx context.Context, authorizeCode string) error {
@@ -236,46 +190,34 @@ func (s *RedisStore) DeleteOpenIDConnectSession(ctx context.Context, authorizeCo
 // --- oauth2.PKCERequestStorage --- //
 
 func (s *RedisStore) CreatePKCERequestSession(ctx context.Context, signature string, requester fosite.Requester) error {
+	req, ok := requester.(*fosite.Request)
+	if !ok {
+		return fosite.ErrServerError.WithDebug("unexpected requester type for pkce storage")
+	}
+
+	session, ok := req.Session.(*openid.DefaultSession)
+	if !ok || session == nil {
+		return fosite.ErrServerError.WithDebug("unexpected session type for pkce storage")
+	}
+
+	payload := storedRequest{
+		Request:  stripClient(req),
+		Session:  session,
+		ClientID: req.GetClient().GetID(),
+	}
+
 	key := fmt.Sprintf(pkceKeyPrefix, signature)
 	lifespan := requester.GetSession().GetExpiresAt(fosite.AuthorizeCode).Sub(time.Now().UTC())
-
-	// Serialize session separately
-	sessionData, err := json.Marshal(requester.GetSession())
+	data, err := json.Marshal(payload)
 	if err != nil {
-		s.logger.Error("Failed to marshal PKCE session",
-			zap.String("error", err.Error()),
-		)
+		zap.L().Error("redis store: marshal pkce session failed", zap.String("signature", signature), zap.Error(err))
 		return fosite.ErrServerError.WithWrap(err)
 	}
-
-	// Create serializable wrapper with only client_id
-	serializable := &serializableRequest{
-		ID:                requester.GetID(),
-		RequestedAt:       requester.GetRequestedAt(),
-		ClientID:          requester.GetClient().GetID(),
-		RequestedScopes:   requester.GetRequestedScopes(),
-		GrantedScopes:     requester.GetGrantedScopes(),
-		Form:              requester.GetRequestForm(),
-		Session:           sessionData,
-		RequestedAudience: requester.GetRequestedAudience(),
-		GrantedAudience:   requester.GetGrantedAudience(),
-	}
-
-	data, err := json.Marshal(serializable)
-	if err != nil {
-		s.logger.Error("Failed to marshal PKCE request session",
-			zap.String("error", err.Error()),
-		)
+	if err := s.client.Set(ctx, key, data, lifespan); err != nil {
+		zap.L().Error("redis store: set pkce session failed", zap.String("signature", signature), zap.Error(err))
 		return fosite.ErrServerError.WithWrap(err)
 	}
-
-	s.logger.Debug("Saving PKCE request to Redis",
-		zap.String("key", key),
-		zap.String("client_id", serializable.ClientID),
-		zap.Duration("lifespan", lifespan),
-	)
-
-	return s.client.Set(ctx, key, data, lifespan)
+	return nil
 }
 
 func (s *RedisStore) GetPKCERequestSession(ctx context.Context, signature string, session fosite.Session) (fosite.Requester, error) {
@@ -300,69 +242,17 @@ func (s *RedisStore) GetPKCERequestSession(ctx context.Context, signature string
 		)
 		return nil, fosite.ErrServerError.WithWrap(err)
 	}
-
-	s.logger.Debug("PKCE request found in Redis",
-		zap.String("key", key),
-		zap.Int("data_length", len(data)),
-	)
-
-	// Unmarshal into serializable wrapper
-	var serializable serializableRequest
-	if err := json.Unmarshal([]byte(data), &serializable); err != nil {
-		s.logger.Error("Failed to unmarshal PKCE request session",
-			zap.String("error", err.Error()),
-			zap.String("key", key),
-		)
-		return nil, fosite.ErrServerError.WithWrap(err).WithDebug("JSON unmarshal failed: " + err.Error())
+	var stored storedRequest
+	if err := json.Unmarshal([]byte(data), &stored); err != nil {
+		return nil, fosite.ErrServerError.WithWrap(err)
 	}
 
-	s.logger.Debug("Deserialized PKCE request data",
-		zap.String("client_id", serializable.ClientID),
-		zap.String("request_id", serializable.ID),
-	)
-
-	// Load client from database
-	if s.clientManager == nil {
-		s.logger.Error("ClientManager not set in RedisStore for PKCE")
-		return nil, fosite.ErrServerError.WithDebug("ClientManager not configured")
-	}
-
-	client, err := s.clientManager.GetClient(ctx, serializable.ClientID)
+	req, err := s.hydrateRequestWithClient(ctx, stored)
 	if err != nil {
-		s.logger.Error("Failed to load client for PKCE request",
-			zap.String("error", err.Error()),
-			zap.String("client_id", serializable.ClientID),
-		)
-		return nil, fosite.ErrServerError.WithWrap(err).WithDebug("Failed to load client: " + err.Error())
+		zap.L().Error("redis store: hydrate pkce session failed", zap.String("signature", signature), zap.Error(err))
+		return nil, err
 	}
-
-	// Unmarshal session
-	if err := json.Unmarshal(serializable.Session, session); err != nil {
-		s.logger.Error("Failed to unmarshal PKCE session",
-			zap.String("error", err.Error()),
-		)
-		return nil, fosite.ErrServerError.WithWrap(err).WithDebug("Session unmarshal failed: " + err.Error())
-	}
-
-	// Reconstruct fosite.Request
-	requester := &fosite.Request{
-		ID:                serializable.ID,
-		RequestedAt:       serializable.RequestedAt,
-		Client:            client,
-		RequestedScope:    serializable.RequestedScopes,
-		GrantedScope:      serializable.GrantedScopes,
-		Form:              serializable.Form,
-		Session:           session,
-		RequestedAudience: serializable.RequestedAudience,
-		GrantedAudience:   serializable.GrantedAudience,
-	}
-
-	s.logger.Debug("PKCE request session loaded successfully",
-		zap.String("key", key),
-		zap.String("client_id", client.GetID()),
-	)
-
-	return requester, nil
+	return req, nil
 }
 
 func (s *RedisStore) DeletePKCERequestSession(ctx context.Context, signature string) error {
@@ -372,13 +262,34 @@ func (s *RedisStore) DeletePKCERequestSession(ctx context.Context, signature str
 // --- oauth2.AccessTokenStorage --- //
 
 func (s *RedisStore) CreateAccessTokenSession(ctx context.Context, signature string, requester fosite.Requester) error {
+	req, ok := requester.(*fosite.Request)
+	if !ok {
+		return fosite.ErrServerError.WithDebug("unexpected requester type for access token storage")
+	}
+
+	session, ok := req.Session.(*openid.DefaultSession)
+	if !ok || session == nil {
+		return fosite.ErrServerError.WithDebug("unexpected session type for access token storage")
+	}
+
+	payload := storedRequest{
+		Request:  stripClient(req),
+		Session:  session,
+		ClientID: req.GetClient().GetID(),
+	}
+
 	key := fmt.Sprintf(accessTokenKeyPrefix, signature)
 	lifespan := requester.GetSession().GetExpiresAt(fosite.AccessToken).Sub(time.Now().UTC())
-	data, err := json.Marshal(requester)
+	data, err := json.Marshal(payload)
 	if err != nil {
+		zap.L().Error("redis store: marshal access token failed", zap.String("signature", signature), zap.Error(err))
 		return fosite.ErrServerError.WithWrap(err)
 	}
-	return s.client.Set(ctx, key, data, lifespan)
+	if err := s.client.Set(ctx, key, data, lifespan); err != nil {
+		zap.L().Error("redis store: set access token failed", zap.String("signature", signature), zap.Error(err))
+		return fosite.ErrServerError.WithWrap(err)
+	}
+	return nil
 }
 
 func (s *RedisStore) GetAccessTokenSession(ctx context.Context, signature string, session fosite.Session) (fosite.Requester, error) {
@@ -390,11 +301,17 @@ func (s *RedisStore) GetAccessTokenSession(ctx context.Context, signature string
 		}
 		return nil, fosite.ErrServerError.WithWrap(err)
 	}
-	requester := &fosite.Request{Session: session}
-	if err := json.Unmarshal([]byte(data), requester); err != nil {
+	var stored storedRequest
+	if err := json.Unmarshal([]byte(data), &stored); err != nil {
 		return nil, fosite.ErrServerError.WithWrap(err)
 	}
-	return requester, nil
+
+	req, err := s.hydrateRequestWithClient(ctx, stored)
+	if err != nil {
+		zap.L().Error("redis store: hydrate access token failed", zap.String("signature", signature), zap.Error(err))
+		return nil, err
+	}
+	return req, nil
 }
 
 func (s *RedisStore) DeleteAccessTokenSession(ctx context.Context, signature string) error {
@@ -404,13 +321,34 @@ func (s *RedisStore) DeleteAccessTokenSession(ctx context.Context, signature str
 // --- oauth2.RefreshTokenStorage --- //
 
 func (s *RedisStore) CreateRefreshTokenSession(ctx context.Context, signature string, accessSignature string, requester fosite.Requester) error {
+	req, ok := requester.(*fosite.Request)
+	if !ok {
+		return fosite.ErrServerError.WithDebug("unexpected requester type for refresh token storage")
+	}
+
+	session, ok := req.Session.(*openid.DefaultSession)
+	if !ok || session == nil {
+		return fosite.ErrServerError.WithDebug("unexpected session type for refresh token storage")
+	}
+
+	payload := storedRequest{
+		Request:  stripClient(req),
+		Session:  session,
+		ClientID: req.GetClient().GetID(),
+	}
+
 	key := fmt.Sprintf(refreshTokenKeyPrefix, signature)
 	lifespan := requester.GetSession().GetExpiresAt(fosite.RefreshToken).Sub(time.Now().UTC())
-	data, err := json.Marshal(requester)
+	data, err := json.Marshal(payload)
 	if err != nil {
+		zap.L().Error("redis store: marshal refresh token failed", zap.String("signature", signature), zap.Error(err))
 		return fosite.ErrServerError.WithWrap(err)
 	}
-	return s.client.Set(ctx, key, data, lifespan)
+	if err := s.client.Set(ctx, key, data, lifespan); err != nil {
+		zap.L().Error("redis store: set refresh token failed", zap.String("signature", signature), zap.Error(err))
+		return fosite.ErrServerError.WithWrap(err)
+	}
+	return nil
 }
 
 func (s *RedisStore) GetRefreshTokenSession(ctx context.Context, signature string, session fosite.Session) (fosite.Requester, error) {
@@ -422,11 +360,17 @@ func (s *RedisStore) GetRefreshTokenSession(ctx context.Context, signature strin
 		}
 		return nil, fosite.ErrServerError.WithWrap(err)
 	}
-	requester := &fosite.Request{Session: session}
-	if err := json.Unmarshal([]byte(data), requester); err != nil {
+	var stored storedRequest
+	if err := json.Unmarshal([]byte(data), &stored); err != nil {
 		return nil, fosite.ErrServerError.WithWrap(err)
 	}
-	return requester, nil
+
+	req, err := s.hydrateRequestWithClient(ctx, stored)
+	if err != nil {
+		zap.L().Error("redis store: hydrate refresh token failed", zap.String("signature", signature), zap.Error(err))
+		return nil, err
+	}
+	return req, nil
 }
 
 func (s *RedisStore) DeleteRefreshTokenSession(ctx context.Context, signature string) error {
@@ -435,6 +379,45 @@ func (s *RedisStore) DeleteRefreshTokenSession(ctx context.Context, signature st
 
 func (s *RedisStore) RotateRefreshToken(ctx context.Context, requestID string, refreshTokenSignature string) error {
 	return nil
+}
+
+// stripClient sao chép request và bỏ client để tránh lỗi serialize interface.
+func stripClient(req *fosite.Request) *fosite.Request {
+	sanitized := *req
+	sanitized.Client = nil
+	sanitized.Session = nil
+	return &sanitized
+}
+
+// hydrateRequestWithClient nạp lại client từ DB và gán vào request đã deserialize.
+func (s *RedisStore) hydrateRequestWithClient(ctx context.Context, stored storedRequest) (*fosite.Request, error) {
+	clientUUID, err := uuid.FromString(stored.ClientID)
+	if err != nil {
+		return nil, fosite.ErrInvalidRequest.WithDebug("invalid client id in stored request")
+	}
+
+	domainClient, err := s.clientRepo.GetClientByID(ctx, clientUUID)
+	if err != nil {
+		if errors.Is(err, fosite.ErrNotFound) {
+			return nil, err
+		}
+		return nil, fosite.ErrServerError.WithWrap(err)
+	}
+
+	fositeClient := &fosite.DefaultClient{
+		ID:            domainClient.ID.String(),
+		Secret:        []byte(domainClient.SecretHash),
+		RedirectURIs:  domainClient.RedirectURIs,
+		GrantTypes:    domainClient.GrantTypes,
+		ResponseTypes: domainClient.ResponseTypes,
+		Scopes:        domainClient.Scopes,
+		Public:        domainClient.IsPublic,
+	}
+
+	stored.Request.Client = fositeClient
+	// Gắn lại session đã lưu
+	stored.Request.Session = stored.Session
+	return stored.Request, nil
 }
 
 // --- oauth2.TokenRevocationStorage --- //

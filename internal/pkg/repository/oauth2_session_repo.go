@@ -21,10 +21,11 @@ func NewOAuth2SessionRepository(pool *pgxpool.Pool) domain.OAuth2SessionReposito
 // CreateSession chèn một bản ghi session mới vào bảng identify.oauth2_sessions.
 func (r *oauth2SessionRepository) CreateSession(ctx context.Context, signature string, requestID string, sessionType string, sessionData []byte, expiresAt time.Time, clientID string, subject string) error {
 	query := `
-		INSERT INTO identify.oauth2_sessions (signature, request_id, session_type, session_data, expires_at, client_id, subject)
+		INSERT INTO identify.oauth2_sessions (signature, request_id, session_type, session_data, expires_at, client_id, subject_id)
 		VALUES ($1, $2, $3, $4, $5, $6, $7)
 	`
-	_, err := r.pool.Exec(ctx, query, signature, requestID, sessionType, sessionData, expiresAt, clientID, subject)
+	// Convert []byte to string for JSONB column
+	_, err := r.pool.Exec(ctx, query, signature, requestID, sessionType, string(sessionData), expiresAt, clientID, subject)
 	return err
 }
 
@@ -44,4 +45,40 @@ func (r *oauth2SessionRepository) DeleteSessionBySignature(ctx context.Context, 
 	query := `DELETE FROM identify.oauth2_sessions WHERE signature = $1`
 	_, err := r.pool.Exec(ctx, query, signature)
 	return err
+}
+
+// RevokeAllUserSessions đánh dấu inactive tất cả sessions của một user (theo subject_id).
+func (r *oauth2SessionRepository) RevokeAllUserSessions(ctx context.Context, subjectID string) error {
+	query := `
+		UPDATE identify.oauth2_sessions
+		SET active = FALSE
+		WHERE subject_id = $1 AND active = TRUE
+	`
+	_, err := r.pool.Exec(ctx, query, subjectID)
+	return err
+}
+
+// GetActiveSessionsBySubject lấy tất cả signatures của sessions đang active của một user.
+func (r *oauth2SessionRepository) GetActiveSessionsBySubject(ctx context.Context, subjectID string) ([]string, error) {
+	query := `
+		SELECT signature
+		FROM identify.oauth2_sessions
+		WHERE subject_id = $1 AND active = TRUE
+	`
+	rows, err := r.pool.Query(ctx, query, subjectID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var signatures []string
+	for rows.Next() {
+		var signature string
+		if err := rows.Scan(&signature); err != nil {
+			return nil, err
+		}
+		signatures = append(signatures, signature)
+	}
+
+	return signatures, rows.Err()
 }

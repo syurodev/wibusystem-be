@@ -267,7 +267,7 @@ type Handler struct {
 // Initialize all repositories
 userRepo := repository.NewUserRepository(db.Pool)
 sessionRepo := repository.NewSessionRepository(rdb)
-authRequestRepo := repository.NewAuthRequestRepository(rdb)
+authRequestRepo := repository.NewAuthRequestRepository(rdb, oauth2ClientRepo)
 consentRepo := repository.NewConsentRepository(db.Pool)
 
 // Inject into OAuth2 handler
