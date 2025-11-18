@@ -24,4 +24,10 @@ type AuthRequestRepository interface {
 
 	// GetUserIDFromAuthRequest lấy userID từ stored authorization request
 	GetUserIDFromAuthRequest(ctx context.Context, requestID string) (string, error)
+
+	// SaveQueryParams lưu original OAuth2 query params string
+	SaveQueryParams(ctx context.Context, requestID string, queryParams string, ttl time.Duration) error
+
+	// GetQueryParams lấy original OAuth2 query params string
+	GetQueryParams(ctx context.Context, requestID string) (string, error)
 }

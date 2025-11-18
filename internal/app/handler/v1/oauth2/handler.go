@@ -3,8 +3,10 @@ package oauth2
 import (
 	"context"
 	"encoding/base64"
+	"fmt"
 	"math/big"
 	"net/http"
+	"net/url"
 	"strings"
 	"system/configs"
 	"system/internal/domain"
@@ -343,17 +345,20 @@ func (h *Handler) checkUserConsent(c *gin.Context, userID string, clientID strin
 
 // redirectToLogin redirect user đến login page
 func (h *Handler) redirectToLogin(c *gin.Context, ar fosite.AuthorizeRequester) {
-	// Lưu authorization request vào Redis với TTL 10 phút
+	// Save original OAuth2 query params to Redis để resume sau khi login
 	requestID := ar.GetID()
 
-	err := h.authRequestRepo.SaveAuthRequest(c.Request.Context(), requestID, ar, time.Minute*10)
+	// Get original query string
+	originalParams := c.Request.URL.RawQuery
+
+	// Save query params string (not the whole object)
+	err := h.authRequestRepo.SaveQueryParams(c.Request.Context(), requestID, originalParams, time.Minute*10)
 	if err != nil {
-		h.logger.Error("Failed to save auth request to Redis",
+		h.logger.Error("Failed to save auth params to Redis",
 			zap.String("error", err.Error()),
 			zap.String("request_id", requestID),
-			zap.String("client_id", ar.GetClient().GetID()),
 		)
-		writeOAuth2Error(c, fosite.ErrServerError.WithWrap(err).WithDebug("Failed to save auth request"))
+		writeOAuth2Error(c, fosite.ErrServerError.WithWrap(err).WithDebug("Failed to save auth params"))
 		return
 	}
 
@@ -454,10 +459,10 @@ func (h *Handler) LoginSubmit(c *gin.Context) {
 		true,  // httpOnly
 	)
 
-	// Load auth request từ Redis để resume authorization flow
-	ar, err := h.authRequestRepo.GetAuthRequest(c.Request.Context(), requestID)
+	// Load original OAuth2 query params từ Redis
+	queryParams, err := h.authRequestRepo.GetQueryParams(c.Request.Context(), requestID)
 	if err != nil {
-		h.logger.Error("Failed to load auth request after login",
+		h.logger.Error("Failed to load query params after login",
 			zap.String("error", err.Error()),
 			zap.String("request_id", requestID),
 		)
@@ -465,26 +470,13 @@ func (h *Handler) LoginSubmit(c *gin.Context) {
 		return
 	}
 
-	// Check consent
-	consentGiven := h.checkUserConsent(c, user.ID.String(), ar.GetClient().GetID())
-
-	if !consentGiven {
-		// Chưa consent - lưu userID vào auth request và redirect đến consent page
-		err = h.authRequestRepo.SaveAuthRequestWithUserID(c.Request.Context(), requestID, ar, user.ID.String(), time.Minute*10)
-		if err != nil {
-			h.logger.Error("Failed to save auth request with user ID",
-				zap.String("error", err.Error()),
-				zap.String("request_id", requestID),
-			)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to process request"})
-			return
-		}
-		c.Redirect(http.StatusFound, "/oauth2/consent?request_id="+requestID)
-		return
-	}
-
-	// User đã consent - finalize authorization ngay
-	h.finalizeAuthorization(c, ar, user.ID.String())
+	// Redirect back to /oauth2/auth with original params + session cookie
+	// Now /oauth2/auth will see authenticated user and continue flow
+	h.logger.Info("Login successful, redirecting to authorization endpoint",
+		zap.String("request_id", requestID),
+		zap.String("user_id", user.ID.String()),
+	)
+	c.Redirect(http.StatusFound, "/oauth2/auth?"+queryParams)
 }
 
 // ScopeInfo chứa thông tin về scope
@@ -557,17 +549,31 @@ func (h *Handler) ConsentSubmit(c *gin.Context) {
 		return
 	}
 
-	// Get authorization request
-	ar, err := h.authRequestRepo.GetAuthRequest(c.Request.Context(), requestID)
+	// Load original OAuth2 query params từ Redis
+	queryParams, err := h.authRequestRepo.GetQueryParams(c.Request.Context(), requestID)
 	if err != nil {
+		h.logger.Error("Failed to load query params for consent",
+			zap.String("error", err.Error()),
+			zap.String("request_id", requestID),
+		)
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid or expired authorization request"})
 		return
 	}
 
+	// Parse query params to get client_id, redirect_uri, state, scopes
+	values, err := url.ParseQuery(queryParams)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid query parameters"})
+		return
+	}
+
+	clientID := values.Get("client_id")
+	redirectURI := values.Get("redirect_uri")
+	state := values.Get("state")
+	scopes := strings.Split(values.Get("scope"), " ")
+
 	if action == "deny" {
 		// User denied consent - redirect back to client with error
-		redirectURI := ar.GetRedirectURI().String()
-		state := ar.GetState()
 		errorURL := redirectURI + "?error=access_denied&error_description=User+denied+consent&state=" + state
 		c.Redirect(http.StatusFound, errorURL)
 		return
@@ -575,16 +581,27 @@ func (h *Handler) ConsentSubmit(c *gin.Context) {
 
 	// User allowed - save consent thông qua service
 	userUUID, _ := uuid.FromString(userID)
-	clientUUID, _ := uuid.FromString(ar.GetClient().GetID())
+	clientUUID, _ := uuid.FromString(clientID)
 
-	err = h.oauth2Service.CreateUserConsent(c.Request.Context(), userUUID, clientUUID, ar.GetRequestedScopes())
+	err = h.oauth2Service.CreateUserConsent(c.Request.Context(), userUUID, clientUUID, scopes)
 	if err != nil {
+		h.logger.Error("Failed to save consent",
+			zap.String("error", err.Error()),
+			zap.String("user_id", userID),
+			zap.String("client_id", clientID),
+		)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save consent"})
 		return
 	}
 
-	// Redirect back to authorization endpoint to complete flow
-	c.Redirect(http.StatusFound, "/oauth2/auth?request_id="+requestID)
+	// Redirect back to /oauth2/auth with original params + session cookie
+	// User is now authenticated and has given consent
+	h.logger.Info("Consent granted, redirecting to authorization endpoint",
+		zap.String("request_id", requestID),
+		zap.String("user_id", userID),
+		zap.String("client_id", clientID),
+	)
+	c.Redirect(http.StatusFound, "/oauth2/auth?"+queryParams)
 }
 
 // Revoke xử lý endpoint /oauth2/revoke
