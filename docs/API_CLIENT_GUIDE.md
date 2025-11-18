@@ -1,8 +1,8 @@
-# API Client Guide - Genre, Author & Artist
+# API Client Guide - Genre, Author, Artist & Novel
 
 ## Tổng quan
 
-Tài liệu này hướng dẫn cách sử dụng các API cho 3 domain chính: **Genre** (Thể loại), **Author** (Tác giả), và **Artist** (Hoạ sĩ).
+Tài liệu này hướng dẫn cách sử dụng các API cho 4 domain chính: **Genre** (Thể loại), **Author** (Tác giả), **Artist** (Hoạ sĩ), và **Novel** (Tiểu thuyết).
 
 **Base URL**: `http://localhost:8080/api/v1`
 
@@ -654,7 +654,324 @@ curl -X DELETE "http://localhost:8080/api/v1/artists/550e8400-e29b-41d4-a716-446
 
 ---
 
-## 4. Common Error Codes
+## 4. Novel API (Tiểu thuyết)
+
+### 4.1. Lấy danh sách Novels
+
+**Endpoint**: `GET /api/v1/novels`
+
+**Query Parameters**:
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| page | int | No | 1 | Số trang |
+| limit | int | No | 20 | Số items mỗi trang (max: 100) |
+| search | string | No | - | Tìm kiếm trong title và synopsis |
+| status | string | No | - | Filter theo status: `draft`, `ongoing`, `completed`, `hiatus`, `dropped` |
+| original_language | string | No | - | Filter theo ngôn ngữ gốc (ISO 639-1: vi, en, zh, ja, ko...) |
+| sort_by | string | No | created_at | Sắp xếp theo: `created_at`, `rating`, `views`, `last_chapter` |
+| sort_order | string | No | desc | Thứ tự: `asc`, `desc` |
+
+**Response**:
+```json
+{
+  "success": true,
+  "message": "novel.list_success",
+  "data": [
+    {
+      "id": "uuid-string",
+      "title": "Tiên Nghịch",
+      "slug": "tien-nghich",
+      "cover_image_url": "https://example.com/cover.jpg",
+      "thumbnail_url": "https://example.com/thumb.jpg",
+      "status": "ongoing",
+      "total_chapters": 2500,
+      "view_count": 10000000,
+      "favorite_count": 50000,
+      "rating_average": 4.8,
+      "rating_count": 5000,
+      "last_chapter_at": "2024-01-15T10:00:00Z",
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-15T10:00:00Z"
+    }
+  ],
+  "meta": {
+    "page": 1,
+    "limit": 20,
+    "total_items": 500,
+    "total_pages": 25
+  }
+}
+```
+
+**Curl Examples**:
+```bash
+# Lấy danh sách novels
+curl -X GET "http://localhost:8080/api/v1/novels?page=1&limit=20"
+
+# Tìm kiếm novels
+curl -X GET "http://localhost:8080/api/v1/novels?search=tiên+nghịch"
+
+# Filter theo status ongoing
+curl -X GET "http://localhost:8080/api/v1/novels?status=ongoing"
+
+# Filter theo ngôn ngữ gốc tiếng Trung
+curl -X GET "http://localhost:8080/api/v1/novels?original_language=zh"
+
+# Sắp xếp theo rating giảm dần
+curl -X GET "http://localhost:8080/api/v1/novels?sort_by=rating&sort_order=desc"
+
+# Sắp xếp theo lượt xem
+curl -X GET "http://localhost:8080/api/v1/novels?sort_by=views&sort_order=desc"
+
+# Combine: Tìm novels ongoing, sort theo views
+curl -X GET "http://localhost:8080/api/v1/novels?status=ongoing&sort_by=views&sort_order=desc&page=1"
+```
+
+---
+
+### 4.2. Lấy chi tiết Novel
+
+**Endpoint**: `GET /api/v1/novels/:id`
+
+**Path Parameters**:
+- `id` (string, required): UUID hoặc slug của novel
+
+**Response**:
+```json
+{
+  "success": true,
+  "message": "novel.get_success",
+  "data": {
+    "id": "uuid-string",
+    "title": "Tiên Nghịch",
+    "slug": "tien-nghich",
+    "synopsis": "Thuận thiên giả, sống. Nghịch thiên giả, chết. Đây là câu nói vạn cổ bất biến...",
+    "cover_image_url": "https://example.com/cover.jpg",
+    "thumbnail_url": "https://example.com/thumb.jpg",
+    "status": "ongoing",
+    "original_language": "zh",
+    "original_title": "仙逆",
+    "total_volumes": 6,
+    "total_chapters": 2500,
+    "total_words": 5000000,
+    "view_count": 10000000,
+    "favorite_count": 50000,
+    "rating_average": 4.8,
+    "rating_count": 5000,
+    "metadata": "{\"tags\": [\"cultivation\", \"reincarnation\"]}",
+    "first_published_at": "2024-01-01T00:00:00Z",
+    "last_chapter_at": "2024-01-15T10:00:00Z",
+    "completed_at": null,
+    "created_at": "2024-01-01T00:00:00Z",
+    "updated_at": "2024-01-15T10:00:00Z"
+  }
+}
+```
+
+**Curl Examples**:
+```bash
+# Lấy theo UUID
+curl -X GET "http://localhost:8080/api/v1/novels/550e8400-e29b-41d4-a716-446655440000"
+
+# Lấy theo slug
+curl -X GET "http://localhost:8080/api/v1/novels/tien-nghich"
+```
+
+---
+
+### 4.3. Tạo Novel mới
+
+**Endpoint**: `POST /api/v1/novels`
+
+**Headers**:
+- `Content-Type: application/json`
+- `Authorization: Bearer <token>` (nếu có)
+
+**Request Body**:
+```json
+{
+  "title": "Tiên Nghịch",
+  "synopsis": "Thuận thiên giả, sống. Nghịch thiên giả, chết...",
+  "cover_image_url": "https://example.com/cover.jpg",
+  "thumbnail_url": "https://example.com/thumb.jpg",
+  "status": "draft",
+  "original_language": "zh",
+  "original_title": "仙逆",
+  "metadata": "{\"tags\": [\"cultivation\", \"reincarnation\"]}"
+}
+```
+
+**Validation**:
+- `title`: bắt buộc, độ dài 1-500 ký tự
+- `synopsis`: tùy chọn, max 10000 ký tự
+- `cover_image_url`: tùy chọn, phải là URL hợp lệ
+- `thumbnail_url`: tùy chọn, phải là URL hợp lệ
+- `status`: bắt buộc, phải là: `draft`, `ongoing`, `completed`, `hiatus`, `dropped`
+- `original_language`: tùy chọn, phải là mã ISO 639-1 (2 ký tự: vi, en, zh, ja, ko...)
+- `original_title`: tùy chọn, max 500 ký tự
+- `metadata`: tùy chọn, phải là JSON string hợp lệ
+
+**Novel Status**:
+- `draft`: Bản nháp (chưa publish)
+- `ongoing`: Đang cập nhật
+- `completed`: Đã hoàn thành
+- `hiatus`: Tạm ngưng
+- `dropped`: Đã drop (ngưng dịch/viết)
+
+**Response**:
+```json
+{
+  "success": true,
+  "message": "novel.created_success",
+  "data": {
+    "id": "new-uuid",
+    "title": "Tiên Nghịch",
+    "slug": "tien-nghich",
+    "synopsis": "Thuận thiên giả, sống. Nghịch thiên giả, chết...",
+    "cover_image_url": "https://example.com/cover.jpg",
+    "thumbnail_url": "https://example.com/thumb.jpg",
+    "status": "draft",
+    "original_language": "zh",
+    "original_title": "仙逆",
+    "total_volumes": 0,
+    "total_chapters": 0,
+    "total_words": 0,
+    "view_count": 0,
+    "favorite_count": 0,
+    "rating_average": 0,
+    "rating_count": 0,
+    "metadata": "{\"tags\": [\"cultivation\", \"reincarnation\"]}",
+    "first_published_at": null,
+    "last_chapter_at": null,
+    "completed_at": null,
+    "created_at": "2024-01-16T00:00:00Z",
+    "updated_at": "2024-01-16T00:00:00Z"
+  }
+}
+```
+
+**Curl Example**:
+```bash
+curl -X POST "http://localhost:8080/api/v1/novels" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "Tiên Nghịch",
+    "synopsis": "Thuận thiên giả, sống. Nghịch thiên giả, chết...",
+    "status": "draft",
+    "original_language": "zh",
+    "original_title": "仙逆"
+  }'
+```
+
+**Error Responses**:
+- `400 INVALID_INPUT`: Dữ liệu đầu vào không hợp lệ (status sai, JSON không hợp lệ...)
+- `409 SLUG_EXISTS`: Slug đã tồn tại (trùng title)
+- `401 UNAUTHORIZED`: Chưa đăng nhập
+
+---
+
+### 4.4. Cập nhật Novel
+
+**Endpoint**: `PUT /api/v1/novels/:id`
+
+**Request Body**:
+```json
+{
+  "title": "Tiên Nghịch (Updated)",
+  "synopsis": "Synopsis mới...",
+  "cover_image_url": "https://example.com/new-cover.jpg",
+  "thumbnail_url": "https://example.com/new-thumb.jpg",
+  "status": "ongoing",
+  "original_language": "zh",
+  "original_title": "仙逆",
+  "metadata": "{\"tags\": [\"cultivation\", \"reincarnation\", \"revenge\"]}"
+}
+```
+
+**Note**:
+- Khi update status từ bất kỳ status nào sang `completed`, hệ thống sẽ tự động set `completed_at` timestamp
+- Slug sẽ được tự động update nếu title thay đổi
+
+**Response**: Giống như response của GET novel detail
+
+**Curl Example**:
+```bash
+curl -X PUT "http://localhost:8080/api/v1/novels/550e8400-e29b-41d4-a716-446655440000" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "Tiên Nghịch (Updated)",
+    "synopsis": "Synopsis mới...",
+    "status": "ongoing"
+  }'
+```
+
+**Error Responses**:
+- `404 NOVEL_NOT_FOUND`: Novel không tồn tại
+- `400 INVALID_INPUT`: Dữ liệu không hợp lệ
+- `409 SLUG_EXISTS`: Slug mới đã tồn tại
+
+---
+
+### 4.5. Xóa Novel
+
+**Endpoint**: `DELETE /api/v1/novels/:id`
+
+**Response**:
+```json
+{
+  "success": true,
+  "message": "novel.deleted_success"
+}
+```
+
+**Curl Example**:
+```bash
+curl -X DELETE "http://localhost:8080/api/v1/novels/550e8400-e29b-41d4-a716-446655440000"
+```
+
+**Error Responses**:
+- `404 NOVEL_NOT_FOUND`: Novel không tồn tại
+
+**Note**: Đây là soft delete, dữ liệu vẫn được giữ trong database với `deleted_at` timestamp
+
+---
+
+### 4.6. Tăng View Count
+
+**Endpoint**: `POST /api/v1/novels/:id/view`
+
+**Description**: Endpoint này dùng để track lượt xem novel. Gọi endpoint này mỗi khi user xem novel.
+
+**Response**:
+```json
+{
+  "success": true,
+  "message": "novel.view_incremented"
+}
+```
+
+**Curl Example**:
+```bash
+curl -X POST "http://localhost:8080/api/v1/novels/550e8400-e29b-41d4-a716-446655440000/view"
+```
+
+**Error Responses**:
+- `400 INVALID_ID`: UUID không hợp lệ
+- `500 INCREMENT_FAILED`: Lỗi khi increment view count
+
+**Use Case**:
+```javascript
+// Gọi khi user mở trang đọc novel
+async function trackNovelView(novelId) {
+  await fetch(`http://localhost:8080/api/v1/novels/${novelId}/view`, {
+    method: 'POST'
+  });
+}
+```
+
+---
+
+## 5. Common Error Codes
 
 | Code | HTTP Status | Description |
 |------|-------------|-------------|
@@ -671,7 +988,7 @@ curl -X DELETE "http://localhost:8080/api/v1/artists/550e8400-e29b-41d4-a716-446
 
 ---
 
-## 5. Pagination và Sorting
+## 6. Pagination và Sorting
 
 ### Pagination
 
@@ -704,6 +1021,9 @@ curl -X GET "http://localhost:8080/api/v1/genres?sort_by=name&sort_order=asc"
 
 # Sắp xếp authors theo số lượng novel giảm dần
 curl -X GET "http://localhost:8080/api/v1/authors?sort_by=novels&sort_order=desc"
+
+# Sắp xếp novels theo rating giảm dần
+curl -X GET "http://localhost:8080/api/v1/novels?sort_by=rating&sort_order=desc"
 ```
 
 ### Search
@@ -716,11 +1036,14 @@ curl -X GET "http://localhost:8080/api/v1/genres?search=fantasy"
 
 # Tìm authors có tên chứa "nhĩ căn"
 curl -X GET "http://localhost:8080/api/v1/authors?search=nhĩ+căn"
+
+# Tìm novels trong title và synopsis
+curl -X GET "http://localhost:8080/api/v1/novels?search=tiên+nghịch"
 ```
 
 ---
 
-## 6. Filter Options
+## 7. Filter Options
 
 ### Genre Filters
 - `active_only`: Chỉ lấy genres đang active
@@ -732,22 +1055,29 @@ curl -X GET "http://localhost:8080/api/v1/authors?search=nhĩ+căn"
 - `specialization`: Lọc theo chuyên môn (cover_artist, illustrator, etc.)
 - `is_verified`: Lọc theo trạng thái verified
 
+### Novel Filters
+- `status`: Lọc theo trạng thái (draft, ongoing, completed, hiatus, dropped)
+- `original_language`: Lọc theo ngôn ngữ gốc (ISO 639-1: vi, en, zh, ja, ko...)
+
 **Example**:
 ```bash
+# Lấy novels đang ongoing, ngôn ngữ gốc tiếng Trung
+curl -X GET "http://localhost:8080/api/v1/novels?status=ongoing&original_language=zh"
+
 # Lấy artists là cover_artist và đã verified
 curl -X GET "http://localhost:8080/api/v1/artists?specialization=cover_artist&is_verified=true"
 ```
 
 ---
 
-## 7. Best Practices
+## 8. Best Practices
 
-### 7.1. Error Handling
+### 8.1. Error Handling
 
 Luôn kiểm tra `success` field trong response:
 
 ```javascript
-const response = await fetch('http://localhost:8080/api/v1/genres');
+const response = await fetch('http://localhost:8080/api/v1/novels');
 const data = await response.json();
 
 if (!data.success) {
@@ -758,7 +1088,7 @@ if (!data.success) {
 }
 ```
 
-### 7.2. Pagination
+### 8.2. Pagination
 
 Sử dụng `meta` để implement pagination UI:
 
@@ -771,16 +1101,16 @@ const end = Math.min(page * limit, total_items);
 console.log(`Showing ${start}-${end} of ${total_items} items`);
 ```
 
-### 7.3. Search với debounce
+### 8.3. Search với debounce
 
 Implement debounce khi search để tránh gọi API quá nhiều:
 
 ```javascript
 let debounceTimer;
-function searchGenres(query) {
+function searchNovels(query) {
   clearTimeout(debounceTimer);
   debounceTimer = setTimeout(() => {
-    fetch(`http://localhost:8080/api/v1/genres?search=${query}`)
+    fetch(`http://localhost:8080/api/v1/novels?search=${query}`)
       .then(res => res.json())
       .then(data => {
         // Update UI
@@ -789,32 +1119,50 @@ function searchGenres(query) {
 }
 ```
 
-### 7.4. Combine Filters
+### 8.4. View Tracking
+
+Track views một cách thông minh:
+
+```javascript
+// Chỉ track view một lần mỗi session
+let trackedNovels = new Set();
+
+function trackNovelView(novelId) {
+  if (!trackedNovels.has(novelId)) {
+    fetch(`http://localhost:8080/api/v1/novels/${novelId}/view`, {
+      method: 'POST'
+    });
+    trackedNovels.add(novelId);
+  }
+}
+```
+
+### 8.5. Combine Filters
 
 Kết hợp nhiều filters để lọc chính xác:
 
 ```bash
-# Tìm authors verified, sắp xếp theo views, trang 2
-curl -X GET "http://localhost:8080/api/v1/authors?is_verified=true&sort_by=views&sort_order=desc&page=2&limit=20"
+# Tìm novels ongoing, tiếng Trung, sort theo rating, trang 2
+curl -X GET "http://localhost:8080/api/v1/novels?status=ongoing&original_language=zh&sort_by=rating&sort_order=desc&page=2&limit=20"
 ```
 
 ---
 
-## 8. JavaScript/TypeScript Examples
+## 9. JavaScript/TypeScript Examples
 
-### 8.1. Fetch Genres
+### 9.1. Fetch Novels
 
 ```typescript
-interface Genre {
+interface Novel {
   id: string;
-  name: string;
-  series_count: number;
-  active_readers: number;
-  total_views: number;
-  trend: string;
-  description?: string;
+  title: string;
+  slug: string;
+  cover_image_url?: string;
+  status: string;
+  total_chapters: number;
+  view_count: number;
+  rating_average: number;
   created_at: string;
-  updated_at: string;
 }
 
 interface PaginationMeta {
@@ -831,11 +1179,12 @@ interface StandardResponse<T> {
   meta?: PaginationMeta;
 }
 
-async function fetchGenres(
+async function fetchNovels(
   page: number = 1,
   limit: number = 20,
-  search?: string
-): Promise<StandardResponse<Genre[]>> {
+  search?: string,
+  status?: string
+): Promise<StandardResponse<Novel[]>> {
   const params = new URLSearchParams({
     page: page.toString(),
     limit: limit.toString(),
@@ -845,30 +1194,49 @@ async function fetchGenres(
     params.append('search', search);
   }
 
-  const response = await fetch(`http://localhost:8080/api/v1/genres?${params}`);
+  if (status) {
+    params.append('status', status);
+  }
+
+  const response = await fetch(`http://localhost:8080/api/v1/novels?${params}`);
   return response.json();
 }
 
 // Usage
-const result = await fetchGenres(1, 20, 'fantasy');
+const result = await fetchNovels(1, 20, undefined, 'ongoing');
 if (result.success) {
-  console.log('Genres:', result.data);
+  console.log('Novels:', result.data);
   console.log('Meta:', result.meta);
 }
 ```
 
-### 8.2. Create Author
+### 9.2. Create Novel
 
 ```typescript
-interface CreateAuthorRequest {
-  name: string;
-  biography?: string;
-  avatar_url?: string;
-  social_links?: string;
+interface CreateNovelRequest {
+  title: string;
+  synopsis?: string;
+  cover_image_url?: string;
+  thumbnail_url?: string;
+  status: 'draft' | 'ongoing' | 'completed' | 'hiatus' | 'dropped';
+  original_language?: string;
+  original_title?: string;
+  metadata?: string;
 }
 
-async function createAuthor(data: CreateAuthorRequest): Promise<StandardResponse<Author>> {
-  const response = await fetch('http://localhost:8080/api/v1/authors', {
+interface NovelDetail {
+  id: string;
+  title: string;
+  slug: string;
+  synopsis: string;
+  status: string;
+  total_chapters: number;
+  view_count: number;
+  // ... other fields
+}
+
+async function createNovel(data: CreateNovelRequest): Promise<StandardResponse<NovelDetail>> {
+  const response = await fetch('http://localhost:8080/api/v1/novels', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -880,57 +1248,113 @@ async function createAuthor(data: CreateAuthorRequest): Promise<StandardResponse
 }
 
 // Usage
-const newAuthor = await createAuthor({
-  name: 'Tân Tác Giả',
-  biography: 'Tiểu sử tác giả mới',
+const newNovel = await createNovel({
+  title: 'Tiên Nghịch',
+  synopsis: 'Thuận thiên giả, sống...',
+  status: 'draft',
+  original_language: 'zh',
+  original_title: '仙逆',
 });
 
-if (newAuthor.success) {
-  console.log('Created author:', newAuthor.data);
+if (newNovel.success) {
+  console.log('Created novel:', newNovel.data);
 }
 ```
 
-### 8.3. Update Artist
+### 9.3. Update Novel Status
 
 ```typescript
-interface UpdateArtistRequest {
-  name: string;
-  biography?: string;
-  avatar_url?: string;
-  social_links?: string;
-  specialization?: string;
-}
-
-async function updateArtist(
+async function updateNovelStatus(
   id: string,
-  data: UpdateArtistRequest
-): Promise<StandardResponse<Artist>> {
-  const response = await fetch(`http://localhost:8080/api/v1/artists/${id}`, {
+  status: 'draft' | 'ongoing' | 'completed' | 'hiatus' | 'dropped'
+): Promise<StandardResponse<NovelDetail>> {
+  // First, get current novel data
+  const currentResponse = await fetch(`http://localhost:8080/api/v1/novels/${id}`);
+  const current = await currentResponse.json();
+
+  if (!current.success) {
+    return current;
+  }
+
+  // Update with new status
+  const response = await fetch(`http://localhost:8080/api/v1/novels/${id}`, {
     method: 'PUT',
     headers: {
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify(data),
+    body: JSON.stringify({
+      ...current.data,
+      status: status,
+    }),
   });
 
   return response.json();
 }
 
 // Usage
-const updated = await updateArtist('550e8400-e29b-41d4-a716-446655440000', {
-  name: 'Tên Mới',
-  specialization: 'illustrator',
-});
+const updated = await updateNovelStatus('550e8400-e29b-41d4-a716-446655440000', 'completed');
+```
+
+### 9.4. Novel Reader Component Example
+
+```typescript
+class NovelReader {
+  private novelId: string;
+  private viewTracked: boolean = false;
+
+  constructor(novelId: string) {
+    this.novelId = novelId;
+  }
+
+  async loadNovel(): Promise<NovelDetail | null> {
+    const response = await fetch(`http://localhost:8080/api/v1/novels/${this.novelId}`);
+    const data = await response.json();
+
+    if (data.success) {
+      // Track view on first load
+      if (!this.viewTracked) {
+        this.trackView();
+        this.viewTracked = true;
+      }
+      return data.data;
+    }
+
+    return null;
+  }
+
+  private async trackView(): Promise<void> {
+    try {
+      await fetch(`http://localhost:8080/api/v1/novels/${this.novelId}/view`, {
+        method: 'POST',
+      });
+    } catch (error) {
+      console.error('Failed to track view:', error);
+    }
+  }
+}
+
+// Usage
+const reader = new NovelReader('550e8400-e29b-41d4-a716-446655440000');
+const novel = await reader.loadNovel();
 ```
 
 ---
 
-## 9. Testing với Postman
+## 10. Testing với Postman
 
 ### Import Collection
 
 1. Tạo một collection mới trong Postman
 2. Thêm các requests sau:
+
+**Novel Collection**:
+- GET List Novels
+- GET Novel Detail (by ID)
+- GET Novel Detail (by slug)
+- POST Create Novel
+- PUT Update Novel
+- DELETE Delete Novel
+- POST Increment View Count
 
 **Genre Collection**:
 - GET List Genres
@@ -957,24 +1381,45 @@ const updated = await updateArtist('550e8400-e29b-41d4-a716-446655440000', {
 
 Tạo environment với variables:
 - `base_url`: `http://localhost:8080/api/v1`
+- `novel_id`: UUID của novel test
 - `genre_id`: UUID của genre test
 - `author_id`: UUID của author test
 - `artist_id`: UUID của artist test
 
+### Test Scripts Example
+
+```javascript
+// Test cho Create Novel
+pm.test("Status code is 201", function () {
+    pm.response.to.have.status(201);
+});
+
+pm.test("Response has novel data", function () {
+    var jsonData = pm.response.json();
+    pm.expect(jsonData.success).to.eql(true);
+    pm.expect(jsonData.data).to.have.property('id');
+    pm.expect(jsonData.data).to.have.property('slug');
+
+    // Save novel_id for later use
+    pm.environment.set("novel_id", jsonData.data.id);
+});
+```
+
 ---
 
-## 10. Rate Limiting & Performance
+## 11. Rate Limiting & Performance
 
 ### Recommendations
 
 1. **Pagination**: Không request quá 100 items một lúc
 2. **Search**: Sử dụng debounce 300ms khi implement search
 3. **Caching**: Cache responses ở client side khi có thể
-4. **Batch requests**: Gom nhiều requests lại nếu có thể
+4. **View Tracking**: Chỉ track view một lần mỗi session/user
+5. **Batch requests**: Gom nhiều requests lại nếu có thể
 
 ---
 
-## 11. Support & Contact
+## 12. Support & Contact
 
 Nếu gặp vấn đề, vui lòng:
 1. Kiểm tra error response để biết chi tiết lỗi
