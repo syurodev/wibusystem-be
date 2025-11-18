@@ -15,8 +15,9 @@ import (
 )
 
 const (
-	authRequestKeyPrefix = "auth_request:%s"
-	authUserIDKeyPrefix  = "auth_request_user:%s"
+	authRequestKeyPrefix   = "auth_request:%s"           // Stores original query string
+	authUserIDKeyPrefix    = "auth_request_user:%s"
+	authRequestParamsPrefix = "auth_request_params:%s"   // Stores original OAuth2 params
 )
 
 // storedAuthorizeRequest là dạng đã được "strip" client để có thể lưu/khôi phục.
@@ -145,4 +146,25 @@ func (r *authRequestRepository) GetUserIDFromAuthRequest(ctx context.Context, re
 	}
 
 	return userID, nil
+}
+
+// SaveQueryParams lưu original OAuth2 query params string
+func (r *authRequestRepository) SaveQueryParams(ctx context.Context, requestID string, queryParams string, ttl time.Duration) error {
+	key := fmt.Sprintf(authRequestParamsPrefix, requestID)
+	return r.client.Set(ctx, key, queryParams, ttl)
+}
+
+// GetQueryParams lấy original OAuth2 query params string
+func (r *authRequestRepository) GetQueryParams(ctx context.Context, requestID string) (string, error) {
+	key := fmt.Sprintf(authRequestParamsPrefix, requestID)
+
+	params, err := r.client.Get(ctx, key)
+	if err != nil {
+		if errors.Is(err, redis.Nil) {
+			return "", fmt.Errorf("query params not found or expired")
+		}
+		return "", err
+	}
+
+	return params, nil
 }

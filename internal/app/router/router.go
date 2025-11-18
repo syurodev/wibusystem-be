@@ -92,6 +92,8 @@ func NewRouter(cfg *configs.Config, i18nInstance *i18n.I18n, zapLogger *zap.Logg
 		oauth2Provider,
 		oauth2Service,
 		authRequestRepo,
+		oauth2ClientRepo,
+		zapLogger,
 	)
 
 	authHandler := auth.NewHandler(authService, emailService)

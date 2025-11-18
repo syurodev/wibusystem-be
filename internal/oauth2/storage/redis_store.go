@@ -78,11 +78,25 @@ func (s *RedisStore) CreateAuthorizeCodeSession(ctx context.Context, signature s
 
 func (s *RedisStore) GetAuthorizeCodeSession(ctx context.Context, signature string, session fosite.Session) (fosite.Requester, error) {
 	key := fmt.Sprintf(authCodeKeyPrefix, signature)
+
+	s.logger.Debug("Fetching authorization code from Redis",
+		zap.String("key", key),
+		zap.String("signature", signature),
+	)
+
 	data, err := s.client.Get(ctx, key)
 	if err != nil {
 		if errors.Is(err, redis.Nil) {
+			s.logger.Warn("Authorization code not found in Redis",
+				zap.String("key", key),
+				zap.String("signature", signature),
+			)
 			return nil, fosite.ErrNotFound.WithWrap(err)
 		}
+		s.logger.Error("Redis error fetching authorization code",
+			zap.String("error", err.Error()),
+			zap.String("key", key),
+		)
 		return nil, fosite.ErrServerError.WithWrap(err)
 	}
 	var stored storedRequest
@@ -96,6 +110,13 @@ func (s *RedisStore) GetAuthorizeCodeSession(ctx context.Context, signature stri
 		return nil, err
 	}
 	return req, nil
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }
 
 func (s *RedisStore) InvalidateAuthorizeCodeSession(ctx context.Context, signature string) error {
@@ -201,11 +222,24 @@ func (s *RedisStore) CreatePKCERequestSession(ctx context.Context, signature str
 
 func (s *RedisStore) GetPKCERequestSession(ctx context.Context, signature string, session fosite.Session) (fosite.Requester, error) {
 	key := fmt.Sprintf(pkceKeyPrefix, signature)
+
+	s.logger.Debug("Fetching PKCE request from Redis",
+		zap.String("key", key),
+		zap.String("signature", signature),
+	)
+
 	data, err := s.client.Get(ctx, key)
 	if err != nil {
 		if errors.Is(err, redis.Nil) {
+			s.logger.Warn("PKCE request not found in Redis",
+				zap.String("key", key),
+			)
 			return nil, fosite.ErrNotFound.WithWrap(err)
 		}
+		s.logger.Error("Redis error fetching PKCE request",
+			zap.String("error", err.Error()),
+			zap.String("key", key),
+		)
 		return nil, fosite.ErrServerError.WithWrap(err)
 	}
 	var stored storedRequest

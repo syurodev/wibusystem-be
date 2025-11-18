@@ -69,6 +69,8 @@ services:
     image: grafana/promtail:3.5
     container_name: promtail
     restart: unless-stopped
+    ports:
+      - "9080:9080" # Expose Promtail metrics and API
     command: -config.file=/etc/promtail/promtail-config.yml
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock # Cho phép Promtail đọc log từ Docker

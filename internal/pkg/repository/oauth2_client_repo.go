@@ -29,7 +29,7 @@ func (r *oauth2ClientRepository) GetClientByID(ctx context.Context, id uuid.UUID
 		       scopes, is_public, is_internal, token_endpoint_auth_method, tenant_id,
 		       client_uri, logo_url, active, created_at, updated_at
 		FROM identify.oauth2_clients
-		WHERE id=$1
+		WHERE id=$1 AND active = true
 	`
 
 	rows, err := r.pool.Query(ctx, query, id)

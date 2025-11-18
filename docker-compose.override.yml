@@ -1,0 +1,52 @@
+# Docker Compose Override for Development
+# This file adds the application service to the stack
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: wibusystem-be
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      # Database
+      - DB_HOST=system_dev
+      - DB_PORT=5432
+      - DB_NAME=system_dev
+      - DB_USER=system_dev
+      - DB_PASSWORD=system_dev
+      - DB_SSL_MODE=disable
+
+      # Redis
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=8767375c91873d04626c73c8aed8ce01
+      - REDIS_DB=0
+
+      # Server
+      - SERVER_PORT=8080
+      - SERVER_IS_PROD=false
+
+      # Logging - MUST output JSON for Loki
+      - LOG_LEVEL=info
+      - LOG_FORMAT=json
+      - LOG_OUTPUT=stdout
+      - LOG_DB_LOG_QUERIES=true
+
+      # OAuth2 (update these with your actual values)
+      - OAUTH2_ISSUER=http://localhost:8080
+      - OAUTH2_KEY_ID=oauth2-key-1
+      - OAUTH2_HMAC_SECRET=your-secret-at-least-32-characters-long-change-this-in-production
+    depends_on:
+      system_dev:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - wibusystem_backend
+    labels:
+      # Labels for Promtail to discover and scrape logs
+      logging: "promtail"
+      logging_jobname: "wibusystem-be"
