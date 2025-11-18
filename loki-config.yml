@@ -41,5 +41,5 @@ storage_config:
     directory: /loki/chunks
 limits_config:
   allow_structured_metadata: false
-  reject_old_samples: true
+  reject_old_samples: false  # Disabled to accept logs from existing containers
   reject_old_samples_max_age: 168h
