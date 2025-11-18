@@ -4,24 +4,22 @@ import (
 	"errors"
 	"net/http"
 	"strconv"
-	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gofrs/uuid/v5"
 
 	"system/internal/domain"
-	"system/pkg/util/crypto"
-	"system/pkg/util/random"
+	"system/internal/pkg/service"
 	"system/pkg/util/response"
 )
 
 type Handler struct {
-	clientRepo domain.OAuth2ClientRepository
+	adminService *service.OAuth2AdminService
 }
 
-func NewHandler(clientRepo domain.OAuth2ClientRepository) *Handler {
+func NewHandler(adminService *service.OAuth2AdminService) *Handler {
 	return &Handler{
-		clientRepo: clientRepo,
+		adminService: adminService,
 	}
 }
 
@@ -43,38 +41,15 @@ func (h *Handler) CreateClient(c *gin.Context) {
 		return
 	}
 
-	// Validate grant types, response types, and scopes
-	if invalidType, err := validateGrantTypes(req.GrantTypes); err != nil {
+	// Validate grant types and response types
+	if invalidType, err := h.adminService.ValidateGrantTypes(req.GrantTypes); err != nil {
 		response.Error(c, http.StatusBadRequest, "INVALID_GRANT_TYPE", "validation.invalid_grant_type", map[string]any{"type": invalidType})
 		return
 	}
 
-	if invalidType, err := validateResponseTypes(req.ResponseTypes); err != nil {
+	if invalidType, err := h.adminService.ValidateResponseTypes(req.ResponseTypes); err != nil {
 		response.Error(c, http.StatusBadRequest, "INVALID_RESPONSE_TYPE", "validation.invalid_response_type", map[string]any{"type": invalidType})
 		return
-	}
-
-	// Generate client ID and secret
-	clientID := uuid.Must(uuid.NewV7())
-	var clientSecret string
-	var secretHash string
-
-	if !req.IsPublic {
-		// Generate secure random secret
-		secret, err := random.GenerateRandomString(32)
-		if err != nil {
-			response.Error(c, http.StatusInternalServerError, "SECRET_GENERATION_FAILED", "client.secret_generation_failed", nil)
-			return
-		}
-		clientSecret = secret
-
-		// Hash the secret
-		hash, err := crypto.HashPassword(clientSecret)
-		if err != nil {
-			response.Error(c, http.StatusInternalServerError, "SECRET_HASH_FAILED", "client.secret_hash_failed", nil)
-			return
-		}
-		secretHash = hash
 	}
 
 	// Parse tenant ID if provided
@@ -88,11 +63,9 @@ func (h *Handler) CreateClient(c *gin.Context) {
 		tenantID = &tid
 	}
 
-	// Create client entity
-	client := &domain.OAuth2Client{
-		ID:                clientID,
+	// Create client via service
+	serviceReq := service.CreateClientRequest{
 		ClientName:        req.ClientName,
-		SecretHash:        secretHash,
 		RedirectURIs:      req.RedirectURIs,
 		GrantTypes:        req.GrantTypes,
 		ResponseTypes:     req.ResponseTypes,
@@ -103,19 +76,16 @@ func (h *Handler) CreateClient(c *gin.Context) {
 		TenantID:          tenantID,
 		ClientURI:         req.ClientURI,
 		LogoURL:           req.LogoURL,
-		Active:            true,
-		CreatedAt:         time.Now(),
-		UpdatedAt:         time.Now(),
 	}
 
-	// Save to database
-	if err := h.clientRepo.Create(c.Request.Context(), client); err != nil {
+	client, clientSecret, err := h.adminService.CreateClient(c.Request.Context(), serviceReq)
+	if err != nil {
 		response.Error(c, http.StatusInternalServerError, "CREATE_FAILED", "client.create_failed", nil)
 		return
 	}
 
 	// Build response
-	clientResponse := h.buildClientResponse(client, &clientSecret)
+	clientResponse := h.buildClientResponse(client, clientSecret)
 	response.Success(c, http.StatusCreated, "client.created", clientResponse, nil)
 }
 
@@ -135,7 +105,7 @@ func (h *Handler) GetClient(c *gin.Context) {
 		return
 	}
 
-	client, err := h.clientRepo.GetByID(c.Request.Context(), clientID)
+	client, err := h.adminService.GetClientByID(c.Request.Context(), clientID)
 	if err != nil {
 		response.Error(c, http.StatusNotFound, "CLIENT_NOT_FOUND", "client.not_found", nil)
 		return
@@ -193,7 +163,7 @@ func (h *Handler) ListClients(c *gin.Context) {
 		}
 	}
 
-	clients, total, err := h.clientRepo.List(c.Request.Context(), tenantID, active, limit, offset)
+	clients, total, err := h.adminService.ListClients(c.Request.Context(), tenantID, active, limit, offset)
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, "LIST_FAILED", "client.list_failed", nil)
 		return
@@ -239,60 +209,41 @@ func (h *Handler) UpdateClient(c *gin.Context) {
 		return
 	}
 
-	// Get existing client
-	client, err := h.clientRepo.GetByID(c.Request.Context(), clientID)
-	if err != nil {
-		response.Error(c, http.StatusNotFound, "CLIENT_NOT_FOUND", "client.not_found", nil)
-		return
-	}
-
-	// Update fields if provided
-	if req.ClientName != nil {
-		client.ClientName = *req.ClientName
-	}
-	if req.RedirectURIs != nil {
-		client.RedirectURIs = *req.RedirectURIs
-	}
+	// Validate grant types and response types if provided
 	if req.GrantTypes != nil {
-		if invalidType, err := validateGrantTypes(*req.GrantTypes); err != nil {
+		if invalidType, err := h.adminService.ValidateGrantTypes(*req.GrantTypes); err != nil {
 			response.Error(c, http.StatusBadRequest, "INVALID_GRANT_TYPE", "validation.invalid_grant_type", map[string]any{"type": invalidType})
 			return
 		}
-		client.GrantTypes = *req.GrantTypes
 	}
 	if req.ResponseTypes != nil {
-		if invalidType, err := validateResponseTypes(*req.ResponseTypes); err != nil {
+		if invalidType, err := h.adminService.ValidateResponseTypes(*req.ResponseTypes); err != nil {
 			response.Error(c, http.StatusBadRequest, "INVALID_RESPONSE_TYPE", "validation.invalid_response_type", map[string]any{"type": invalidType})
 			return
 		}
-		client.ResponseTypes = *req.ResponseTypes
-	}
-	if req.Scopes != nil {
-		client.Scopes = *req.Scopes
-	}
-	if req.IsPublic != nil {
-		client.IsPublic = *req.IsPublic
-	}
-	if req.IsInternal != nil {
-		client.IsInternal = *req.IsInternal
-	}
-	if req.TokenEndpointAuth != nil {
-		client.TokenEndpointAuth = *req.TokenEndpointAuth
-	}
-	if req.ClientURI != nil {
-		client.ClientURI = req.ClientURI
-	}
-	if req.LogoURL != nil {
-		client.LogoURL = req.LogoURL
-	}
-	if req.Active != nil {
-		client.Active = *req.Active
 	}
 
-	client.UpdatedAt = time.Now()
+	// Update client via service
+	serviceReq := service.UpdateClientRequest{
+		ClientName:        req.ClientName,
+		RedirectURIs:      req.RedirectURIs,
+		GrantTypes:        req.GrantTypes,
+		ResponseTypes:     req.ResponseTypes,
+		Scopes:            req.Scopes,
+		IsPublic:          req.IsPublic,
+		IsInternal:        req.IsInternal,
+		TokenEndpointAuth: req.TokenEndpointAuth,
+		ClientURI:         req.ClientURI,
+		LogoURL:           req.LogoURL,
+		Active:            req.Active,
+	}
 
-	// Save updates
-	if err := h.clientRepo.Update(c.Request.Context(), client); err != nil {
+	client, err := h.adminService.UpdateClient(c.Request.Context(), clientID, serviceReq)
+	if err != nil {
+		if errors.Is(err, errors.New("failed to get client")) {
+			response.Error(c, http.StatusNotFound, "CLIENT_NOT_FOUND", "client.not_found", nil)
+			return
+		}
 		response.Error(c, http.StatusInternalServerError, "UPDATE_FAILED", "client.update_failed", nil)
 		return
 	}
@@ -317,7 +268,7 @@ func (h *Handler) DeleteClient(c *gin.Context) {
 		return
 	}
 
-	if err := h.clientRepo.Delete(c.Request.Context(), clientID); err != nil {
+	if err := h.adminService.DeleteClient(c.Request.Context(), clientID); err != nil {
 		response.Error(c, http.StatusInternalServerError, "DELETE_FAILED", "client.delete_failed", nil)
 		return
 	}
@@ -344,39 +295,25 @@ func (h *Handler) RegenerateSecret(c *gin.Context) {
 		return
 	}
 
-	// Get existing client
-	client, err := h.clientRepo.GetByID(c.Request.Context(), clientID)
+	// Regenerate secret via service
+	newSecret, err := h.adminService.RegenerateClientSecret(c.Request.Context(), clientID)
 	if err != nil {
-		response.Error(c, http.StatusNotFound, "CLIENT_NOT_FOUND", "client.not_found", nil)
+		if err.Error() == "cannot regenerate secret for public client" {
+			response.Error(c, http.StatusBadRequest, "PUBLIC_NO_SECRET", "client.public_no_secret", nil)
+			return
+		}
+		if errors.Is(err, errors.New("failed to get client")) {
+			response.Error(c, http.StatusNotFound, "CLIENT_NOT_FOUND", "client.not_found", nil)
+			return
+		}
+		response.Error(c, http.StatusInternalServerError, "SECRET_REGENERATION_FAILED", "client.secret_regeneration_failed", nil)
 		return
 	}
 
-	// Cannot regenerate secret for public clients
-	if client.IsPublic {
-		response.Error(c, http.StatusBadRequest, "PUBLIC_NO_SECRET", "client.public_no_secret", nil)
-		return
-	}
-
-	// Generate new secret
-	newSecret, err := random.GenerateRandomString(32)
+	// Get updated client for response
+	client, err := h.adminService.GetClientByID(c.Request.Context(), clientID)
 	if err != nil {
-		response.Error(c, http.StatusInternalServerError, "SECRET_GENERATION_FAILED", "client.secret_generation_failed", nil)
-		return
-	}
-
-	// Hash the new secret
-	secretHash, err := crypto.HashPassword(newSecret)
-	if err != nil {
-		response.Error(c, http.StatusInternalServerError, "SECRET_HASH_FAILED", "client.secret_hash_failed", nil)
-		return
-	}
-
-	client.SecretHash = secretHash
-	client.UpdatedAt = time.Now()
-
-	// Save updates
-	if err := h.clientRepo.Update(c.Request.Context(), client); err != nil {
-		response.Error(c, http.StatusInternalServerError, "UPDATE_FAILED", "client.update_failed", nil)
+		response.Error(c, http.StatusInternalServerError, "CLIENT_RETRIEVAL_FAILED", "client.retrieval_failed", nil)
 		return
 	}
 
@@ -411,36 +348,4 @@ func (h *Handler) buildClientResponse(client *domain.OAuth2Client, clientSecret 
 		CreatedAt:         client.CreatedAt,
 		UpdatedAt:         client.UpdatedAt,
 	}
-}
-
-func validateGrantTypes(grantTypes []string) (string, error) {
-	validGrantTypes := map[string]bool{
-		"authorization_code": true,
-		"refresh_token":      true,
-		"client_credentials": true,
-		"password":           true,
-		"implicit":           true,
-	}
-
-	for _, gt := range grantTypes {
-		if !validGrantTypes[gt] {
-			return gt, errors.New("invalid grant type")
-		}
-	}
-	return "", nil
-}
-
-func validateResponseTypes(responseTypes []string) (string, error) {
-	validResponseTypes := map[string]bool{
-		"code":     true,
-		"token":    true,
-		"id_token": true,
-	}
-
-	for _, rt := range responseTypes {
-		if !validResponseTypes[rt] {
-			return rt, errors.New("invalid response type")
-		}
-	}
-	return "", nil
 }

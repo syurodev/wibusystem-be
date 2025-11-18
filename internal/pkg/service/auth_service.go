@@ -12,6 +12,7 @@ import (
 	pkgerrors "system/pkg/errors"
 	"system/pkg/util/crypto"
 	"system/pkg/util/random"
+	"system/pkg/util/validator"
 )
 
 // AuthService xử lý authentication và user management logic.

@@ -10,6 +10,7 @@ import (
 	"system/internal/pkg/service"
 	pkgerrors "system/pkg/errors"
 	"system/pkg/util/response"
+	"system/pkg/util/validator"
 )
 
 type Handler struct {
@@ -38,7 +39,7 @@ func (h *Handler) Register(c *gin.Context) {
 	}
 
 	// Validate password strength (basic)
-	if !isPasswordStrong(req.Password) {
+	if err := validator.ValidatePasswordStrength(req.Password); err != nil {
 		response.Error(c, http.StatusBadRequest, "WEAK_PASSWORD", "auth.weak_password", nil)
 		return
 	}
@@ -163,7 +164,7 @@ func (h *Handler) ResetPassword(c *gin.Context) {
 	}
 
 	// Validate password strength
-	if !isPasswordStrong(req.NewPassword) {
+	if err := validator.ValidatePasswordStrength(req.NewPassword); err != nil {
 		response.Error(c, http.StatusBadRequest, "WEAK_PASSWORD", "auth.weak_password", nil)
 		return
 	}
@@ -189,42 +190,6 @@ func (h *Handler) ResetPassword(c *gin.Context) {
 }
 
 // Helper functions
-
-// isPasswordStrong kiểm tra độ mạnh của password (basic validation)
-func isPasswordStrong(password string) bool {
-	if len(password) < 8 {
-		return false
-	}
-
-	hasUpper := false
-	hasLower := false
-	hasDigit := false
-
-	for _, char := range password {
-		switch {
-		case 'A' <= char && char <= 'Z':
-			hasUpper = true
-		case 'a' <= char && char <= 'z':
-			hasLower = true
-		case '0' <= char && char <= '9':
-			hasDigit = true
-		}
-	}
-
-	// Require at least 2 of 3 conditions (more flexible)
-	conditions := 0
-	if hasUpper {
-		conditions++
-	}
-	if hasLower {
-		conditions++
-	}
-	if hasDigit {
-		conditions++
-	}
-
-	return conditions >= 2
-}
 
 // normalizeEmail normalizes email address
 func normalizeEmail(email string) string {

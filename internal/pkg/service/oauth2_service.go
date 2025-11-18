@@ -18,6 +18,7 @@ type OAuth2Service struct {
 	authRequestRepo      domain.AuthRequestRepository
 	consentRepo          domain.ConsentRepository
 	oauth2SessionRepo    domain.OAuth2SessionRepository
+	clientRepo           domain.OAuth2ClientRepository
 }
 
 // NewOAuth2Service tạo instance mới của OAuth2Service.
@@ -27,6 +28,7 @@ func NewOAuth2Service(
 	authRequestRepo domain.AuthRequestRepository,
 	consentRepo domain.ConsentRepository,
 	oauth2SessionRepo domain.OAuth2SessionRepository,
+	clientRepo domain.OAuth2ClientRepository,
 ) *OAuth2Service {
 	return &OAuth2Service{
 		userRepo:          userRepo,
@@ -34,6 +36,7 @@ func NewOAuth2Service(
 		authRequestRepo:   authRequestRepo,
 		consentRepo:       consentRepo,
 		oauth2SessionRepo: oauth2SessionRepo,
+		clientRepo:        clientRepo,
 	}
 }
 
@@ -156,4 +159,9 @@ func (s *OAuth2Service) LogoutUser(ctx context.Context, sessionID string, revoke
 // RevokeUserTokens revokes tất cả OAuth2 tokens của một user.
 func (s *OAuth2Service) RevokeUserTokens(ctx context.Context, userID uuid.UUID) error {
 	return s.oauth2SessionRepo.RevokeAllUserSessions(ctx, userID.String())
+}
+
+// GetClientInfo lấy thông tin OAuth2 client theo ID.
+func (s *OAuth2Service) GetClientInfo(ctx context.Context, clientID uuid.UUID) (*domain.OAuth2Client, error) {
+	return s.clientRepo.GetByID(ctx, clientID)
 }
