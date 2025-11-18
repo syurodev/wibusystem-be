@@ -263,8 +263,14 @@ func (h *Handler) Token(c *gin.Context) {
 	// Parse và xác thực request từ client
 	accessRequest, err := h.provider.NewAccessRequest(ctx, c.Request, session)
 	if err != nil {
+		// Extract detailed error information from Fosite
+		fositeErr := fosite.ErrorToRFC6749Error(err)
 		h.logger.Error("Failed to create access request",
 			zap.String("error", err.Error()),
+			zap.String("error_name", fositeErr.ErrorField),
+			zap.String("error_description", fositeErr.DescriptionField),
+			zap.String("error_hint", fositeErr.HintField),
+			zap.String("error_debug", fositeErr.DebugField),
 			zap.String("grant_type", grantType),
 			zap.String("client_id", clientID),
 		)
@@ -532,6 +538,12 @@ func (h *Handler) redirectToConsent(c *gin.Context, ar fosite.AuthorizeRequester
 func (h *Handler) finalizeAuthorization(c *gin.Context, ar fosite.AuthorizeRequester, userID string) {
 	ctx := c.Request.Context()
 
+	h.logger.Debug("Finalizing authorization",
+		zap.String("user_id", userID),
+		zap.String("client_id", ar.GetClient().GetID()),
+		zap.String("request_id", ar.GetID()),
+	)
+
 	// Tạo session với user info
 	session := &fosite.DefaultSession{
 		Subject: userID,
@@ -543,9 +555,19 @@ func (h *Handler) finalizeAuthorization(c *gin.Context, ar fosite.AuthorizeReque
 	// Tạo authorization response (authorization code)
 	response, err := h.provider.NewAuthorizeResponse(ctx, ar, session)
 	if err != nil {
+		h.logger.Error("Failed to create authorization response",
+			zap.String("error", err.Error()),
+			zap.String("user_id", userID),
+			zap.String("client_id", ar.GetClient().GetID()),
+		)
 		writeOAuth2Error(c, err)
 		return
 	}
+
+	h.logger.Info("Authorization code issued successfully",
+		zap.String("user_id", userID),
+		zap.String("client_id", ar.GetClient().GetID()),
+	)
 
 	// Write response - redirect user về client với authorization code
 	h.provider.WriteAuthorizeResponse(ctx, c.Writer, ar, response)
