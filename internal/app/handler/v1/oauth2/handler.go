@@ -32,6 +32,7 @@ type OAuth2Service interface {
 	CreateUserConsent(ctx context.Context, userID, clientID uuid.UUID, scopes []string) error
 	LogoutUser(ctx context.Context, sessionID string, revokeTokens bool) error
 	RevokeUserTokens(ctx context.Context, userID uuid.UUID) error
+	GetClientInfo(ctx context.Context, clientID uuid.UUID) (*domain.OAuth2Client, error)
 }
 
 // Handler là struct chứa các dependencies cho OAuth2 handlers.
@@ -687,8 +688,8 @@ func (h *Handler) ConsentPage(c *gin.Context) {
 		return
 	}
 
-	// Get full client info from repository to access ClientName
-	domainClient, err := h.clientRepo.GetClientByID(c.Request.Context(), clientUUID)
+	// Get full client info from service to access ClientName
+	domainClient, err := h.oauth2Service.GetClientInfo(c.Request.Context(), clientUUID)
 	if err != nil {
 		h.logger.Error("Failed to load client for consent page",
 			zap.String("error", err.Error()),

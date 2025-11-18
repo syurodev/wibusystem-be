@@ -76,6 +76,7 @@ func NewRouter(cfg *configs.Config, i18nInstance *i18n.I18n, zapLogger *zap.Logg
 		authRequestRepo,
 		consentRepo,
 		oauth2SessionRepo,
+		oauth2ClientRepo,
 	)
 
 	authService := service.NewAuthService(
@@ -85,6 +86,8 @@ func NewRouter(cfg *configs.Config, i18nInstance *i18n.I18n, zapLogger *zap.Logg
 	)
 
 	emailService := service.NewEmailService(&cfg.Email, zapLogger)
+
+	oauth2AdminService := service.NewOAuth2AdminService(oauth2ClientRepo)
 
 	// Handlers
 	oauth2Handler := oauth2_handler.NewHandler(
@@ -131,7 +134,7 @@ func NewRouter(cfg *configs.Config, i18nInstance *i18n.I18n, zapLogger *zap.Logg
 	}
 
 	// OAuth2 Admin API
-	oauth2AdminHandler := oauth2_admin.NewHandler(oauth2ClientRepo)
+	oauth2AdminHandler := oauth2_admin.NewHandler(oauth2AdminService)
 	oauth2_admin.RegisterRoutes(apiV1, oauth2AdminHandler)
 
 	return router
