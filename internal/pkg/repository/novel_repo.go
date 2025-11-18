@@ -22,17 +22,22 @@ func NewNovelRepository(pool *pgxpool.Pool) domain.NovelRepository {
 	return &novelRepository{pool: pool}
 }
 
+const novelColumns = `
+	id, title, slug, synopsis, cover_image_url, thumbnail_url,
+	status, original_language, original_title,
+	total_volumes, total_chapters, total_words, view_count,
+	favorite_count, rating_average, rating_count, metadata,
+	first_published_at, last_chapter_at, completed_at,
+	created_at, updated_at, deleted_at
+`
+
 // GetByID lấy novel từ database theo ID
 func (r *novelRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.Novel, error) {
-	query := `
-		SELECT id, title, slug, author_id, synopsis, cover_image_url, thumbnail_url,
-		       status, total_volumes, total_chapters, total_words, view_count,
-		       favorite_count, rating_average, rating_count, metadata,
-		       first_published_at, last_chapter_at, completed_at,
-		       created_at, updated_at, deleted_at
+	query := fmt.Sprintf(`
+		SELECT %s
 		FROM catalog.novels
 		WHERE id = $1 AND deleted_at IS NULL
-	`
+	`, novelColumns)
 
 	rows, err := r.pool.Query(ctx, query, id)
 	if err != nil {
@@ -49,15 +54,11 @@ func (r *novelRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.No
 
 // GetBySlug lấy novel từ database theo slug
 func (r *novelRepository) GetBySlug(ctx context.Context, slug string) (*domain.Novel, error) {
-	query := `
-		SELECT id, title, slug, author_id, synopsis, cover_image_url, thumbnail_url,
-		       status, total_volumes, total_chapters, total_words, view_count,
-		       favorite_count, rating_average, rating_count, metadata,
-		       first_published_at, last_chapter_at, completed_at,
-		       created_at, updated_at, deleted_at
+	query := fmt.Sprintf(`
+		SELECT %s
 		FROM catalog.novels
 		WHERE slug = $1 AND deleted_at IS NULL
-	`
+	`, novelColumns)
 
 	rows, err := r.pool.Query(ctx, query, slug)
 	if err != nil {
@@ -72,19 +73,24 @@ func (r *novelRepository) GetBySlug(ctx context.Context, slug string) (*domain.N
 	return &novel, nil
 }
 
-// GetByAuthorID lấy danh sách novel theo author ID
+// GetByAuthorID lấy danh sách novel theo author ID (via junction table)
 func (r *novelRepository) GetByAuthorID(ctx context.Context, authorID uuid.UUID, limit, offset int) ([]*domain.Novel, error) {
-	query := `
-		SELECT id, title, slug, author_id, synopsis, cover_image_url, thumbnail_url,
-		       status, total_volumes, total_chapters, total_words, view_count,
-		       favorite_count, rating_average, rating_count, metadata,
-		       first_published_at, last_chapter_at, completed_at,
-		       created_at, updated_at, deleted_at
-		FROM catalog.novels
-		WHERE author_id = $1 AND deleted_at IS NULL
-		ORDER BY created_at DESC
+	// Prefix each column with n.
+	cols := strings.Split(novelColumns, ", ")
+	prefixedCols := make([]string, len(cols))
+	for i, col := range cols {
+		prefixedCols[i] = "n." + strings.TrimSpace(col)
+	}
+	novelColumnsWithPrefix := strings.Join(prefixedCols, ", ")
+
+	query := fmt.Sprintf(`
+		SELECT %s
+		FROM catalog.novels n
+		INNER JOIN catalog.novel_authors na ON n.id = na.novel_id
+		WHERE na.author_id = $1 AND n.deleted_at IS NULL
+		ORDER BY n.created_at DESC
 		LIMIT $2 OFFSET $3
-	`
+	`, novelColumnsWithPrefix)
 
 	rows, err := r.pool.Query(ctx, query, authorID, limit, offset)
 	if err != nil {
@@ -103,9 +109,10 @@ func (r *novelRepository) GetByAuthorID(ctx context.Context, authorID uuid.UUID,
 func (r *novelRepository) Create(ctx context.Context, novel *domain.Novel) error {
 	query := `
 		INSERT INTO catalog.novels (
-			id, title, slug, author_id, synopsis, cover_image_url, thumbnail_url,
-			status, metadata
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+			id, title, slug, synopsis, cover_image_url, thumbnail_url,
+			status, original_language, original_title, metadata,
+			created_at, updated_at
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW())
 	`
 
 	// Đảm bảo metadata không null
@@ -113,15 +120,21 @@ func (r *novelRepository) Create(ctx context.Context, novel *domain.Novel) error
 		novel.Metadata = json.RawMessage("{}")
 	}
 
+	// Đảm bảo synopsis không null
+	if novel.Synopsis == nil {
+		novel.Synopsis = json.RawMessage("{}")
+	}
+
 	_, err := r.pool.Exec(ctx, query,
 		novel.ID,
 		novel.Title,
 		novel.Slug,
-		novel.AuthorID,
 		novel.Synopsis,
 		novel.CoverImageURL,
 		novel.ThumbnailURL,
 		novel.Status,
+		novel.OriginalLanguage,
+		novel.OriginalTitle,
 		novel.Metadata,
 	)
 
@@ -138,9 +151,12 @@ func (r *novelRepository) Update(ctx context.Context, novel *domain.Novel) error
 		    cover_image_url = $5,
 		    thumbnail_url = $6,
 		    status = $7,
-		    metadata = $8,
-		    first_published_at = $9,
-		    completed_at = $10
+		    original_language = $8,
+		    original_title = $9,
+		    metadata = $10,
+		    first_published_at = $11,
+		    completed_at = $12,
+		    updated_at = NOW()
 		WHERE id = $1 AND deleted_at IS NULL
 	`
 
@@ -152,6 +168,8 @@ func (r *novelRepository) Update(ctx context.Context, novel *domain.Novel) error
 		novel.CoverImageURL,
 		novel.ThumbnailURL,
 		novel.Status,
+		novel.OriginalLanguage,
+		novel.OriginalTitle,
 		novel.Metadata,
 		novel.FirstPublishedAt,
 		novel.CompletedAt,
@@ -179,58 +197,72 @@ func (r *novelRepository) List(ctx context.Context, filter domain.NovelFilter) (
 	var args []interface{}
 	argIdx := 1
 
-	whereClauses = append(whereClauses, "deleted_at IS NULL")
+	whereClauses = append(whereClauses, "n.deleted_at IS NULL")
 
 	if filter.Status != nil {
-		whereClauses = append(whereClauses, fmt.Sprintf("status = $%d", argIdx))
+		whereClauses = append(whereClauses, fmt.Sprintf("n.status = $%d", argIdx))
 		args = append(args, *filter.Status)
 		argIdx++
 	}
 
-	if filter.AuthorID != nil {
-		whereClauses = append(whereClauses, fmt.Sprintf("author_id = $%d", argIdx))
-		args = append(args, *filter.AuthorID)
+	if filter.OriginalLanguage != nil {
+		whereClauses = append(whereClauses, fmt.Sprintf("n.original_language = $%d", argIdx))
+		args = append(args, *filter.OriginalLanguage)
 		argIdx++
 	}
 
 	// Full-text search trong title và synopsis
 	if filter.SearchQuery != nil && *filter.SearchQuery != "" {
 		whereClauses = append(whereClauses, fmt.Sprintf(
-			"(title ILIKE $%d OR synopsis::text ILIKE $%d)", argIdx, argIdx))
+			"(n.title ILIKE $%d OR n.synopsis::text ILIKE $%d)", argIdx, argIdx))
 		args = append(args, "%"+*filter.SearchQuery+"%")
 		argIdx++
 	}
 
-	// Filter by tags trong metadata
-	if len(filter.Tags) > 0 {
-		whereClauses = append(whereClauses, fmt.Sprintf("metadata @> $%d::jsonb", argIdx))
-		tagsJSON, _ := json.Marshal(map[string][]string{"tags": filter.Tags})
-		args = append(args, tagsJSON)
+	// Filter by author ID (via junction table)
+	var joins []string
+	if filter.AuthorID != nil {
+		joins = append(joins, "INNER JOIN catalog.novel_authors na ON n.id = na.novel_id")
+		whereClauses = append(whereClauses, fmt.Sprintf("na.author_id = $%d", argIdx))
+		args = append(args, *filter.AuthorID)
 		argIdx++
 	}
 
-	// Filter by categories trong metadata
-	if len(filter.Categories) > 0 {
-		whereClauses = append(whereClauses, fmt.Sprintf("metadata @> $%d::jsonb", argIdx))
-		categoriesJSON, _ := json.Marshal(map[string][]string{"categories": filter.Categories})
-		args = append(args, categoriesJSON)
+	// Filter by translator ID (via junction table)
+	if filter.TranslatorID != nil {
+		joins = append(joins, "INNER JOIN catalog.novel_translators nt ON n.id = nt.novel_id")
+		whereClauses = append(whereClauses, fmt.Sprintf("nt.translator_id = $%d", argIdx))
+		args = append(args, *filter.TranslatorID)
 		argIdx++
+	}
+
+	// Filter by genre IDs (via junction table)
+	if len(filter.GenreIDs) > 0 {
+		joins = append(joins, "INNER JOIN catalog.novel_genres ng ON n.id = ng.novel_id")
+		whereClauses = append(whereClauses, fmt.Sprintf("ng.genre_id = ANY($%d)", argIdx))
+		args = append(args, filter.GenreIDs)
+		argIdx++
+	}
+
+	joinClause := ""
+	if len(joins) > 0 {
+		joinClause = strings.Join(joins, " ")
 	}
 
 	whereClause := strings.Join(whereClauses, " AND ")
 
 	// Build ORDER BY clause
-	orderBy := "created_at DESC"
+	orderBy := "n.created_at DESC"
 	if filter.SortBy != "" {
 		switch filter.SortBy {
 		case "rating":
-			orderBy = "rating_average"
+			orderBy = "n.rating_average"
 		case "views":
-			orderBy = "view_count"
+			orderBy = "n.view_count"
 		case "last_chapter":
-			orderBy = "last_chapter_at"
+			orderBy = "n.last_chapter_at"
 		default:
-			orderBy = filter.SortBy
+			orderBy = "n." + filter.SortBy
 		}
 
 		if filter.SortOrder == "asc" {
@@ -241,25 +273,30 @@ func (r *novelRepository) List(ctx context.Context, filter domain.NovelFilter) (
 	}
 
 	// Count query
-	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM catalog.novels WHERE %s", whereClause)
+	countQuery := fmt.Sprintf("SELECT COUNT(DISTINCT n.id) FROM catalog.novels n %s WHERE %s", joinClause, whereClause)
 	var total int64
 	err := r.pool.QueryRow(ctx, countQuery, args...).Scan(&total)
 	if err != nil {
 		return nil, 0, err
 	}
 
+	// Prefix each column with n.
+	cols := strings.Split(novelColumns, ", ")
+	prefixedCols := make([]string, len(cols))
+	for i, col := range cols {
+		prefixedCols[i] = "n." + strings.TrimSpace(col)
+	}
+	novelColumnsWithPrefix := strings.Join(prefixedCols, ", ")
+
 	// Main query
 	query := fmt.Sprintf(`
-		SELECT id, title, slug, author_id, synopsis, cover_image_url, thumbnail_url,
-		       status, total_volumes, total_chapters, total_words, view_count,
-		       favorite_count, rating_average, rating_count, metadata,
-		       first_published_at, last_chapter_at, completed_at,
-		       created_at, updated_at, deleted_at
-		FROM catalog.novels
+		SELECT DISTINCT %s
+		FROM catalog.novels n
+		%s
 		WHERE %s
 		ORDER BY %s
 		LIMIT $%d OFFSET $%d
-	`, whereClause, orderBy, argIdx, argIdx+1)
+	`, novelColumnsWithPrefix, joinClause, whereClause, orderBy, argIdx, argIdx+1)
 
 	args = append(args, filter.Limit, filter.Offset)
 
@@ -314,7 +351,7 @@ func (r *novelRepository) UpdateStatistics(ctx context.Context, id uuid.UUID, st
 
 	query := fmt.Sprintf(`
 		UPDATE catalog.novels
-		SET %s
+		SET %s, updated_at = NOW()
 		WHERE id = $1 AND deleted_at IS NULL
 	`, strings.Join(setClauses, ", "))
 
@@ -326,7 +363,8 @@ func (r *novelRepository) UpdateStatistics(ctx context.Context, id uuid.UUID, st
 func (r *novelRepository) IncrementViewCount(ctx context.Context, id uuid.UUID) error {
 	query := `
 		UPDATE catalog.novels
-		SET view_count = view_count + 1
+		SET view_count = view_count + 1,
+		    updated_at = NOW()
 		WHERE id = $1 AND deleted_at IS NULL
 	`
 
