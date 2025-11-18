@@ -3,7 +3,6 @@ package oauth2
 import (
 	"context"
 	"encoding/base64"
-	"fmt"
 	"math/big"
 	"net/http"
 	"net/url"
@@ -550,9 +549,9 @@ func (h *Handler) finalizeAuthorization(c *gin.Context, ar fosite.AuthorizeReque
 	session := &fosite.DefaultSession{
 		Subject: userID,
 		ExpiresAt: map[fosite.TokenType]time.Time{
-			fosite.AuthorizeCode: now.Add(time.Minute * 10),      // Authorization code valid for 10 minutes
-			fosite.AccessToken:   now.Add(time.Hour * 1),         // Access token valid for 1 hour
-			fosite.RefreshToken:  now.Add(time.Hour * 24 * 30),   // Refresh token valid for 30 days
+			fosite.AuthorizeCode: now.Add(time.Minute * 10),    // Authorization code valid for 10 minutes
+			fosite.AccessToken:   now.Add(time.Hour * 1),       // Access token valid for 1 hour
+			fosite.RefreshToken:  now.Add(time.Hour * 24 * 30), // Refresh token valid for 30 days
 		},
 	}
 
