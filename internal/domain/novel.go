@@ -22,10 +22,9 @@ const (
 // Novel là domain model cho tiểu thuyết trong hệ thống
 // Đây là cấp cao nhất trong cấu trúc phân cấp Novel > Volume > Chapter
 type Novel struct {
-	ID       uuid.UUID
-	Title    string
-	Slug     string // SEO-friendly URL
-	AuthorID uuid.UUID
+	ID    uuid.UUID
+	Title string
+	Slug  string // SEO-friendly URL
 
 	// Synopsis lưu trữ dạng JSONB cho nội dung phong phú
 	// Ví dụ: {"blocks": [{"type": "paragraph", "content": "..."}], "language": "vi"}
@@ -36,17 +35,21 @@ type Novel struct {
 
 	Status NovelStatus
 
-	// Thống kê
-	TotalVolumes   int
-	TotalChapters  int
-	TotalWords     int64
-	ViewCount      int64
-	FavoriteCount  int
-	RatingAverage  float64 // 0.00 đến 5.00
-	RatingCount    int
+	// Original information
+	OriginalLanguage *string // ISO 639-1 language code
+	OriginalTitle    *string
 
-	// Metadata lưu trữ dạng JSONB cho tính linh hoạt
-	// Ví dụ: {"tags": ["fantasy", "action"], "categories": ["xuanhuan"], "language": "vi"}
+	// Thống kê
+	TotalVolumes  int
+	TotalChapters int
+	TotalWords    int64
+	ViewCount     int64
+	FavoriteCount int
+	RatingAverage float64 // 0.00 đến 5.00
+	RatingCount   int
+
+	// Metadata lưu trữ dạng JSONB cho thông tin bổ sung
+	// Ví dụ: {"external_ids": {"myanimelist": "123"}, "custom_fields": {...}}
 	Metadata json.RawMessage
 
 	// Ngày xuất bản
@@ -58,6 +61,12 @@ type Novel struct {
 	CreatedAt time.Time
 	UpdatedAt time.Time
 	DeletedAt *time.Time
+
+	// Relationships (loaded separately via JOINs)
+	Authors     []*NovelAuthor     // Authors of this novel
+	Artists     []*NovelArtist     // Artists of this novel
+	Translators []*NovelTranslator // Translators of this novel
+	Genres      []*Genre           // Genres of this novel
 }
 
 // NovelRepository định nghĩa interface cho việc truy cập dữ liệu novel
@@ -67,9 +76,6 @@ type NovelRepository interface {
 
 	// GetBySlug lấy novel theo slug
 	GetBySlug(ctx context.Context, slug string) (*Novel, error)
-
-	// GetByAuthorID lấy danh sách novel theo author ID
-	GetByAuthorID(ctx context.Context, authorID uuid.UUID, limit, offset int) ([]*Novel, error)
 
 	// Create tạo novel mới
 	Create(ctx context.Context, novel *Novel) error
@@ -92,16 +98,17 @@ type NovelRepository interface {
 
 // NovelFilter định nghĩa các filter cho việc query novel
 type NovelFilter struct {
-	Status       *NovelStatus
-	AuthorID     *uuid.UUID
-	Tags         []string // Filter by tags in metadata
-	Categories   []string // Filter by categories in metadata
-	SearchQuery  *string  // Full-text search trong title và synopsis
-	SortBy       string   // "created_at", "rating", "views", "last_chapter"
-	SortOrder    string   // "asc", "desc"
-	Limit        int
-	Offset       int
-	IncludeStats bool // Include statistics trong kết quả
+	Status           *NovelStatus
+	GenreIDs         []uuid.UUID // Filter by genre IDs
+	AuthorID         *uuid.UUID  // Filter by author ID (via novel_authors)
+	TranslatorID     *uuid.UUID  // Filter by translator ID (via novel_translators)
+	OriginalLanguage *string     // Filter by original language
+	SearchQuery      *string     // Full-text search trong title và synopsis
+	SortBy           string      // "created_at", "rating", "views", "last_chapter"
+	SortOrder        string      // "asc", "desc"
+	Limit            int
+	Offset           int
+	IncludeStats     bool // Include statistics trong kết quả
 }
 
 // NovelStatistics chứa thông tin thống kê để update
