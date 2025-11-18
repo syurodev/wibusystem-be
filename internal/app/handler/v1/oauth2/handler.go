@@ -36,6 +36,7 @@ type Handler struct {
 	provider        fosite.OAuth2Provider
 	oauth2Service   OAuth2Service
 	authRequestRepo domain.AuthRequestRepository
+	clientRepo      domain.OAuth2ClientRepository
 	logger          *zap.Logger
 }
 
@@ -45,6 +46,7 @@ func NewHandler(
 	provider fosite.OAuth2Provider,
 	oauth2Service OAuth2Service,
 	authRequestRepo domain.AuthRequestRepository,
+	clientRepo domain.OAuth2ClientRepository,
 	logger *zap.Logger,
 ) *Handler {
 	return &Handler{
@@ -52,6 +54,7 @@ func NewHandler(
 		provider:        provider,
 		oauth2Service:   oauth2Service,
 		authRequestRepo: authRequestRepo,
+		clientRepo:      clientRepo,
 		logger:          logger,
 	}
 }
@@ -542,20 +545,93 @@ type ScopeInfo struct {
 func (h *Handler) ConsentPage(c *gin.Context) {
 	requestID := c.Query("request_id")
 
-	// TODO: Lấy thông tin authorization request và client từ storage
-	// ar, err := h.store.GetAuthRequest(c.Request.Context(), requestID)
-	// client := ar.GetClient()
+	// 1. Check user authentication - MUST be logged in to see consent page
+	sessionID, err := c.Cookie("session_id")
+	if err != nil || sessionID == "" {
+		h.logger.Warn("Unauthenticated access to consent page",
+			zap.String("request_id", requestID),
+		)
+		// Redirect to login with request_id to resume flow
+		c.Redirect(http.StatusFound, "/oauth2/login?request_id="+requestID)
+		return
+	}
 
-	// Mock data cho demo
-	clientName := "Demo Application"
-	requestedScopes := []string{"openid", "profile", "email", "offline_access"}
+	// 2. Validate session
+	userID, err := h.oauth2Service.GetUserSession(c.Request.Context(), sessionID)
+	if err != nil {
+		h.logger.Warn("Invalid or expired session on consent page",
+			zap.String("error", err.Error()),
+			zap.String("request_id", requestID),
+		)
+		// Session expired - redirect to login
+		c.Redirect(http.StatusFound, "/oauth2/login?request_id="+requestID)
+		return
+	}
 
-	// Build scope info list
+	// 3. Load query params từ Redis
+	queryParams, err := h.authRequestRepo.GetQueryParams(c.Request.Context(), requestID)
+	if err != nil {
+		h.logger.Error("Failed to load query params for consent page",
+			zap.String("error", err.Error()),
+			zap.String("request_id", requestID),
+			zap.String("user_id", userID),
+		)
+		// Authorization request expired
+		h.showErrorPage(c,
+			"invalid_request",
+			"Your authorization request has expired. Please try again.",
+			"Authorization requests are valid for 10 minutes. Click below to start over.",
+		)
+		return
+	}
+
+	// 4. Parse query params
+	values, err := url.ParseQuery(queryParams)
+	if err != nil {
+		h.logger.Error("Failed to parse query params",
+			zap.String("error", err.Error()),
+			zap.String("request_id", requestID),
+		)
+		h.showErrorPage(c, "invalid_request", "Invalid authorization request", "")
+		return
+	}
+
+	clientID := values.Get("client_id")
+	requestedScopes := strings.Split(values.Get("scope"), " ")
+
+	// 5. Load client info từ database
+	clientUUID, err := uuid.FromString(clientID)
+	if err != nil {
+		h.showErrorPage(c, "invalid_request", "Invalid client ID", "")
+		return
+	}
+
+	// Get full client info from repository to access ClientName
+	domainClient, err := h.clientRepo.GetClientByID(c.Request.Context(), clientUUID)
+	if err != nil {
+		h.logger.Error("Failed to load client for consent page",
+			zap.String("error", err.Error()),
+			zap.String("client_id", clientID),
+		)
+		h.showErrorPage(c, "unauthorized_client", "Client not found or inactive", "")
+		return
+	}
+
+	// 6. Build scope info list với real scopes
 	scopes := h.buildScopeInfoList(requestedScopes)
+
+	// 7. Show consent page với real data
+	h.logger.Info("Showing consent page",
+		zap.String("user_id", userID),
+		zap.String("client_id", clientID),
+		zap.String("client_name", domainClient.ClientName),
+		zap.Strings("scopes", requestedScopes),
+	)
 
 	c.HTML(http.StatusOK, "consent.html", gin.H{
 		"RequestID":  requestID,
-		"ClientName": clientName,
+		"ClientName": domainClient.ClientName,
+		"ClientID":   clientUUID.String(),
 		"Scopes":     scopes,
 	})
 }
