@@ -1,0 +1,48 @@
+# docker-compose.override.yml
+# Copy this file to docker-compose.override.yml to add your application service
+# This file will be automatically merged with docker-compose.yml
+
+services:
+  # Your Go application
+  wibusystem-be:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: wibusystem-be
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      - ENVIRONMENT=development
+      - SERVER_PORT=8080
+      - DB_HOST=system_dev
+      - DB_PORT=5432
+      - DB_NAME=system_dev
+      - DB_USER=system_dev
+      - DB_PASSWORD=system_dev
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=8767375c91873d04626c73c8aed8ce01
+      - OAUTH2_ISSUER=http://localhost:8080
+      - OAUTH2_HMAC_SECRET=your-secret-at-least-32-characters-long-change-this
+    volumes:
+      - .:/app
+      - /app/vendor
+    depends_on:
+      - system_dev
+      - redis
+      - loki
+      - promtail
+    networks:
+      - wibusystem_backend
+    # Ensure JSON logs go to stdout
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # OR: If you prefer running app locally, add log file mounting
+  # promtail:
+  #   volumes:
+  #     - ./logs:/logs:ro  # Mount your app's log directory

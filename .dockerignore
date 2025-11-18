@@ -1,0 +1,49 @@
+# Git
+.git
+.gitignore
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# Dependencies
+vendor/
+
+# Build artifacts
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+main
+
+# Test files
+*_test.go
+*.test
+*.out
+
+# Documentation
+*.md
+docs/
+examples/
+
+# Config files (use env vars instead)
+.env
+.env.*
+
+# Docker
+Dockerfile*
+docker-compose*.yml
+
+# CI/CD
+.github
+
+# Logs
+logs/
+*.log
+
+# Temporary files
+tmp/
+temp/
