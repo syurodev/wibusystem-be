@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"system/configs"
 	v1 "system/internal/app/handler/v1"
+	"system/internal/app/handler/v1/artist"
 	"system/internal/app/handler/v1/auth"
 	"system/internal/app/handler/v1/author"
 	"system/internal/app/handler/v1/genre"
@@ -64,6 +65,7 @@ func NewRouter(cfg *configs.Config, i18nInstance *i18n.I18n, zapLogger *zap.Logg
 	passwordResetRepo := repository.NewPasswordResetRepository(db.Pool)
 	genreRepo := repository.NewGenreRepository(db.Pool)
 	authorRepo := repository.NewAuthorRepository(db.Pool)
+	artistRepo := repository.NewArtistRepository(db.Pool)
 
 	// Fosite Storage
 	sqlStore := fosite_storage.NewSQLStore(oauth2ClientRepo, oauth2SessionRepo)
@@ -95,6 +97,7 @@ func NewRouter(cfg *configs.Config, i18nInstance *i18n.I18n, zapLogger *zap.Logg
 
 	genreService := service.NewGenreService(genreRepo)
 	authorService := service.NewAuthorService(authorRepo)
+	artistService := service.NewArtistService(artistRepo)
 
 	// Handlers
 	oauth2Handler := oauth2_handler.NewHandler(
@@ -110,6 +113,7 @@ func NewRouter(cfg *configs.Config, i18nInstance *i18n.I18n, zapLogger *zap.Logg
 
 	genreHandler := genre.NewHandler(genreService)
 	authorHandler := author.NewHandler(authorService)
+	artistHandler := artist.NewHandler(artistService)
 
 	// --- Đăng ký Routes ---
 	apiV1 := router.Group("/api/v1")
@@ -126,6 +130,12 @@ func NewRouter(cfg *configs.Config, i18nInstance *i18n.I18n, zapLogger *zap.Logg
 		authorGroup := apiV1.Group("/authors")
 		{
 			authorHandler.RegisterRoutes(authorGroup)
+		}
+
+		// Artist routes
+		artistGroup := apiV1.Group("/artists")
+		{
+			artistHandler.RegisterRoutes(artistGroup)
 		}
 	}
 
