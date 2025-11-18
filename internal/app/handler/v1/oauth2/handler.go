@@ -249,17 +249,6 @@ func (h *Handler) JWKS(c *gin.Context) {
 func (h *Handler) Token(c *gin.Context) {
 	ctx := c.Request.Context()
 
-	// Log token request for debugging
-	grantType := c.PostForm("grant_type")
-	code := c.PostForm("code")
-	clientID := c.PostForm("client_id")
-
-	h.logger.Debug("Token request received",
-		zap.String("grant_type", grantType),
-		zap.String("code", code),
-		zap.String("client_id", clientID),
-	)
-
 	// Tạo session mới cho request này
 	session := &openid.DefaultSession{}
 
@@ -279,12 +268,7 @@ func (h *Handler) Token(c *gin.Context) {
 	}
 
 	// Kiểm tra grant type và xử lý tương ứng
-	grantType = accessRequest.GetRequestForm().Get("grant_type")
-
-	h.logger.Debug("Processing token request",
-		zap.String("grant_type", grantType),
-		zap.String("client_id", accessRequest.GetClient().GetID()),
-	)
+	grantType := accessRequest.GetRequestForm().Get("grant_type")
 
 	switch grantType {
 	case "authorization_code":
@@ -454,19 +438,11 @@ func (h *Handler) checkUserConsent(c *gin.Context, userID string, clientID strin
 
 // redirectToLogin redirect user đến login page
 func (h *Handler) redirectToLogin(c *gin.Context, ar fosite.AuthorizeRequester) {
-	// Save original OAuth2 query params to Redis để resume sau khi login
+	// Save authorization request to Redis để resume sau khi login
 	requestID := ar.GetID()
 
-	// Get original query string
-	originalParams := c.Request.URL.RawQuery
-
-	h.logger.Debug("Saving query params to Redis",
-		zap.String("request_id", requestID),
-		zap.String("query_params", originalParams),
-	)
-
-	// Save query params string (not the whole object)
-	err := h.authRequestRepo.SaveQueryParams(c.Request.Context(), requestID, originalParams, time.Minute*10)
+	// Save full auth request object
+	err := h.authRequestRepo.SaveAuthRequest(c.Request.Context(), requestID, ar, time.Minute*10)
 	if err != nil {
 		zap.L().Error("oauth2 authorize: failed to save auth request before login",
 			zap.String("request_id", requestID),
@@ -474,6 +450,17 @@ func (h *Handler) redirectToLogin(c *gin.Context, ar fosite.AuthorizeRequester) 
 		)
 		writeOAuth2Error(c, fosite.ErrServerError.WithWrap(err).WithDebug("Failed to save auth request"))
 		return
+	}
+
+	// Also save query params for potential use in other pages
+	originalParams := c.Request.URL.RawQuery
+	err = h.authRequestRepo.SaveQueryParams(c.Request.Context(), requestID, originalParams, time.Minute*10)
+	if err != nil {
+		h.logger.Warn("Failed to save query params",
+			zap.String("error", err.Error()),
+			zap.String("request_id", requestID),
+		)
+		// Don't fail if query params save fails, auth request is already saved
 	}
 
 	// Redirect đến login page với request_id
@@ -513,11 +500,6 @@ func (h *Handler) redirectToConsent(c *gin.Context, ar fosite.AuthorizeRequester
 		writeOAuth2Error(c, fosite.ErrServerError.WithWrap(err).WithDebug("Failed to save query params"))
 		return
 	}
-
-	h.logger.Debug("Saved query params for consent page",
-		zap.String("request_id", requestID),
-		zap.String("query_params", originalParams),
-	)
 
 	// Redirect đến consent page
 	consentURL := "/oauth2/consent?request_id=" + requestID

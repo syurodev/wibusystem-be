@@ -29,11 +29,16 @@ const (
 type RedisStore struct {
 	client     *database.RedisClient
 	clientRepo domain.OAuth2ClientRepository
+	logger     *zap.Logger
 }
 
 // NewRedisStore tạo một instance mới của RedisStore.
-func NewRedisStore(client *database.RedisClient, clientRepo domain.OAuth2ClientRepository) *RedisStore {
-	return &RedisStore{client: client, clientRepo: clientRepo}
+func NewRedisStore(client *database.RedisClient, clientRepo domain.OAuth2ClientRepository, logger *zap.Logger) *RedisStore {
+	return &RedisStore{
+		client:     client,
+		clientRepo: clientRepo,
+		logger:     logger,
+	}
 }
 
 // storedRequest là dữ liệu đã được strip client để (de)serialize an toàn.
@@ -79,11 +84,6 @@ func (s *RedisStore) CreateAuthorizeCodeSession(ctx context.Context, signature s
 func (s *RedisStore) GetAuthorizeCodeSession(ctx context.Context, signature string, session fosite.Session) (fosite.Requester, error) {
 	key := fmt.Sprintf(authCodeKeyPrefix, signature)
 
-	s.logger.Debug("Fetching authorization code from Redis",
-		zap.String("key", key),
-		zap.String("signature", signature),
-	)
-
 	data, err := s.client.Get(ctx, key)
 	if err != nil {
 		if errors.Is(err, redis.Nil) {
@@ -110,13 +110,6 @@ func (s *RedisStore) GetAuthorizeCodeSession(ctx context.Context, signature stri
 		return nil, err
 	}
 	return req, nil
-}
-
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
 }
 
 func (s *RedisStore) InvalidateAuthorizeCodeSession(ctx context.Context, signature string) error {
@@ -223,11 +216,6 @@ func (s *RedisStore) CreatePKCERequestSession(ctx context.Context, signature str
 func (s *RedisStore) GetPKCERequestSession(ctx context.Context, signature string, session fosite.Session) (fosite.Requester, error) {
 	key := fmt.Sprintf(pkceKeyPrefix, signature)
 
-	s.logger.Debug("Fetching PKCE request from Redis",
-		zap.String("key", key),
-		zap.String("signature", signature),
-	)
-
 	data, err := s.client.Get(ctx, key)
 	if err != nil {
 		if errors.Is(err, redis.Nil) {
@@ -280,37 +268,63 @@ func (s *RedisStore) CreateAccessTokenSession(ctx context.Context, signature str
 
 	key := fmt.Sprintf(accessTokenKeyPrefix, signature)
 	lifespan := requester.GetSession().GetExpiresAt(fosite.AccessToken).Sub(time.Now().UTC())
+
 	data, err := json.Marshal(payload)
 	if err != nil {
-		zap.L().Error("redis store: marshal access token failed", zap.String("signature", signature), zap.Error(err))
+		s.logger.Error("Failed to marshal access token",
+			zap.String("signature", signature),
+			zap.Error(err),
+		)
 		return fosite.ErrServerError.WithWrap(err)
 	}
 	if err := s.client.Set(ctx, key, data, lifespan); err != nil {
-		zap.L().Error("redis store: set access token failed", zap.String("signature", signature), zap.Error(err))
+		s.logger.Error("Failed to save access token to Redis",
+			zap.String("signature", signature),
+			zap.Error(err),
+		)
 		return fosite.ErrServerError.WithWrap(err)
 	}
+
 	return nil
 }
 
 func (s *RedisStore) GetAccessTokenSession(ctx context.Context, signature string, session fosite.Session) (fosite.Requester, error) {
 	key := fmt.Sprintf(accessTokenKeyPrefix, signature)
+
 	data, err := s.client.Get(ctx, key)
 	if err != nil {
 		if errors.Is(err, redis.Nil) {
+			s.logger.Warn("Access token not found in Redis",
+				zap.String("key", key),
+				zap.String("signature", signature),
+			)
 			return nil, fosite.ErrNotFound.WithWrap(err)
 		}
+		s.logger.Error("Redis error fetching access token",
+			zap.String("error", err.Error()),
+			zap.String("key", key),
+		)
 		return nil, fosite.ErrServerError.WithWrap(err)
 	}
+
 	var stored storedRequest
 	if err := json.Unmarshal([]byte(data), &stored); err != nil {
+		s.logger.Error("Failed to unmarshal access token data",
+			zap.String("signature", signature),
+			zap.Error(err),
+		)
 		return nil, fosite.ErrServerError.WithWrap(err)
 	}
 
 	req, err := s.hydrateRequestWithClient(ctx, stored)
 	if err != nil {
-		zap.L().Error("redis store: hydrate access token failed", zap.String("signature", signature), zap.Error(err))
+		s.logger.Error("Failed to hydrate access token with client",
+			zap.String("signature", signature),
+			zap.Error(err),
+		)
 		return nil, err
 	}
+
 	return req, nil
 }
 

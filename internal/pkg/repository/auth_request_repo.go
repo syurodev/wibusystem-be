@@ -12,6 +12,7 @@ import (
 	"github.com/gofrs/uuid/v5"
 	"github.com/ory/fosite"
 	"github.com/redis/go-redis/v9"
+	"go.uber.org/zap"
 )
 
 const (
@@ -59,10 +60,22 @@ func (r *authRequestRepository) SaveAuthRequest(ctx context.Context, requestID s
 	// Serialize authorization request to JSON
 	data, err := json.Marshal(payload)
 	if err != nil {
+		zap.L().Error("Failed to marshal auth request",
+			zap.String("request_id", requestID),
+			zap.Error(err),
+		)
 		return fmt.Errorf("failed to marshal auth request: %w", err)
 	}
 
-	return r.client.Set(ctx, key, data, ttl)
+	if err := r.client.Set(ctx, key, data, ttl); err != nil {
+		zap.L().Error("Failed to save auth request to Redis",
+			zap.String("key", key),
+			zap.Error(err),
+		)
+		return err
+	}
+
+	return nil
 }
 
 // GetAuthRequest lấy authorization request từ Redis
@@ -72,25 +85,45 @@ func (r *authRequestRepository) GetAuthRequest(ctx context.Context, requestID st
 	data, err := r.client.Get(ctx, key)
 	if err != nil {
 		if errors.Is(err, redis.Nil) {
+			zap.L().Warn("Auth request not found in Redis",
+				zap.String("key", key),
+				zap.String("request_id", requestID),
+			)
 			return nil, fmt.Errorf("auth request not found or expired")
 		}
+		zap.L().Error("Redis error fetching auth request",
+			zap.String("key", key),
+			zap.Error(err),
+		)
 		return nil, err
 	}
 
 	// Deserialize từ JSON
 	var stored storedAuthorizeRequest
 	if err := json.Unmarshal([]byte(data), &stored); err != nil {
+		zap.L().Error("Failed to unmarshal auth request",
+			zap.String("request_id", requestID),
+			zap.Error(err),
+		)
 		return nil, fmt.Errorf("failed to unmarshal auth request: %w", err)
 	}
 
 	// Load lại client từ DB
 	clientUUID, err := uuid.FromString(stored.ClientID)
 	if err != nil {
+		zap.L().Error("Invalid client ID in stored request",
+			zap.String("client_id", stored.ClientID),
+			zap.Error(err),
+		)
 		return nil, fmt.Errorf("invalid client id in stored request")
 	}
 
 	domainClient, err := r.clientRepo.GetClientByID(ctx, clientUUID)
 	if err != nil {
+		zap.L().Error("Failed to load client from database",
+			zap.String("client_id", stored.ClientID),
+			zap.Error(err),
+		)
 		return nil, fmt.Errorf("failed to load client: %w", err)
 	}
 
@@ -106,6 +139,7 @@ func (r *authRequestRepository) GetAuthRequest(ctx context.Context, requestID st
 	}
 
 	stored.Request.Client = fositeClient
+
 	return stored.Request, nil
 }
 
