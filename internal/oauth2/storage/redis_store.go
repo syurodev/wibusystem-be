@@ -24,8 +24,9 @@ const (
 
 // RedisStore triển khai các interface lưu trữ tạm thời của Fosite bằng Redis.
 type RedisStore struct {
-	client *database.RedisClient
-	logger *zap.Logger
+	client        *database.RedisClient
+	logger        *zap.Logger
+	clientManager fosite.ClientManager // For loading clients when deserializing
 }
 
 // NewRedisStore tạo một instance mới của RedisStore.
@@ -36,15 +37,67 @@ func NewRedisStore(client *database.RedisClient, logger *zap.Logger) *RedisStore
 	}
 }
 
+// SetClientManager sets the client manager for loading clients during deserialization
+func (s *RedisStore) SetClientManager(cm fosite.ClientManager) {
+	s.clientManager = cm
+}
+
+// serializableRequest is a wrapper for fosite.Requester that can be JSON serialized
+// It stores only the client_id instead of the full client object (which is an interface)
+type serializableRequest struct {
+	ID                string              `json:"id"`
+	RequestedAt       time.Time           `json:"requestedAt"`
+	ClientID          string              `json:"client_id"`
+	RequestedScopes   []string            `json:"requestedScopes"`
+	GrantedScopes     []string            `json:"grantedScopes"`
+	Form              map[string][]string `json:"form"`
+	Session           json.RawMessage     `json:"session"`
+	RequestedAudience []string            `json:"requestedAudience"`
+	GrantedAudience   []string            `json:"grantedAudience"`
+}
+
 // --- oauth2.AuthorizeCodeStorage --- //
 
 func (s *RedisStore) CreateAuthorizeCodeSession(ctx context.Context, signature string, requester fosite.Requester) error {
 	key := fmt.Sprintf(authCodeKeyPrefix, signature)
 	lifespan := requester.GetSession().GetExpiresAt(fosite.AuthorizeCode).Sub(time.Now().UTC())
-	data, err := json.Marshal(requester)
+
+	// Serialize session separately
+	sessionData, err := json.Marshal(requester.GetSession())
 	if err != nil {
+		s.logger.Error("Failed to marshal session",
+			zap.String("error", err.Error()),
+		)
 		return fosite.ErrServerError.WithWrap(err)
 	}
+
+	// Create serializable wrapper with only client_id (not full client object)
+	serializable := &serializableRequest{
+		ID:                requester.GetID(),
+		RequestedAt:       requester.GetRequestedAt(),
+		ClientID:          requester.GetClient().GetID(), // Only store ID
+		RequestedScopes:   requester.GetRequestedScopes(),
+		GrantedScopes:     requester.GetGrantedScopes(),
+		Form:              requester.GetRequestForm(),
+		Session:           sessionData,
+		RequestedAudience: requester.GetRequestedAudience(),
+		GrantedAudience:   requester.GetGrantedAudience(),
+	}
+
+	data, err := json.Marshal(serializable)
+	if err != nil {
+		s.logger.Error("Failed to marshal authorization code session",
+			zap.String("error", err.Error()),
+		)
+		return fosite.ErrServerError.WithWrap(err)
+	}
+
+	s.logger.Debug("Saving authorization code to Redis",
+		zap.String("key", key),
+		zap.String("client_id", serializable.ClientID),
+		zap.Duration("lifespan", lifespan),
+	)
+
 	return s.client.Set(ctx, key, data, lifespan)
 }
 
@@ -77,8 +130,9 @@ func (s *RedisStore) GetAuthorizeCodeSession(ctx context.Context, signature stri
 		zap.Int("data_length", len(data)),
 	)
 
-	requester := &fosite.Request{Session: session}
-	if err := json.Unmarshal([]byte(data), requester); err != nil {
+	// Unmarshal into serializable wrapper
+	var serializable serializableRequest
+	if err := json.Unmarshal([]byte(data), &serializable); err != nil {
 		s.logger.Error("Failed to unmarshal authorization code session",
 			zap.String("error", err.Error()),
 			zap.String("key", key),
@@ -87,9 +141,50 @@ func (s *RedisStore) GetAuthorizeCodeSession(ctx context.Context, signature stri
 		return nil, fosite.ErrServerError.WithWrap(err).WithDebug("JSON unmarshal failed: " + err.Error())
 	}
 
+	s.logger.Debug("Deserialized authorization code data",
+		zap.String("client_id", serializable.ClientID),
+		zap.String("request_id", serializable.ID),
+	)
+
+	// Load client from database using ClientManager
+	if s.clientManager == nil {
+		s.logger.Error("ClientManager not set in RedisStore")
+		return nil, fosite.ErrServerError.WithDebug("ClientManager not configured")
+	}
+
+	client, err := s.clientManager.GetClient(ctx, serializable.ClientID)
+	if err != nil {
+		s.logger.Error("Failed to load client for authorization code",
+			zap.String("error", err.Error()),
+			zap.String("client_id", serializable.ClientID),
+		)
+		return nil, fosite.ErrServerError.WithWrap(err).WithDebug("Failed to load client: " + err.Error())
+	}
+
+	// Unmarshal session
+	if err := json.Unmarshal(serializable.Session, session); err != nil {
+		s.logger.Error("Failed to unmarshal session",
+			zap.String("error", err.Error()),
+		)
+		return nil, fosite.ErrServerError.WithWrap(err).WithDebug("Session unmarshal failed: " + err.Error())
+	}
+
+	// Reconstruct fosite.Request
+	requester := &fosite.Request{
+		ID:                serializable.ID,
+		RequestedAt:       serializable.RequestedAt,
+		Client:            client, // Client loaded from database
+		RequestedScope:    serializable.RequestedScopes,
+		GrantedScope:      serializable.GrantedScopes,
+		Form:              serializable.Form,
+		Session:           session,
+		RequestedAudience: serializable.RequestedAudience,
+		GrantedAudience:   serializable.GrantedAudience,
+	}
+
 	s.logger.Debug("Authorization code session loaded successfully",
 		zap.String("key", key),
-		zap.String("client_id", requester.GetClient().GetID()),
+		zap.String("client_id", client.GetID()),
 	)
 
 	return requester, nil

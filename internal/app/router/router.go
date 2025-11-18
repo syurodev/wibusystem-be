@@ -65,6 +65,9 @@ func NewRouter(cfg *configs.Config, i18nInstance *i18n.I18n, zapLogger *zap.Logg
 	sqlStore := fosite_storage.NewSQLStore(oauth2ClientRepo, oauth2SessionRepo)
 	redisStore := fosite_storage.NewRedisStore(rdb, zapLogger)
 
+	// Set ClientManager in RedisStore so it can load clients during deserialization
+	redisStore.SetClientManager(sqlStore)
+
 	// Fosite Provider
 	hybridStore := fosite_storage.NewHybridStore(sqlStore, redisStore)
 	oauth2Provider := oauth2.NewOAuth2Provider(hybridStore, &cfg.OAuth2)
