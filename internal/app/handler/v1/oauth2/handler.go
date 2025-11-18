@@ -470,6 +470,25 @@ func (h *Handler) redirectToConsent(c *gin.Context, ar fosite.AuthorizeRequester
 		return
 	}
 
+	// IMPORTANT: Lưu query params với request_id MỚI này
+	// Vì mỗi lần gọi NewAuthorizeRequest, fosite tạo một request_id mới
+	// ConsentPage sẽ cần query params để load client info
+	originalParams := c.Request.URL.RawQuery
+	err = h.authRequestRepo.SaveQueryParams(c.Request.Context(), requestID, originalParams, time.Minute*10)
+	if err != nil {
+		h.logger.Error("Failed to save query params for consent",
+			zap.String("error", err.Error()),
+			zap.String("request_id", requestID),
+		)
+		writeOAuth2Error(c, fosite.ErrServerError.WithWrap(err).WithDebug("Failed to save query params"))
+		return
+	}
+
+	h.logger.Debug("Saved query params for consent page",
+		zap.String("request_id", requestID),
+		zap.String("query_params", originalParams),
+	)
+
 	// Redirect đến consent page
 	consentURL := "/oauth2/consent?request_id=" + requestID
 	c.Redirect(http.StatusFound, consentURL)
@@ -754,14 +773,15 @@ func (h *Handler) ConsentSubmit(c *gin.Context) {
 		return
 	}
 
-	// Redirect back to /oauth2/auth with original params + session cookie
+	// Redirect back to /oauth2/auth with request_id only
+	// Authorize handler will load full params from Redis
 	// User is now authenticated and has given consent
 	h.logger.Info("Consent granted, redirecting to authorization endpoint",
 		zap.String("request_id", requestID),
 		zap.String("user_id", userID),
 		zap.String("client_id", clientID),
 	)
-	c.Redirect(http.StatusFound, "/oauth2/auth?"+queryParams)
+	c.Redirect(http.StatusFound, "/oauth2/auth?request_id="+requestID)
 }
 
 // Revoke xử lý endpoint /oauth2/revoke
