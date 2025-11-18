@@ -62,6 +62,51 @@ func writeOAuth2Error(c *gin.Context, err error) {
 	c.JSON(fositeErr.CodeField, fositeErr)
 }
 
+// showErrorPage hiển thị error page cho user khi không thể redirect về client
+func (h *Handler) showErrorPage(c *gin.Context, errorCode, errorDescription, hint string) {
+	// Try to get redirect_uri from current request to show "Return to app" button
+	redirectURI := c.Query("redirect_uri")
+	clientID := c.Query("client_id")
+
+	// Clear stale session cookie để user có thể start fresh
+	// (Expired auth requests often have stale sessions)
+	c.SetCookie(
+		"session_id",
+		"",
+		-1,    // Expire immediately
+		"/",   // path
+		"",    // domain
+		false, // secure
+		true,  // httpOnly
+	)
+
+	c.HTML(http.StatusBadRequest, "error.html", gin.H{
+		"Error":            errorCode,
+		"ErrorDescription": errorDescription,
+		"Hint":             hint,
+		"RedirectURI":      redirectURI,
+		"ClientID":         clientID,
+	})
+}
+
+// redirectWithError redirect về client với OAuth2 error
+func (h *Handler) redirectWithError(c *gin.Context, redirectURI, state, errorCode, errorDescription string) {
+	// Build error URL theo RFC 6749
+	errorURL := redirectURI + "?error=" + url.QueryEscape(errorCode)
+	if errorDescription != "" {
+		errorURL += "&error_description=" + url.QueryEscape(errorDescription)
+	}
+	if state != "" {
+		errorURL += "&state=" + url.QueryEscape(state)
+	}
+
+	h.logger.Warn("Redirecting to client with error",
+		zap.String("error", errorCode),
+		zap.String("redirect_uri", redirectURI),
+	)
+	c.Redirect(http.StatusFound, errorURL)
+}
+
 // ... (Discovery handler is the same)
 
 // UserInfo xử lý endpoint /oauth2/userinfo.
@@ -462,11 +507,19 @@ func (h *Handler) LoginSubmit(c *gin.Context) {
 	// Load original OAuth2 query params từ Redis
 	queryParams, err := h.authRequestRepo.GetQueryParams(c.Request.Context(), requestID)
 	if err != nil {
-		h.logger.Error("Failed to load query params after login",
+		h.logger.Error("Failed to load query params after login - request expired",
 			zap.String("error", err.Error()),
 			zap.String("request_id", requestID),
+			zap.String("user_id", user.ID.String()),
 		)
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid or expired authorization request"})
+
+		// Authorization request expired (TTL exceeded)
+		// Show error page với option để user thử lại
+		h.showErrorPage(c,
+			"invalid_request",
+			"Your authorization request has expired. Please try again.",
+			"Authorization requests are valid for 10 minutes. Click below to start over.",
+		)
 		return
 	}
 
@@ -552,11 +605,19 @@ func (h *Handler) ConsentSubmit(c *gin.Context) {
 	// Load original OAuth2 query params từ Redis
 	queryParams, err := h.authRequestRepo.GetQueryParams(c.Request.Context(), requestID)
 	if err != nil {
-		h.logger.Error("Failed to load query params for consent",
+		h.logger.Error("Failed to load query params for consent - request expired",
 			zap.String("error", err.Error()),
 			zap.String("request_id", requestID),
+			zap.String("user_id", userID),
 		)
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid or expired authorization request"})
+
+		// Authorization request expired (TTL exceeded)
+		// Show error page với option để user thử lại
+		h.showErrorPage(c,
+			"invalid_request",
+			"Your authorization request has expired. Please try again.",
+			"Authorization requests are valid for 10 minutes. Click below to start over.",
+		)
 		return
 	}
 
