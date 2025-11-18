@@ -7,10 +7,12 @@ import (
 	"system/internal/app/handler/v1/artist"
 	"system/internal/app/handler/v1/auth"
 	"system/internal/app/handler/v1/author"
+	"system/internal/app/handler/v1/chapter"
 	"system/internal/app/handler/v1/genre"
 	"system/internal/app/handler/v1/novel"
 	oauth2_handler "system/internal/app/handler/v1/oauth2"
 	"system/internal/app/handler/v1/oauth2_admin"
+	"system/internal/app/handler/v1/volume"
 	"system/internal/oauth2"
 	fosite_storage "system/internal/oauth2/storage"
 	"system/internal/pkg/repository"
@@ -68,6 +70,10 @@ func NewRouter(cfg *configs.Config, i18nInstance *i18n.I18n, zapLogger *zap.Logg
 	authorRepo := repository.NewAuthorRepository(db.Pool)
 	artistRepo := repository.NewArtistRepository(db.Pool)
 	novelRepo := repository.NewNovelRepository(db.Pool)
+	volumeRepo := repository.NewVolumeRepository(db.Pool)
+	volumeHistoryRepo := repository.NewVolumeHistoryRepository(db.Pool)
+	chapterRepo := repository.NewChapterRepository(db.Pool)
+	chapterHistoryRepo := repository.NewChapterHistoryRepository(db.Pool)
 
 	// Fosite Storage
 	sqlStore := fosite_storage.NewSQLStore(oauth2ClientRepo, oauth2SessionRepo)
@@ -101,6 +107,8 @@ func NewRouter(cfg *configs.Config, i18nInstance *i18n.I18n, zapLogger *zap.Logg
 	authorService := service.NewAuthorService(authorRepo)
 	artistService := service.NewArtistService(artistRepo)
 	novelService := service.NewNovelService(novelRepo)
+	volumeService := service.NewVolumeService(volumeRepo, volumeHistoryRepo)
+	chapterService := service.NewChapterService(chapterRepo, chapterHistoryRepo)
 
 	// Handlers
 	oauth2Handler := oauth2_handler.NewHandler(
@@ -118,6 +126,8 @@ func NewRouter(cfg *configs.Config, i18nInstance *i18n.I18n, zapLogger *zap.Logg
 	authorHandler := author.NewHandler(authorService)
 	artistHandler := artist.NewHandler(artistService)
 	novelHandler := novel.NewHandler(novelService)
+	volumeHandler := volume.NewHandler(volumeService)
+	chapterHandler := chapter.NewHandler(chapterService)
 
 	// --- Đăng ký Routes ---
 	apiV1 := router.Group("/api/v1")
@@ -146,6 +156,33 @@ func NewRouter(cfg *configs.Config, i18nInstance *i18n.I18n, zapLogger *zap.Logg
 		novelGroup := apiV1.Group("/novels")
 		{
 			novelHandler.RegisterRoutes(novelGroup)
+
+			// Nested: Volumes by novel
+			novelGroup.GET("/:novel_id/volumes", volumeHandler.ListVolumesByNovel)
+
+			// Nested: Chapters by novel
+			novelChaptersGroup := novelGroup.Group("/:novel_id/chapters")
+			{
+				chapterHandler.RegisterNovelChaptersRoutes(novelChaptersGroup)
+			}
+		}
+
+		// Volume routes
+		volumeGroup := apiV1.Group("/volumes")
+		{
+			volumeHandler.RegisterRoutes(volumeGroup)
+
+			// Nested: Chapters by volume
+			volumeChaptersGroup := volumeGroup.Group("/:volume_id/chapters")
+			{
+				chapterHandler.RegisterVolumeChaptersRoutes(volumeChaptersGroup)
+			}
+		}
+
+		// Chapter routes
+		chapterGroup := apiV1.Group("/chapters")
+		{
+			chapterHandler.RegisterRoutes(chapterGroup)
 		}
 	}
 
