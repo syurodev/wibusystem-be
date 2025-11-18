@@ -1,0 +1,56 @@
+package genre
+
+// CreateGenreRequest là DTO cho việc tạo genre mới
+type CreateGenreRequest struct {
+	Name        string  `json:"name" binding:"required,min=1,max=100"`
+	Description string  `json:"description" binding:"max=1000"`
+	ParentID    *string `json:"parent_id,omitempty"` // UUID as string
+}
+
+// UpdateGenreRequest là DTO cho việc cập nhật genre
+type UpdateGenreRequest struct {
+	Name         string  `json:"name" binding:"required,min=1,max=100"`
+	Description  string  `json:"description" binding:"max=1000"`
+	ParentID     *string `json:"parent_id,omitempty"` // UUID as string
+	DisplayOrder int     `json:"display_order" binding:"min=0"`
+	IsActive     bool    `json:"is_active"`
+}
+
+// GenreResponse là DTO cho response genre
+type GenreResponse struct {
+	ID            string  `json:"id"`
+	Name          string  `json:"name"`
+	SeriesCount   int     `json:"series_count"`   // tổng số novel (sau này sẽ có cả manga và anime)
+	ActiveReaders int64   `json:"active_readers"` // số độc giả đang active
+	TotalViews    int64   `json:"total_views"`    // tổng lượt xem
+	Trend         string  `json:"trend"`          // "rising" | "stable" | "falling"
+	Description   *string `json:"description,omitempty"`
+}
+
+// ListGenresRequest là DTO cho việc lấy danh sách genres
+type ListGenresRequest struct {
+	Page       int  `form:"page" binding:"omitempty,min=1"`
+	Limit      int  `form:"limit" binding:"omitempty,min=1,max=100"`
+	ActiveOnly bool `form:"active_only"`
+}
+
+// GenreDetailResponse là DTO chi tiết cho genre (bao gồm thêm thông tin)
+type GenreDetailResponse struct {
+	ID           string  `json:"id"`
+	Name         string  `json:"name"`
+	Slug         string  `json:"slug"`
+	Description  *string `json:"description,omitempty"`
+	ParentID     *string `json:"parent_id,omitempty"`
+	DisplayOrder int     `json:"display_order"`
+	IsActive     bool    `json:"is_active"`
+
+	// Statistics
+	SeriesCount   int   `json:"series_count"`
+	ActiveReaders int64 `json:"active_readers"`
+	TotalViews    int64 `json:"total_views"`
+	Trend         string `json:"trend"`
+
+	// Audit
+	CreatedAt string `json:"created_at"`
+	UpdatedAt string `json:"updated_at"`
+}

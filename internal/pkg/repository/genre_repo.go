@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"fmt"
 	"system/internal/domain"
 
 	"github.com/gofrs/uuid/v5"
@@ -19,14 +20,19 @@ func NewGenreRepository(pool *pgxpool.Pool) domain.GenreRepository {
 	return &genreRepository{pool: pool}
 }
 
+const genreColumns = `
+	id, name, slug, description, parent_id,
+	display_order, is_active, novel_count, active_readers, total_views,
+	created_at, updated_at
+`
+
 // GetByID lấy genre từ database theo ID
 func (r *genreRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.Genre, error) {
-	query := `
-		SELECT id, name, slug, description, parent_id,
-		       display_order, is_active, created_at, updated_at
+	query := fmt.Sprintf(`
+		SELECT %s
 		FROM catalog.genres
-		WHERE id = $1
-	`
+		WHERE id = $1 AND deleted_at IS NULL
+	`, genreColumns)
 
 	rows, err := r.pool.Query(ctx, query, id)
 	if err != nil {
@@ -43,12 +49,11 @@ func (r *genreRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.Ge
 
 // GetBySlug lấy genre từ database theo slug
 func (r *genreRepository) GetBySlug(ctx context.Context, slug string) (*domain.Genre, error) {
-	query := `
-		SELECT id, name, slug, description, parent_id,
-		       display_order, is_active, created_at, updated_at
+	query := fmt.Sprintf(`
+		SELECT %s
 		FROM catalog.genres
-		WHERE slug = $1
-	`
+		WHERE slug = $1 AND deleted_at IS NULL
+	`, genreColumns)
 
 	rows, err := r.pool.Query(ctx, query, slug)
 	if err != nil {
@@ -65,14 +70,14 @@ func (r *genreRepository) GetBySlug(ctx context.Context, slug string) (*domain.G
 
 // GetAll lấy tất cả genres
 func (r *genreRepository) GetAll(ctx context.Context, activeOnly bool) ([]*domain.Genre, error) {
-	query := `
-		SELECT id, name, slug, description, parent_id,
-		       display_order, is_active, created_at, updated_at
+	query := fmt.Sprintf(`
+		SELECT %s
 		FROM catalog.genres
-	`
+		WHERE deleted_at IS NULL
+	`, genreColumns)
 
 	if activeOnly {
-		query += " WHERE is_active = true"
+		query += " AND is_active = true"
 	}
 
 	query += " ORDER BY display_order ASC, name ASC"
@@ -90,15 +95,57 @@ func (r *genreRepository) GetAll(ctx context.Context, activeOnly bool) ([]*domai
 	return genres, nil
 }
 
+// List lấy danh sách genres với pagination
+func (r *genreRepository) List(ctx context.Context, offset, limit int, activeOnly bool) ([]*domain.Genre, int, error) {
+	// Query to get total count
+	countQuery := `
+		SELECT COUNT(*)
+		FROM catalog.genres
+		WHERE deleted_at IS NULL
+	`
+	if activeOnly {
+		countQuery += " AND is_active = true"
+	}
+
+	var totalCount int
+	if err := r.pool.QueryRow(ctx, countQuery).Scan(&totalCount); err != nil {
+		return nil, 0, err
+	}
+
+	// Query to get genres with pagination
+	query := fmt.Sprintf(`
+		SELECT %s
+		FROM catalog.genres
+		WHERE deleted_at IS NULL
+	`, genreColumns)
+
+	if activeOnly {
+		query += " AND is_active = true"
+	}
+
+	query += " ORDER BY display_order ASC, name ASC LIMIT $1 OFFSET $2"
+
+	rows, err := r.pool.Query(ctx, query, limit, offset)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	genres, err := pgx.CollectRows(rows, pgx.RowToAddrOfStructByName[domain.Genre])
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return genres, totalCount, nil
+}
+
 // GetByParentID lấy các genre con theo parent ID
 func (r *genreRepository) GetByParentID(ctx context.Context, parentID uuid.UUID) ([]*domain.Genre, error) {
-	query := `
-		SELECT id, name, slug, description, parent_id,
-		       display_order, is_active, created_at, updated_at
+	query := fmt.Sprintf(`
+		SELECT %s
 		FROM catalog.genres
-		WHERE parent_id = $1
+		WHERE parent_id = $1 AND deleted_at IS NULL
 		ORDER BY display_order ASC, name ASC
-	`
+	`, genreColumns)
 
 	rows, err := r.pool.Query(ctx, query, parentID)
 	if err != nil {
@@ -115,13 +162,12 @@ func (r *genreRepository) GetByParentID(ctx context.Context, parentID uuid.UUID)
 
 // GetRootGenres lấy các genre gốc (không có parent)
 func (r *genreRepository) GetRootGenres(ctx context.Context) ([]*domain.Genre, error) {
-	query := `
-		SELECT id, name, slug, description, parent_id,
-		       display_order, is_active, created_at, updated_at
+	query := fmt.Sprintf(`
+		SELECT %s
 		FROM catalog.genres
-		WHERE parent_id IS NULL
+		WHERE parent_id IS NULL AND deleted_at IS NULL
 		ORDER BY display_order ASC, name ASC
-	`
+	`, genreColumns)
 
 	rows, err := r.pool.Query(ctx, query)
 	if err != nil {
@@ -140,8 +186,9 @@ func (r *genreRepository) GetRootGenres(ctx context.Context) ([]*domain.Genre, e
 func (r *genreRepository) Create(ctx context.Context, genre *domain.Genre) error {
 	query := `
 		INSERT INTO catalog.genres (
-			id, name, slug, description, parent_id, display_order, is_active
-		) VALUES ($1, $2, $3, $4, $5, $6, $7)
+			id, name, slug, description, parent_id, display_order,
+			is_active, created_by, created_at, updated_at
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())
 	`
 
 	_, err := r.pool.Exec(ctx, query,
@@ -152,6 +199,7 @@ func (r *genreRepository) Create(ctx context.Context, genre *domain.Genre) error
 		genre.ParentID,
 		genre.DisplayOrder,
 		genre.IsActive,
+		genre.CreatedBy,
 	)
 
 	return err
@@ -167,11 +215,12 @@ func (r *genreRepository) Update(ctx context.Context, genre *domain.Genre) error
 		    parent_id = $5,
 		    display_order = $6,
 		    is_active = $7,
+		    updated_by = $8,
 		    updated_at = NOW()
-		WHERE id = $1
+		WHERE id = $1 AND deleted_at IS NULL
 	`
 
-	_, err := r.pool.Exec(ctx, query,
+	result, err := r.pool.Exec(ctx, query,
 		genre.ID,
 		genre.Name,
 		genre.Slug,
@@ -179,28 +228,50 @@ func (r *genreRepository) Update(ctx context.Context, genre *domain.Genre) error
 		genre.ParentID,
 		genre.DisplayOrder,
 		genre.IsActive,
+		genre.UpdatedBy,
 	)
 
-	return err
+	if err != nil {
+		return err
+	}
+
+	if result.RowsAffected() == 0 {
+		return pgx.ErrNoRows
+	}
+
+	return nil
 }
 
-// Delete xóa genre
-func (r *genreRepository) Delete(ctx context.Context, id uuid.UUID) error {
-	query := `DELETE FROM catalog.genres WHERE id = $1`
-	_, err := r.pool.Exec(ctx, query, id)
-	return err
+// Delete xóa genre (soft delete)
+func (r *genreRepository) Delete(ctx context.Context, id uuid.UUID, deletedBy uuid.UUID) error {
+	query := `
+		UPDATE catalog.genres
+		SET deleted_at = NOW(),
+		    deleted_by = $2
+		WHERE id = $1 AND deleted_at IS NULL
+	`
+
+	result, err := r.pool.Exec(ctx, query, id, deletedBy)
+	if err != nil {
+		return err
+	}
+
+	if result.RowsAffected() == 0 {
+		return pgx.ErrNoRows
+	}
+
+	return nil
 }
 
 // GetNovelGenres lấy danh sách genres của một novel
 func (r *genreRepository) GetNovelGenres(ctx context.Context, novelID uuid.UUID) ([]*domain.Genre, error) {
-	query := `
-		SELECT g.id, g.name, g.slug, g.description, g.parent_id,
-		       g.display_order, g.is_active, g.created_at, g.updated_at
+	query := fmt.Sprintf(`
+		SELECT %s
 		FROM catalog.genres g
 		INNER JOIN catalog.novel_genres ng ON g.id = ng.genre_id
-		WHERE ng.novel_id = $1
+		WHERE ng.novel_id = $1 AND g.deleted_at IS NULL
 		ORDER BY ng.display_order ASC, g.name ASC
-	`
+	`, "g."+genreColumns)
 
 	rows, err := r.pool.Query(ctx, query, novelID)
 	if err != nil {
@@ -216,15 +287,15 @@ func (r *genreRepository) GetNovelGenres(ctx context.Context, novelID uuid.UUID)
 }
 
 // AddNovelGenre thêm genre cho novel
-func (r *genreRepository) AddNovelGenre(ctx context.Context, novelID, genreID uuid.UUID, displayOrder int) error {
+func (r *genreRepository) AddNovelGenre(ctx context.Context, novelID, genreID, createdBy uuid.UUID, displayOrder int) error {
 	query := `
-		INSERT INTO catalog.novel_genres (novel_id, genre_id, display_order)
-		VALUES ($1, $2, $3)
+		INSERT INTO catalog.novel_genres (id, novel_id, genre_id, display_order, created_by, created_at)
+		VALUES (gen_random_uuid(), $1, $2, $3, $4, NOW())
 		ON CONFLICT (novel_id, genre_id) DO UPDATE
 		SET display_order = EXCLUDED.display_order
 	`
 
-	_, err := r.pool.Exec(ctx, query, novelID, genreID, displayOrder)
+	_, err := r.pool.Exec(ctx, query, novelID, genreID, displayOrder, createdBy)
 	return err
 }
 
@@ -240,7 +311,7 @@ func (r *genreRepository) RemoveNovelGenre(ctx context.Context, novelID, genreID
 }
 
 // UpdateNovelGenres cập nhật toàn bộ genres của novel
-func (r *genreRepository) UpdateNovelGenres(ctx context.Context, novelID uuid.UUID, genreIDs []uuid.UUID) error {
+func (r *genreRepository) UpdateNovelGenres(ctx context.Context, novelID uuid.UUID, genreIDs []uuid.UUID, createdBy uuid.UUID) error {
 	// Start transaction
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
@@ -258,8 +329,8 @@ func (r *genreRepository) UpdateNovelGenres(ctx context.Context, novelID uuid.UU
 	if len(genreIDs) > 0 {
 		for i, genreID := range genreIDs {
 			_, err = tx.Exec(ctx,
-				"INSERT INTO catalog.novel_genres (novel_id, genre_id, display_order) VALUES ($1, $2, $3)",
-				novelID, genreID, i,
+				"INSERT INTO catalog.novel_genres (id, novel_id, genre_id, display_order, created_by, created_at) VALUES (gen_random_uuid(), $1, $2, $3, $4, NOW())",
+				novelID, genreID, i, createdBy,
 			)
 			if err != nil {
 				return err

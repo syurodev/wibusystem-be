@@ -47,6 +47,8 @@ CREATE TABLE catalog.genres (
 
     -- Statistics (auto-updated by application)
     novel_count INTEGER NOT NULL DEFAULT 0 CHECK (novel_count >= 0),
+    active_readers BIGINT NOT NULL DEFAULT 0 CHECK (active_readers >= 0),
+    total_views BIGINT NOT NULL DEFAULT 0 CHECK (total_views >= 0),
 
     -- Audit fields
     created_by UUID NOT NULL REFERENCES identify.users(id) ON DELETE RESTRICT,

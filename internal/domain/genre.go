@@ -22,7 +22,14 @@ type Genre struct {
 	DisplayOrder int
 	IsActive     bool
 
+	// Statistics (auto-updated by application)
+	NovelCount    int
+	ActiveReaders int64
+	TotalViews    int64
+
 	// Audit
+	CreatedBy *uuid.UUID
+	UpdatedBy *uuid.UUID
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }
@@ -38,6 +45,9 @@ type GenreRepository interface {
 	// GetAll lấy tất cả genres (có thể filter)
 	GetAll(ctx context.Context, activeOnly bool) ([]*Genre, error)
 
+	// List lấy danh sách genres với pagination
+	List(ctx context.Context, offset, limit int, activeOnly bool) ([]*Genre, int, error)
+
 	// GetByParentID lấy các genre con theo parent ID
 	GetByParentID(ctx context.Context, parentID uuid.UUID) ([]*Genre, error)
 
@@ -50,20 +60,20 @@ type GenreRepository interface {
 	// Update cập nhật genre
 	Update(ctx context.Context, genre *Genre) error
 
-	// Delete xóa genre (chỉ khi không có novel nào sử dụng)
-	Delete(ctx context.Context, id uuid.UUID) error
+	// Delete xóa genre (soft delete)
+	Delete(ctx context.Context, id uuid.UUID, deletedBy uuid.UUID) error
 
 	// GetNovelGenres lấy danh sách genres của một novel
 	GetNovelGenres(ctx context.Context, novelID uuid.UUID) ([]*Genre, error)
 
 	// AddNovelGenre thêm genre cho novel
-	AddNovelGenre(ctx context.Context, novelID, genreID uuid.UUID, displayOrder int) error
+	AddNovelGenre(ctx context.Context, novelID, genreID, createdBy uuid.UUID, displayOrder int) error
 
 	// RemoveNovelGenre xóa genre khỏi novel
 	RemoveNovelGenre(ctx context.Context, novelID, genreID uuid.UUID) error
 
 	// UpdateNovelGenres cập nhật toàn bộ genres của novel
-	UpdateNovelGenres(ctx context.Context, novelID uuid.UUID, genreIDs []uuid.UUID) error
+	UpdateNovelGenres(ctx context.Context, novelID uuid.UUID, genreIDs []uuid.UUID, createdBy uuid.UUID) error
 }
 
 // GenreTree là cấu trúc phân cấp của genres
