@@ -1,8 +1,14 @@
-# API Client Guide - Genre, Author, Artist & Novel
+# API Client Guide - Novel Management System
 
 ## Tổng quan
 
-Tài liệu này hướng dẫn cách sử dụng các API cho 4 domain chính: **Genre** (Thể loại), **Author** (Tác giả), **Artist** (Hoạ sĩ), và **Novel** (Tiểu thuyết).
+Tài liệu này hướng dẫn cách sử dụng các API cho hệ thống quản lý tiểu thuyết, bao gồm 6 domain chính:
+- **Genre** (Thể loại)
+- **Author** (Tác giả)
+- **Artist** (Hoạ sĩ)
+- **Novel** (Tiểu thuyết)
+- **Volume** (Tập)
+- **Chapter** (Chương)
 
 **Base URL**: `http://localhost:8080/api/v1`
 
@@ -971,7 +977,875 @@ async function trackNovelView(novelId) {
 
 ---
 
-## 5. Common Error Codes
+## 5. Volume API (Tập)
+
+### Tổng quan
+
+Volume (Tập) là một nhóm các chapter thuộc về một novel. Một novel có thể có nhiều volumes, và mỗi volume chứa nhiều chapters. Volume API cung cấp:
+- Full CRUD operations (Create, Read, Update, Delete)
+- Publish/Unpublish với history tracking
+- Display order management
+- Tự động generate slug từ title
+- Kiểm tra volume number uniqueness
+
+**Hierarchy**: Novel → Volume → Chapter
+
+---
+
+### 5.1. Lấy danh sách Volumes theo Novel
+
+**Endpoint**: `GET /api/v1/novels/:novel_id/volumes`
+
+**Path Parameters**:
+- `novel_id` (string, required): UUID của novel
+
+**Query Parameters**:
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| published_only | bool | No | false | Chỉ lấy volumes đã publish |
+
+**Response**:
+```json
+{
+  "success": true,
+  "message": "volume.list_success",
+  "data": [
+    {
+      "id": "uuid-string",
+      "novel_id": "novel-uuid",
+      "volume_number": 1,
+      "title": "Tập 1: Khởi Đầu",
+      "slug": "tap-1-khoi-dau",
+      "cover_image_url": "https://example.com/volume1.jpg",
+      "chapter_count": 250,
+      "word_count": 500000,
+      "display_order": 1,
+      "is_published": true,
+      "published_at": "2024-01-01T00:00:00Z",
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-02T00:00:00Z"
+    }
+  ]
+}
+```
+
+**Curl Examples**:
+```bash
+# Lấy tất cả volumes của novel
+curl -X GET "http://localhost:8080/api/v1/novels/{novel_id}/volumes"
+
+# Chỉ lấy volumes đã publish
+curl -X GET "http://localhost:8080/api/v1/novels/{novel_id}/volumes?published_only=true"
+```
+
+---
+
+### 5.2. Lấy chi tiết Volume
+
+**Endpoint**: `GET /api/v1/volumes/:id`
+
+**Path Parameters**:
+- `id` (string, required): UUID của volume
+
+**Response**:
+```json
+{
+  "success": true,
+  "message": "volume.get_success",
+  "data": {
+    "id": "uuid-string",
+    "novel_id": "novel-uuid",
+    "volume_number": 1,
+    "title": "Tập 1: Khởi Đầu",
+    "slug": "tap-1-khoi-dau",
+    "description": "Mô tả chi tiết tập 1...",
+    "cover_image_url": "https://example.com/volume1.jpg",
+    "chapter_count": 250,
+    "word_count": 500000,
+    "display_order": 1,
+    "is_published": true,
+    "published_at": "2024-01-01T00:00:00Z",
+    "created_at": "2024-01-01T00:00:00Z",
+    "updated_at": "2024-01-02T00:00:00Z"
+  }
+}
+```
+
+**Curl Example**:
+```bash
+curl -X GET "http://localhost:8080/api/v1/volumes/{volume_id}"
+```
+
+**Error Responses**:
+- `400 INVALID_ID`: UUID không hợp lệ
+- `404 VOLUME_NOT_FOUND`: Volume không tồn tại
+
+---
+
+### 5.3. Tạo Volume mới
+
+**Endpoint**: `POST /api/v1/volumes`
+
+**Headers**:
+- `Content-Type: application/json`
+- `Authorization: Bearer <token>` (required)
+
+**Request Body**:
+```json
+{
+  "novel_id": "novel-uuid",
+  "volume_number": 1,
+  "title": "Tập 1: Khởi Đầu",
+  "description": "Mô tả chi tiết tập 1...",
+  "cover_image_url": "https://example.com/volume1.jpg",
+  "display_order": 1,
+  "is_published": false
+}
+```
+
+**Validation**:
+- `novel_id`: bắt buộc, phải là UUID hợp lệ
+- `volume_number`: bắt buộc, phải >= 1, unique trong novel
+- `title`: bắt buộc, độ dài 1-500 ký tự
+- `description`: tùy chọn, max 5000 ký tự
+- `cover_image_url`: tùy chọn, phải là URL hợp lệ
+- `display_order`: bắt buộc, >= 0
+- `is_published`: bắt buộc, boolean
+
+**Response**:
+```json
+{
+  "success": true,
+  "message": "volume.created_success",
+  "data": {
+    "id": "new-uuid",
+    "novel_id": "novel-uuid",
+    "volume_number": 1,
+    "title": "Tập 1: Khởi Đầu",
+    "slug": "tap-1-khoi-dau",
+    "description": "Mô tả chi tiết tập 1...",
+    "cover_image_url": "https://example.com/volume1.jpg",
+    "chapter_count": 0,
+    "word_count": 0,
+    "display_order": 1,
+    "is_published": false,
+    "published_at": null,
+    "created_at": "2024-01-16T00:00:00Z",
+    "updated_at": "2024-01-16T00:00:00Z"
+  }
+}
+```
+
+**Curl Example**:
+```bash
+curl -X POST "http://localhost:8080/api/v1/volumes" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <token>" \
+  -d '{
+    "novel_id": "novel-uuid",
+    "volume_number": 1,
+    "title": "Tập 1: Khởi Đầu",
+    "display_order": 1,
+    "is_published": false
+  }'
+```
+
+**Error Responses**:
+- `400 INVALID_INPUT`: Dữ liệu đầu vào không hợp lệ
+- `400 INVALID_NOVEL_ID`: Novel ID không hợp lệ
+- `409 VOLUME_NUMBER_EXISTS`: Volume number đã tồn tại cho novel này
+
+---
+
+### 5.4. Cập nhật Volume (với History Tracking)
+
+**Endpoint**: `PUT /api/v1/volumes/:id`
+
+**Headers**:
+- `Content-Type: application/json`
+- `Authorization: Bearer <token>` (required)
+
+**Request Body**:
+```json
+{
+  "volume_number": 1,
+  "title": "Tập 1: Khởi Đầu (Updated)",
+  "description": "Mô tả mới...",
+  "cover_image_url": "https://example.com/new-cover.jpg",
+  "display_order": 1,
+  "is_published": true
+}
+```
+
+**History Tracking**:
+Mọi thay đổi được log vào bảng `volume_history` với thông tin:
+- Version number tự động tăng
+- Changed fields (các trường đã thay đổi)
+- Change summary (tóm tắt thay đổi)
+- Request context (IP, user agent, request ID)
+- Changed by (user ID)
+
+**Changed Fields Tracked**:
+- `volume_number` - Số thứ tự tập
+- `title` - Tiêu đề
+- `slug` - Slug (tự động update khi title thay đổi)
+- `description` - Mô tả
+- `cover_image_url` - URL ảnh bìa
+- `display_order` - Thứ tự hiển thị
+- `is_published` - Trạng thái publish
+
+**Response**: Giống như response của GET volume detail
+
+**Curl Example**:
+```bash
+curl -X PUT "http://localhost:8080/api/v1/volumes/{volume_id}" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <token>" \
+  -d '{
+    "volume_number": 1,
+    "title": "Tập 1: Khởi Đầu (Updated)",
+    "display_order": 1,
+    "is_published": true
+  }'
+```
+
+**Error Responses**:
+- `404 VOLUME_NOT_FOUND`: Volume không tồn tại
+- `400 INVALID_INPUT`: Dữ liệu không hợp lệ
+- `409 VOLUME_NUMBER_EXISTS`: Volume number mới đã tồn tại
+
+---
+
+### 5.5. Xóa Volume
+
+**Endpoint**: `DELETE /api/v1/volumes/:id`
+
+**Headers**:
+- `Authorization: Bearer <token>` (required)
+
+**Response**:
+```json
+{
+  "success": true,
+  "message": "volume.deleted_success"
+}
+```
+
+**Curl Example**:
+```bash
+curl -X DELETE "http://localhost:8080/api/v1/volumes/{volume_id}" \
+  -H "Authorization: Bearer <token>"
+```
+
+**Error Responses**:
+- `404 VOLUME_NOT_FOUND`: Volume không tồn tại
+
+**Note**: Đây là soft delete, dữ liệu vẫn được giữ trong database với `deleted_at` timestamp
+
+---
+
+### 5.6. Cập nhật Display Order
+
+**Endpoint**: `PUT /api/v1/volumes/:id/display-order`
+
+**Headers**:
+- `Content-Type: application/json`
+- `Authorization: Bearer <token>` (required)
+
+**Request Body**:
+```json
+{
+  "display_order": 5
+}
+```
+
+**Response**:
+```json
+{
+  "success": true,
+  "message": "volume.display_order_updated"
+}
+```
+
+**Curl Example**:
+```bash
+curl -X PUT "http://localhost:8080/api/v1/volumes/{volume_id}/display-order" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <token>" \
+  -d '{"display_order": 5}'
+```
+
+**Use Case**: Sắp xếp lại thứ tự hiển thị của các volumes
+
+---
+
+### 5.7. Publish Volume (với History Tracking)
+
+**Endpoint**: `POST /api/v1/volumes/:id/publish`
+
+**Headers**:
+- `Authorization: Bearer <token>` (required)
+
+**Description**: Publish volume và log vào history
+
+**Response**:
+```json
+{
+  "success": true,
+  "message": "volume.published_success"
+}
+```
+
+**Curl Example**:
+```bash
+curl -X POST "http://localhost:8080/api/v1/volumes/{volume_id}/publish" \
+  -H "Authorization: Bearer <token>"
+```
+
+**Note**:
+- Tự động set `is_published = true`
+- Set `published_at` timestamp nếu chưa có
+- Log vào `volume_history` với action = 'published'
+
+---
+
+### 5.8. Unpublish Volume (với History Tracking)
+
+**Endpoint**: `POST /api/v1/volumes/:id/unpublish`
+
+**Headers**:
+- `Authorization: Bearer <token>` (required)
+
+**Description**: Ẩn volume (unpublish) và log vào history
+
+**Response**:
+```json
+{
+  "success": true,
+  "message": "volume.unpublished_success"
+}
+```
+
+**Curl Example**:
+```bash
+curl -X POST "http://localhost:8080/api/v1/volumes/{volume_id}/unpublish" \
+  -H "Authorization: Bearer <token>"
+```
+
+**Note**:
+- Set `is_published = false`
+- Log vào `volume_history` với action = 'unpublished'
+
+---
+
+## 6. Chapter API (Chương)
+
+### Tổng quan
+
+Chapter (Chương) là đơn vị nội dung nhỏ nhất trong hệ thống. Mỗi chapter thuộc về một novel và có thể thuộc về một volume (hoặc không). Chapter API cung cấp:
+- Full CRUD operations với content management
+- Publish immediately hoặc schedule for later
+- Content và author notes lưu dưới dạng JSONB
+- Tự động tính word count và character count
+- Hỗ trợ pricing (free/paid)
+- View tracking và statistics
+- Status management (draft, published, scheduled)
+- History tracking cho mọi update
+
+**Status Flow**: Draft → Published hoặc Draft → Scheduled → Published
+
+---
+
+### 6.1. Lấy danh sách Chapters theo Novel
+
+**Endpoint**: `GET /api/v1/novels/:novel_id/chapters`
+
+**Path Parameters**:
+- `novel_id` (string, required): UUID của novel
+
+**Query Parameters**:
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| status | string | No | - | Filter theo status: `draft`, `published`, `scheduled` |
+| volume_id | string | No | - | Filter theo volume ID |
+| published_only | bool | No | false | Chỉ lấy chapters đã publish |
+| is_free | bool | No | - | Filter theo free/paid |
+| sort_by | string | No | - | Sort theo: `chapter_number`, `published_at`, `views` |
+| sort_order | string | No | asc | Thứ tự: `asc`, `desc` |
+| page | int | No | - | Số trang |
+| limit | int | No | - | Số items/trang |
+
+**Response**:
+```json
+{
+  "success": true,
+  "message": "chapter.list_success",
+  "data": [
+    {
+      "id": "uuid-string",
+      "novel_id": "novel-uuid",
+      "volume_id": "volume-uuid",
+      "chapter_number": 1,
+      "title": "Chương 1: Bắt Đầu",
+      "slug": "chuong-1-bat-dau",
+      "word_count": 2500,
+      "is_free": true,
+      "price": null,
+      "currency": null,
+      "status": "published",
+      "view_count": 10000,
+      "like_count": 500,
+      "comment_count": 50,
+      "display_order": 1,
+      "published_at": "2024-01-01T00:00:00Z",
+      "scheduled_at": null,
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-02T00:00:00Z"
+    }
+  ]
+}
+```
+
+**Curl Examples**:
+```bash
+# Lấy tất cả chapters của novel
+curl -X GET "http://localhost:8080/api/v1/novels/{novel_id}/chapters"
+
+# Chỉ lấy chapters đã publish
+curl -X GET "http://localhost:8080/api/v1/novels/{novel_id}/chapters?published_only=true"
+
+# Filter theo volume
+curl -X GET "http://localhost:8080/api/v1/novels/{novel_id}/chapters?volume_id={volume_id}"
+
+# Filter theo status
+curl -X GET "http://localhost:8080/api/v1/novels/{novel_id}/chapters?status=draft"
+
+# Chỉ lấy chapters free
+curl -X GET "http://localhost:8080/api/v1/novels/{novel_id}/chapters?is_free=true"
+
+# Sort theo views
+curl -X GET "http://localhost:8080/api/v1/novels/{novel_id}/chapters?sort_by=views&sort_order=desc"
+
+# Với pagination
+curl -X GET "http://localhost:8080/api/v1/novels/{novel_id}/chapters?page=1&limit=50"
+```
+
+---
+
+### 6.2. Lấy danh sách Chapters theo Volume
+
+**Endpoint**: `GET /api/v1/volumes/:volume_id/chapters`
+
+**Path Parameters**:
+- `volume_id` (string, required): UUID của volume
+
+**Query Parameters**:
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| published_only | bool | No | false | Chỉ lấy chapters đã publish |
+
+**Response**: Giống như GET chapters by novel
+
+**Curl Examples**:
+```bash
+# Lấy tất cả chapters của volume
+curl -X GET "http://localhost:8080/api/v1/volumes/{volume_id}/chapters"
+
+# Chỉ lấy chapters đã publish
+curl -X GET "http://localhost:8080/api/v1/volumes/{volume_id}/chapters?published_only=true"
+```
+
+---
+
+### 6.3. Lấy chi tiết Chapter
+
+**Endpoint**: `GET /api/v1/chapters/:id`
+
+**Path Parameters**:
+- `id` (string, required): UUID của chapter
+
+**Response**:
+```json
+{
+  "success": true,
+  "message": "chapter.get_success",
+  "data": {
+    "id": "uuid-string",
+    "novel_id": "novel-uuid",
+    "volume_id": "volume-uuid",
+    "chapter_number": 1,
+    "title": "Chương 1: Bắt Đầu",
+    "slug": "chuong-1-bat-dau",
+    "content": "Nội dung chapter đầy đủ ở đây...",
+    "word_count": 2500,
+    "character_count": 10000,
+    "is_free": true,
+    "price": null,
+    "currency": null,
+    "status": "published",
+    "view_count": 10000,
+    "like_count": 500,
+    "comment_count": 50,
+    "display_order": 1,
+    "author_notes": "Ghi chú của tác giả...",
+    "published_at": "2024-01-01T00:00:00Z",
+    "scheduled_at": null,
+    "created_at": "2024-01-01T00:00:00Z",
+    "updated_at": "2024-01-02T00:00:00Z"
+  }
+}
+```
+
+**Curl Example**:
+```bash
+curl -X GET "http://localhost:8080/api/v1/chapters/{chapter_id}"
+```
+
+**Error Responses**:
+- `400 INVALID_ID`: UUID không hợp lệ
+- `404 CHAPTER_NOT_FOUND`: Chapter không tồn tại
+
+---
+
+### 6.4. Tạo Chapter mới
+
+**Endpoint**: `POST /api/v1/chapters`
+
+**Headers**:
+- `Content-Type: application/json`
+- `Authorization: Bearer <token>` (required)
+
+**Request Body**:
+```json
+{
+  "novel_id": "novel-uuid",
+  "volume_id": "volume-uuid",
+  "chapter_number": 1,
+  "title": "Chương 1: Bắt Đầu",
+  "content": "Nội dung chapter đầy đủ...",
+  "author_notes": "Ghi chú của tác giả...",
+  "is_free": true,
+  "price": null,
+  "currency": null,
+  "status": "draft",
+  "display_order": 1,
+  "scheduled_at": null
+}
+```
+
+**Validation**:
+- `novel_id`: bắt buộc, phải là UUID hợp lệ
+- `volume_id`: tùy chọn, phải là UUID hợp lệ (có thể null)
+- `chapter_number`: bắt buộc, phải >= 1, unique trong novel
+- `title`: bắt buộc, độ dài 1-500 ký tự
+- `content`: bắt buộc, không giới hạn độ dài
+- `author_notes`: tùy chọn
+- `is_free`: bắt buộc, boolean
+- `price`: tùy chọn, >= 0 (bắt buộc nếu `is_free = false`)
+- `currency`: tùy chọn, phải là mã ISO 4217 (3 ký tự: USD, VND...)
+- `status`: bắt buộc, phải là: `draft`, `published`, `scheduled`
+- `display_order`: bắt buộc, >= 0
+- `scheduled_at`: tùy chọn, ISO 8601 format (bắt buộc nếu `status = scheduled`)
+
+**Chapter Status**:
+- `draft`: Bản nháp (chưa publish)
+- `published`: Đã publish
+- `scheduled`: Đã lên lịch publish
+
+**Pricing**:
+- Nếu `is_free = true`: Chapter miễn phí, không cần `price` và `currency`
+- Nếu `is_free = false`: Chapter trả phí, phải có `price` và `currency`
+
+**Auto-calculated Fields**:
+- `slug`: Tự động generate từ title
+- `word_count`: Tự động đếm từ content
+- `character_count`: Tự động đếm ký tự từ content
+
+**Response**: Giống như response của GET chapter detail
+
+**Curl Example**:
+```bash
+curl -X POST "http://localhost:8080/api/v1/chapters" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <token>" \
+  -d '{
+    "novel_id": "novel-uuid",
+    "volume_id": "volume-uuid",
+    "chapter_number": 1,
+    "title": "Chương 1: Bắt Đầu",
+    "content": "Nội dung chapter...",
+    "is_free": true,
+    "status": "draft",
+    "display_order": 1
+  }'
+```
+
+**Error Responses**:
+- `400 INVALID_INPUT`: Dữ liệu đầu vào không hợp lệ
+- `400 INVALID_NOVEL_ID`: Novel ID không hợp lệ
+- `400 INVALID_VOLUME_ID`: Volume ID không hợp lệ
+- `400 INVALID_STATUS`: Status không hợp lệ
+- `409 CHAPTER_NUMBER_EXISTS`: Chapter number đã tồn tại cho novel này
+
+---
+
+### 6.5. Cập nhật Chapter (với History Tracking)
+
+**Endpoint**: `PUT /api/v1/chapters/:id`
+
+**Headers**:
+- `Content-Type: application/json`
+- `Authorization: Bearer <token>` (required)
+
+**Request Body**:
+```json
+{
+  "volume_id": "volume-uuid",
+  "chapter_number": 1,
+  "title": "Chương 1: Bắt Đầu (Updated)",
+  "content": "Nội dung mới...",
+  "author_notes": "Ghi chú mới...",
+  "is_free": false,
+  "price": 5000,
+  "currency": "VND",
+  "status": "published",
+  "display_order": 1,
+  "scheduled_at": null
+}
+```
+
+**History Tracking**:
+Mọi thay đổi được log vào bảng `chapter_history` với thông tin:
+- Version number tự động tăng
+- Changed fields (các trường đã thay đổi)
+- Change summary (tóm tắt thay đổi)
+- Content changed flag (có thay đổi nội dung hay không)
+- Request context (IP, user agent, request ID)
+- Changed by (user ID)
+
+**Changed Fields Tracked**:
+- `chapter_number` - Số thứ tự chương
+- `title` - Tiêu đề
+- `slug` - Slug (tự động update khi title thay đổi)
+- `content` - Nội dung (chỉ log flag, không lưu full content)
+- `is_free` - Trạng thái miễn phí/trả phí
+- `price` - Giá
+- `currency` - Tiền tệ
+- `status` - Trạng thái
+- `display_order` - Thứ tự hiển thị
+- `author_notes` - Ghi chú tác giả
+
+**Note về Content History**:
+- Content KHÔNG được lưu full vào history table (để tiết kiệm dung lượng)
+- Chỉ log `content_changed = true/false` flag
+- Nếu cần version control cho content, implement riêng content versioning system
+
+**Response**: Giống như response của GET chapter detail
+
+**Curl Example**:
+```bash
+curl -X PUT "http://localhost:8080/api/v1/chapters/{chapter_id}" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <token>" \
+  -d '{
+    "chapter_number": 1,
+    "title": "Chương 1: Bắt Đầu (Updated)",
+    "content": "Nội dung mới...",
+    "is_free": true,
+    "status": "published",
+    "display_order": 1
+  }'
+```
+
+**Error Responses**:
+- `404 CHAPTER_NOT_FOUND`: Chapter không tồn tại
+- `400 INVALID_INPUT`: Dữ liệu không hợp lệ
+- `400 INVALID_STATUS`: Status không hợp lệ
+- `409 CHAPTER_NUMBER_EXISTS`: Chapter number mới đã tồn tại
+
+---
+
+### 6.6. Xóa Chapter
+
+**Endpoint**: `DELETE /api/v1/chapters/:id`
+
+**Headers**:
+- `Authorization: Bearer <token>` (required)
+
+**Response**:
+```json
+{
+  "success": true,
+  "message": "chapter.deleted_success"
+}
+```
+
+**Curl Example**:
+```bash
+curl -X DELETE "http://localhost:8080/api/v1/chapters/{chapter_id}" \
+  -H "Authorization: Bearer <token>"
+```
+
+**Error Responses**:
+- `404 CHAPTER_NOT_FOUND`: Chapter không tồn tại
+
+**Note**: Đây là soft delete, dữ liệu vẫn được giữ trong database với `deleted_at` timestamp
+
+---
+
+### 6.7. Publish Chapter ngay lập tức (với History Tracking)
+
+**Endpoint**: `POST /api/v1/chapters/:id/publish`
+
+**Headers**:
+- `Authorization: Bearer <token>` (required)
+
+**Description**: Publish chapter ngay lập tức và log vào history
+
+**Response**:
+```json
+{
+  "success": true,
+  "message": "chapter.published_success"
+}
+```
+
+**Curl Example**:
+```bash
+curl -X POST "http://localhost:8080/api/v1/chapters/{chapter_id}/publish" \
+  -H "Authorization: Bearer <token>"
+```
+
+**Note**:
+- Tự động set `status = 'published'`
+- Set `published_at` timestamp nếu chưa có
+- Clear `scheduled_at` nếu có
+- Log vào `chapter_history` với action = 'published'
+
+---
+
+### 6.8. Schedule Chapter để publish sau
+
+**Endpoint**: `POST /api/v1/chapters/:id/schedule`
+
+**Headers**:
+- `Content-Type: application/json`
+- `Authorization: Bearer <token>` (required)
+
+**Request Body**:
+```json
+{
+  "scheduled_at": "2024-12-31T10:00:00Z"
+}
+```
+
+**Validation**:
+- `scheduled_at`: bắt buộc, phải là ISO 8601 format
+
+**Response**:
+```json
+{
+  "success": true,
+  "message": "chapter.scheduled_success"
+}
+```
+
+**Curl Example**:
+```bash
+curl -X POST "http://localhost:8080/api/v1/chapters/{chapter_id}/schedule" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <token>" \
+  -d '{
+    "scheduled_at": "2024-12-31T10:00:00Z"
+  }'
+```
+
+**Note**:
+- Set `status = 'scheduled'`
+- Set `scheduled_at` timestamp
+- Cần có background job để auto-publish chapters khi đến scheduled time
+
+**Use Case**: Lên lịch trước để tự động publish chapter vào thời gian cụ thể
+
+---
+
+### 6.9. Tăng View Count
+
+**Endpoint**: `POST /api/v1/chapters/:id/view`
+
+**Description**: Track lượt xem chapter. Gọi endpoint này mỗi khi user đọc chapter.
+
+**Response**:
+```json
+{
+  "success": true,
+  "message": "chapter.view_incremented"
+}
+```
+
+**Curl Example**:
+```bash
+curl -X POST "http://localhost:8080/api/v1/chapters/{chapter_id}/view"
+```
+
+**Use Case**:
+```javascript
+// Gọi khi user mở trang đọc chapter
+async function trackChapterView(chapterId) {
+  // Chỉ track 1 lần mỗi session
+  const viewedKey = `chapter_viewed_${chapterId}`;
+  if (!sessionStorage.getItem(viewedKey)) {
+    await fetch(`/api/v1/chapters/${chapterId}/view`, { method: 'POST' });
+    sessionStorage.setItem(viewedKey, 'true');
+  }
+}
+```
+
+---
+
+### 6.10. Cập nhật Statistics
+
+**Endpoint**: `PUT /api/v1/chapters/:id/statistics`
+
+**Headers**:
+- `Content-Type: application/json`
+- `Authorization: Bearer <token>` (required)
+
+**Request Body**:
+```json
+{
+  "view_count": 10000,
+  "like_count": 500,
+  "comment_count": 50
+}
+```
+
+**Note**: Tất cả các fields đều optional. Chỉ update các fields được cung cấp.
+
+**Response**:
+```json
+{
+  "success": true,
+  "message": "chapter.statistics_updated"
+}
+```
+
+**Curl Example**:
+```bash
+curl -X PUT "http://localhost:8080/api/v1/chapters/{chapter_id}/statistics" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <token>" \
+  -d '{
+    "like_count": 501,
+    "comment_count": 51
+  }'
+```
+
+**Use Case**: Batch update statistics từ external services (likes, comments system)
+
+---
+
+## 7. Common Error Codes
 
 | Code | HTTP Status | Description |
 |------|-------------|-------------|
@@ -985,10 +1859,16 @@ async function trackNovelView(novelId) {
 | CIRCULAR_REFERENCE | 400 | Tham chiếu vòng (chỉ Genre) |
 | HAS_CHILDREN | 409 | Genre có các genre con (chỉ Genre) |
 | PARENT_NOT_FOUND | 400 | Parent genre không tồn tại (chỉ Genre) |
+| VOLUME_NOT_FOUND | 404 | Volume không tồn tại |
+| VOLUME_NUMBER_EXISTS | 409 | Volume number đã tồn tại cho novel này |
+| CHAPTER_NOT_FOUND | 404 | Chapter không tồn tại |
+| CHAPTER_NUMBER_EXISTS | 409 | Chapter number đã tồn tại cho novel này |
+| INVALID_STATUS | 400 | Status không hợp lệ |
+| INVALID_SCHEDULED_TIME | 400 | Thời gian lên lịch không hợp lệ |
 
 ---
 
-## 6. Pagination và Sorting
+## 8. Pagination và Sorting
 
 ### Pagination
 
@@ -1043,7 +1923,7 @@ curl -X GET "http://localhost:8080/api/v1/novels?search=tiên+nghịch"
 
 ---
 
-## 7. Filter Options
+## 9. Filter Options
 
 ### Genre Filters
 - `active_only`: Chỉ lấy genres đang active
@@ -1070,9 +1950,9 @@ curl -X GET "http://localhost:8080/api/v1/artists?specialization=cover_artist&is
 
 ---
 
-## 8. Best Practices
+## 10. Best Practices
 
-### 8.1. Error Handling
+### 10.1. Error Handling
 
 Luôn kiểm tra `success` field trong response:
 
@@ -1088,7 +1968,7 @@ if (!data.success) {
 }
 ```
 
-### 8.2. Pagination
+### 10.2. Pagination
 
 Sử dụng `meta` để implement pagination UI:
 
@@ -1101,7 +1981,7 @@ const end = Math.min(page * limit, total_items);
 console.log(`Showing ${start}-${end} of ${total_items} items`);
 ```
 
-### 8.3. Search với debounce
+### 10.3. Search với debounce
 
 Implement debounce khi search để tránh gọi API quá nhiều:
 
@@ -1119,7 +1999,7 @@ function searchNovels(query) {
 }
 ```
 
-### 8.4. View Tracking
+### 10.4. View Tracking
 
 Track views một cách thông minh:
 
@@ -1137,7 +2017,7 @@ function trackNovelView(novelId) {
 }
 ```
 
-### 8.5. Combine Filters
+### 10.5. Combine Filters
 
 Kết hợp nhiều filters để lọc chính xác:
 
@@ -1148,9 +2028,9 @@ curl -X GET "http://localhost:8080/api/v1/novels?status=ongoing&original_languag
 
 ---
 
-## 9. JavaScript/TypeScript Examples
+## 11. JavaScript/TypeScript Examples
 
-### 9.1. Fetch Novels
+### 11.1. Fetch Novels
 
 ```typescript
 interface Novel {
@@ -1210,7 +2090,7 @@ if (result.success) {
 }
 ```
 
-### 9.2. Create Novel
+### 11.2. Create Novel
 
 ```typescript
 interface CreateNovelRequest {
@@ -1261,7 +2141,7 @@ if (newNovel.success) {
 }
 ```
 
-### 9.3. Update Novel Status
+### 11.3. Update Novel Status
 
 ```typescript
 async function updateNovelStatus(
@@ -1295,7 +2175,7 @@ async function updateNovelStatus(
 const updated = await updateNovelStatus('550e8400-e29b-41d4-a716-446655440000', 'completed');
 ```
 
-### 9.4. Novel Reader Component Example
+### 11.4. Novel Reader Component Example
 
 ```typescript
 class NovelReader {
@@ -1340,7 +2220,7 @@ const novel = await reader.loadNovel();
 
 ---
 
-## 10. Testing với Postman
+## 12. Testing với Postman
 
 ### Import Collection
 
@@ -1407,7 +2287,7 @@ pm.test("Response has novel data", function () {
 
 ---
 
-## 11. Rate Limiting & Performance
+## 13. Rate Limiting & Performance
 
 ### Recommendations
 
@@ -1419,7 +2299,7 @@ pm.test("Response has novel data", function () {
 
 ---
 
-## 12. Support & Contact
+## 14. Support & Contact
 
 Nếu gặp vấn đề, vui lòng:
 1. Kiểm tra error response để biết chi tiết lỗi

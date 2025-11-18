@@ -43,6 +43,32 @@ http://localhost:8080/api/v1
 | PUT | `/novels/:id` | Cập nhật novel |
 | DELETE | `/novels/:id` | Xóa novel |
 | POST | `/novels/:id/view` | Tăng view count |
+| GET | `/novels/:novel_id/volumes` | Lấy volumes theo novel |
+| GET | `/novels/:novel_id/chapters` | Lấy chapters theo novel |
+
+### Volume (Tập)
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/volumes/:id` | Lấy chi tiết volume |
+| POST | `/volumes` | Tạo volume mới |
+| PUT | `/volumes/:id` | Cập nhật volume (với history) |
+| DELETE | `/volumes/:id` | Xóa volume |
+| PUT | `/volumes/:id/display-order` | Cập nhật thứ tự hiển thị |
+| POST | `/volumes/:id/publish` | Publish volume (với history) |
+| POST | `/volumes/:id/unpublish` | Unpublish volume (với history) |
+| GET | `/volumes/:volume_id/chapters` | Lấy chapters theo volume |
+
+### Chapter (Chương)
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/chapters/:id` | Lấy chi tiết chapter |
+| POST | `/chapters` | Tạo chapter mới |
+| PUT | `/chapters/:id` | Cập nhật chapter (với history) |
+| DELETE | `/chapters/:id` | Xóa chapter |
+| POST | `/chapters/:id/publish` | Publish chapter ngay (với history) |
+| POST | `/chapters/:id/schedule` | Schedule chapter publish sau |
+| POST | `/chapters/:id/view` | Tăng view count |
+| PUT | `/chapters/:id/statistics` | Cập nhật statistics |
 
 ## Common Query Parameters
 
@@ -65,12 +91,22 @@ http://localhost:8080/api/v1
 ### Novel Sort Options
 - `created_at`, `rating`, `views`, `last_chapter`
 
-## Novel Status Values
+### Chapter Sort Options
+- `chapter_number`, `published_at`, `views`
+
+## Status Values
+
+### Novel Status
 - `draft` - Bản nháp
 - `ongoing` - Đang cập nhật
 - `completed` - Đã hoàn thành
 - `hiatus` - Tạm ngưng
 - `dropped` - Đã drop
+
+### Chapter Status
+- `draft` - Bản nháp (chưa publish)
+- `published` - Đã publish
+- `scheduled` - Đã lên lịch publish
 
 ## Quick Examples
 
@@ -205,6 +241,15 @@ curl -X POST "http://localhost:8080/api/v1/novels/{id}/view"
 - `status=ongoing` - Lọc theo status
 - `original_language=zh` - Lọc theo ngôn ngữ gốc (vi, en, zh, ja, ko...)
 
+### Volume
+- `published_only=true` - Chỉ lấy volumes đã publish
+
+### Chapter
+- `status=published` - Lọc theo status (draft, published, scheduled)
+- `volume_id={uuid}` - Lọc theo volume
+- `published_only=true` - Chỉ lấy chapters đã publish
+- `is_free=true` - Lọc theo free/paid
+
 ## Complex Query Examples
 
 ```bash
@@ -216,8 +261,111 @@ curl -X GET "http://localhost:8080/api/v1/authors?is_verified=true&sort_by=novel
 
 # Tìm kiếm novels + filter + sort
 curl -X GET "http://localhost:8080/api/v1/novels?search=tiên&status=ongoing&sort_by=views&page=1"
+
+# Chapters đã publish của novel, sort theo views
+curl -X GET "http://localhost:8080/api/v1/novels/{novel_id}/chapters?published_only=true&sort_by=views&sort_order=desc"
+
+# Chapters theo volume và filter theo status
+curl -X GET "http://localhost:8080/api/v1/volumes/{volume_id}/chapters?published_only=true"
+
+# Chapters free của novel với pagination
+curl -X GET "http://localhost:8080/api/v1/novels/{novel_id}/chapters?is_free=true&page=1&limit=50"
+
+# Volumes đã publish của novel
+curl -X GET "http://localhost:8080/api/v1/novels/{novel_id}/volumes?published_only=true"
+```
+
+## Volume & Chapter Specific Examples
+
+### Tạo Volume
+```bash
+curl -X POST "http://localhost:8080/api/v1/volumes" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <token>" \
+  -d '{
+    "novel_id": "novel-uuid",
+    "volume_number": 1,
+    "title": "Tập 1: Khởi Đầu",
+    "display_order": 1,
+    "is_published": false
+  }'
+```
+
+### Tạo Chapter
+```bash
+curl -X POST "http://localhost:8080/api/v1/chapters" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <token>" \
+  -d '{
+    "novel_id": "novel-uuid",
+    "volume_id": "volume-uuid",
+    "chapter_number": 1,
+    "title": "Chương 1",
+    "content": "Nội dung chapter...",
+    "is_free": true,
+    "status": "draft",
+    "display_order": 1
+  }'
+```
+
+### Publish Volume/Chapter
+```bash
+# Publish volume
+curl -X POST "http://localhost:8080/api/v1/volumes/{id}/publish" \
+  -H "Authorization: Bearer <token>"
+
+# Publish chapter ngay
+curl -X POST "http://localhost:8080/api/v1/chapters/{id}/publish" \
+  -H "Authorization: Bearer <token>"
+```
+
+### Schedule Chapter
+```bash
+curl -X POST "http://localhost:8080/api/v1/chapters/{id}/schedule" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <token>" \
+  -d '{
+    "scheduled_at": "2024-12-31T10:00:00Z"
+  }'
+```
+
+### Track Chapter View
+```bash
+curl -X POST "http://localhost:8080/api/v1/chapters/{id}/view"
+```
+
+### Update Chapter Statistics
+```bash
+curl -X PUT "http://localhost:8080/api/v1/chapters/{id}/statistics" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <token>" \
+  -d '{
+    "like_count": 501,
+    "comment_count": 51
+  }'
 ```
 
 ---
 
-Xem [API_CLIENT_GUIDE.md](./API_CLIENT_GUIDE.md) để biết chi tiết đầy đủ.
+## History Tracking
+
+Volume và Chapter APIs có **application-layer history tracking**:
+
+### Volume History (`volume_history`)
+- Log khi update, publish, unpublish
+- Track changed fields: title, slug, volume_number, is_published, etc.
+- Version numbering tự động
+- Request context (IP, user agent, request ID)
+
+### Chapter History (`chapter_history`)
+- Log khi update, publish
+- Track changed fields + content_changed flag
+- **Content không lưu full** (chỉ flag)
+- Version numbering tự động
+- Request context
+
+**Note**: History tracking yêu cầu authenticated user (changed_by field). Hiện tại đang dùng system placeholder UUID.
+
+---
+
+Xem [API_CLIENT_GUIDE.md](./API_CLIENT_GUIDE.md) để biết chi tiết đầy đủ về Volume và Chapter APIs.
