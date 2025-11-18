@@ -246,18 +246,39 @@ func (h *Handler) JWKS(c *gin.Context) {
 func (h *Handler) Token(c *gin.Context) {
 	ctx := c.Request.Context()
 
+	// Log token request for debugging
+	grantType := c.PostForm("grant_type")
+	code := c.PostForm("code")
+	clientID := c.PostForm("client_id")
+
+	h.logger.Debug("Token request received",
+		zap.String("grant_type", grantType),
+		zap.String("code", code),
+		zap.String("client_id", clientID),
+	)
+
 	// Tạo session mới cho request này
 	session := &fosite.DefaultSession{}
 
 	// Parse và xác thực request từ client
 	accessRequest, err := h.provider.NewAccessRequest(ctx, c.Request, session)
 	if err != nil {
+		h.logger.Error("Failed to create access request",
+			zap.String("error", err.Error()),
+			zap.String("grant_type", grantType),
+			zap.String("client_id", clientID),
+		)
 		writeOAuth2Error(c, err)
 		return
 	}
 
 	// Kiểm tra grant type và xử lý tương ứng
-	grantType := accessRequest.GetRequestForm().Get("grant_type")
+	grantType = accessRequest.GetRequestForm().Get("grant_type")
+
+	h.logger.Debug("Processing token request",
+		zap.String("grant_type", grantType),
+		zap.String("client_id", accessRequest.GetClient().GetID()),
+	)
 
 	switch grantType {
 	case "authorization_code":
@@ -284,6 +305,9 @@ func (h *Handler) Token(c *gin.Context) {
 		// Note: Không có user context (subject) trong grant type này
 
 	default:
+		h.logger.Error("Unsupported grant type",
+			zap.String("grant_type", grantType),
+		)
 		writeOAuth2Error(c, fosite.ErrUnsupportedGrantType)
 		return
 	}
@@ -292,9 +316,19 @@ func (h *Handler) Token(c *gin.Context) {
 	// Fosite sẽ tự động generate tokens dựa trên grant type
 	response, err := h.provider.NewAccessResponse(ctx, accessRequest)
 	if err != nil {
+		h.logger.Error("Failed to create access response",
+			zap.String("error", err.Error()),
+			zap.String("grant_type", grantType),
+			zap.String("client_id", accessRequest.GetClient().GetID()),
+		)
 		writeOAuth2Error(c, err)
 		return
 	}
+
+	h.logger.Info("Token issued successfully",
+		zap.String("grant_type", grantType),
+		zap.String("client_id", accessRequest.GetClient().GetID()),
+	)
 
 	// Ghi response về client (JSON format)
 	h.provider.WriteAccessResponse(ctx, c.Writer, accessRequest, response)
