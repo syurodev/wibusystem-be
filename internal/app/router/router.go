@@ -5,6 +5,7 @@ import (
 	"system/configs"
 	v1 "system/internal/app/handler/v1"
 	"system/internal/app/handler/v1/auth"
+	"system/internal/app/handler/v1/author"
 	"system/internal/app/handler/v1/genre"
 	oauth2_handler "system/internal/app/handler/v1/oauth2"
 	"system/internal/app/handler/v1/oauth2_admin"
@@ -62,6 +63,7 @@ func NewRouter(cfg *configs.Config, i18nInstance *i18n.I18n, zapLogger *zap.Logg
 	emailVerificationRepo := repository.NewEmailVerificationRepository(db.Pool)
 	passwordResetRepo := repository.NewPasswordResetRepository(db.Pool)
 	genreRepo := repository.NewGenreRepository(db.Pool)
+	authorRepo := repository.NewAuthorRepository(db.Pool)
 
 	// Fosite Storage
 	sqlStore := fosite_storage.NewSQLStore(oauth2ClientRepo, oauth2SessionRepo)
@@ -92,6 +94,7 @@ func NewRouter(cfg *configs.Config, i18nInstance *i18n.I18n, zapLogger *zap.Logg
 	oauth2AdminService := service.NewOAuth2AdminService(oauth2ClientRepo)
 
 	genreService := service.NewGenreService(genreRepo)
+	authorService := service.NewAuthorService(authorRepo)
 
 	// Handlers
 	oauth2Handler := oauth2_handler.NewHandler(
@@ -106,6 +109,7 @@ func NewRouter(cfg *configs.Config, i18nInstance *i18n.I18n, zapLogger *zap.Logg
 	authHandler := auth.NewHandler(authService, emailService)
 
 	genreHandler := genre.NewHandler(genreService)
+	authorHandler := author.NewHandler(authorService)
 
 	// --- Đăng ký Routes ---
 	apiV1 := router.Group("/api/v1")
@@ -116,6 +120,12 @@ func NewRouter(cfg *configs.Config, i18nInstance *i18n.I18n, zapLogger *zap.Logg
 		genreGroup := apiV1.Group("/genres")
 		{
 			genreHandler.RegisterRoutes(genreGroup)
+		}
+
+		// Author routes
+		authorGroup := apiV1.Group("/authors")
+		{
+			authorHandler.RegisterRoutes(authorGroup)
 		}
 	}
 
