@@ -45,8 +45,8 @@ type GenreRepository interface {
 	// GetAll lấy tất cả genres (có thể filter)
 	GetAll(ctx context.Context, activeOnly bool) ([]*Genre, error)
 
-	// List lấy danh sách genres với pagination
-	List(ctx context.Context, offset, limit int, activeOnly bool) ([]*Genre, int, error)
+	// List lấy danh sách genres với pagination, search và sort
+	List(ctx context.Context, offset, limit int, search, sortBy, sortOrder string, activeOnly bool) ([]*Genre, int, error)
 
 	// GetByParentID lấy các genre con theo parent ID
 	GetByParentID(ctx context.Context, parentID uuid.UUID) ([]*Genre, error)

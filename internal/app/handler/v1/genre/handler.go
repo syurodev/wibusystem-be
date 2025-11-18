@@ -276,11 +276,14 @@ func (h *Handler) GetGenre(c *gin.Context) {
 }
 
 // ListGenres lấy danh sách genres
-// @Summary List genres with pagination
+// @Summary List genres with pagination, search and sort
 // @Tags Genres
 // @Produce json
 // @Param page query int false "Page number" default(1)
 // @Param limit query int false "Items per page" default(20)
+// @Param search query string false "Search by name"
+// @Param sort_by query string false "Sort by field (name, views, series, created, updated)"
+// @Param sort_order query string false "Sort order (asc, desc)"
 // @Param active_only query bool false "Filter active genres only" default(false)
 // @Success 200 {object} response.StandardResponse{data=[]GenreResponse}
 // @Failure 400 {object} response.StandardResponse
@@ -301,8 +304,16 @@ func (h *Handler) ListGenres(c *gin.Context) {
 		req.Limit = 20
 	}
 
-	// Get genres with pagination
-	genresWithTrend, totalCount, err := h.genreService.ListGenres(c.Request.Context(), req.Page, req.Limit, req.ActiveOnly)
+	// Get genres with pagination, search and sort
+	genresWithTrend, totalCount, err := h.genreService.ListGenres(
+		c.Request.Context(),
+		req.Page,
+		req.Limit,
+		req.Search,
+		req.SortBy,
+		req.SortOrder,
+		req.ActiveOnly,
+	)
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, "LIST_FAILED", "genre.list_failed", nil)
 		return
@@ -319,6 +330,8 @@ func (h *Handler) ListGenres(c *gin.Context) {
 			TotalViews:    gwt.Genre.TotalViews,
 			Trend:         string(gwt.Trend),
 			Description:   gwt.Genre.Description,
+			CreatedAt:     gwt.Genre.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+			UpdatedAt:     gwt.Genre.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"),
 		}
 	}
 

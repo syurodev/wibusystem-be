@@ -216,8 +216,8 @@ func (s *GenreService) GetGenreBySlug(ctx context.Context, slug string) (*domain
 	return genre, nil
 }
 
-// ListGenres lấy danh sách genres với pagination
-func (s *GenreService) ListGenres(ctx context.Context, page, limit int, activeOnly bool) ([]*GenreWithTrend, int, error) {
+// ListGenres lấy danh sách genres với pagination, search và sort
+func (s *GenreService) ListGenres(ctx context.Context, page, limit int, search, sortBy, sortOrder string, activeOnly bool) ([]*GenreWithTrend, int, error) {
 	if page < 1 {
 		page = 1
 	}
@@ -225,9 +225,26 @@ func (s *GenreService) ListGenres(ctx context.Context, page, limit int, activeOn
 		limit = 20
 	}
 
+	// Validate sortBy
+	validSortFields := map[string]bool{
+		"name":    true,
+		"views":   true,
+		"series":  true,
+		"created": true,
+		"updated": true,
+	}
+	if sortBy != "" && !validSortFields[sortBy] {
+		sortBy = "" // Reset to default if invalid
+	}
+
+	// Validate sortOrder
+	if sortOrder != "asc" && sortOrder != "desc" {
+		sortOrder = "" // Reset to default if invalid
+	}
+
 	offset := (page - 1) * limit
 
-	genres, totalCount, err := s.genreRepo.List(ctx, offset, limit, activeOnly)
+	genres, totalCount, err := s.genreRepo.List(ctx, offset, limit, search, sortBy, sortOrder, activeOnly)
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to list genres: %w", err)
 	}

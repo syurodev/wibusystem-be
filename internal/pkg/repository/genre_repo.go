@@ -95,37 +95,78 @@ func (r *genreRepository) GetAll(ctx context.Context, activeOnly bool) ([]*domai
 	return genres, nil
 }
 
-// List lấy danh sách genres với pagination
-func (r *genreRepository) List(ctx context.Context, offset, limit int, activeOnly bool) ([]*domain.Genre, int, error) {
-	// Query to get total count
-	countQuery := `
-		SELECT COUNT(*)
-		FROM catalog.genres
-		WHERE deleted_at IS NULL
-	`
+// List lấy danh sách genres với pagination, search và sort
+func (r *genreRepository) List(ctx context.Context, offset, limit int, search, sortBy, sortOrder string, activeOnly bool) ([]*domain.Genre, int, error) {
+	// Build WHERE clause
+	var whereClauses []string
+	var args []interface{}
+	argIdx := 1
+
+	whereClauses = append(whereClauses, "deleted_at IS NULL")
+
 	if activeOnly {
-		countQuery += " AND is_active = true"
+		whereClauses = append(whereClauses, "is_active = true")
 	}
 
+	// Search by name
+	if search != "" {
+		whereClauses = append(whereClauses, fmt.Sprintf("name ILIKE $%d", argIdx))
+		args = append(args, "%"+search+"%")
+		argIdx++
+	}
+
+	whereClause := " WHERE " + fmt.Sprintf("%s", whereClauses[0])
+	for i := 1; i < len(whereClauses); i++ {
+		whereClause += " AND " + whereClauses[i]
+	}
+
+	// Query to get total count
+	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM catalog.genres%s", whereClause)
 	var totalCount int
-	if err := r.pool.QueryRow(ctx, countQuery).Scan(&totalCount); err != nil {
+	if err := r.pool.QueryRow(ctx, countQuery, args...).Scan(&totalCount); err != nil {
 		return nil, 0, err
+	}
+
+	// Build ORDER BY clause
+	orderClause := "display_order ASC, name ASC" // Default sort
+	if sortBy != "" {
+		orderField := ""
+		switch sortBy {
+		case "name":
+			orderField = "name"
+		case "views":
+			orderField = "total_views"
+		case "series":
+			orderField = "novel_count"
+		case "created":
+			orderField = "created_at"
+		case "updated":
+			orderField = "updated_at"
+		default:
+			orderField = "display_order, name"
+		}
+
+		if orderField != "" {
+			direction := "ASC"
+			if sortOrder == "desc" {
+				direction = "DESC"
+			}
+			orderClause = fmt.Sprintf("%s %s", orderField, direction)
+		}
 	}
 
 	// Query to get genres with pagination
 	query := fmt.Sprintf(`
 		SELECT %s
 		FROM catalog.genres
-		WHERE deleted_at IS NULL
-	`, genreColumns)
+		%s
+		ORDER BY %s
+		LIMIT $%d OFFSET $%d
+	`, genreColumns, whereClause, orderClause, argIdx, argIdx+1)
 
-	if activeOnly {
-		query += " AND is_active = true"
-	}
+	args = append(args, limit, offset)
 
-	query += " ORDER BY display_order ASC, name ASC LIMIT $1 OFFSET $2"
-
-	rows, err := r.pool.Query(ctx, query, limit, offset)
+	rows, err := r.pool.Query(ctx, query, args...)
 	if err != nil {
 		return nil, 0, err
 	}

@@ -25,13 +25,18 @@ type GenreResponse struct {
 	TotalViews    int64   `json:"total_views"`    // tổng lượt xem
 	Trend         string  `json:"trend"`          // "rising" | "stable" | "falling"
 	Description   *string `json:"description,omitempty"`
+	CreatedAt     string  `json:"created_at"` // Ngày tạo
+	UpdatedAt     string  `json:"updated_at"` // Ngày cập nhật
 }
 
 // ListGenresRequest là DTO cho việc lấy danh sách genres
 type ListGenresRequest struct {
-	Page       int  `form:"page" binding:"omitempty,min=1"`
-	Limit      int  `form:"limit" binding:"omitempty,min=1,max=100"`
-	ActiveOnly bool `form:"active_only"`
+	Page       int    `form:"page" binding:"omitempty,min=1"`
+	Limit      int    `form:"limit" binding:"omitempty,min=1,max=100"`
+	Search     string `form:"search" binding:"omitempty,max=100"`                         // Tìm kiếm theo tên
+	SortBy     string `form:"sort_by" binding:"omitempty,oneof=name views series created updated"` // name, views, series, created, updated
+	SortOrder  string `form:"sort_order" binding:"omitempty,oneof=asc desc"`             // asc hoặc desc
+	ActiveOnly bool   `form:"active_only"`
 }
 
 // GenreDetailResponse là DTO chi tiết cho genre (bao gồm thêm thông tin)
