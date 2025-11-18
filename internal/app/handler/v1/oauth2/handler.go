@@ -305,6 +305,41 @@ func (h *Handler) Token(c *gin.Context) {
 func (h *Handler) Authorize(c *gin.Context) {
 	ctx := c.Request.Context()
 
+	// Check if this is a resume from login with only request_id
+	// (browser might not follow redirect with full params correctly)
+	requestID := c.Query("request_id")
+	clientID := c.Query("client_id")
+
+	if requestID != "" && clientID == "" {
+		// Only request_id present, no OAuth2 params - load from Redis and redirect
+		h.logger.Info("Resuming authorization from request_id",
+			zap.String("request_id", requestID),
+		)
+
+		queryParams, err := h.authRequestRepo.GetQueryParams(ctx, requestID)
+		if err != nil {
+			h.logger.Error("Failed to load query params from request_id",
+				zap.String("error", err.Error()),
+				zap.String("request_id", requestID),
+			)
+			h.showErrorPage(c,
+				"invalid_request",
+				"Your authorization request has expired. Please try again.",
+				"Authorization requests are valid for 10 minutes.",
+			)
+			return
+		}
+
+		h.logger.Debug("Loaded query params, redirecting",
+			zap.String("request_id", requestID),
+			zap.String("query_params", queryParams),
+		)
+
+		// Redirect to same endpoint with full OAuth2 params
+		c.Redirect(http.StatusFound, "/oauth2/auth?"+queryParams)
+		return
+	}
+
 	// Parse authorization request từ query parameters
 	ar, err := h.provider.NewAuthorizeRequest(ctx, c.Request)
 	if err != nil {
@@ -512,33 +547,9 @@ func (h *Handler) LoginSubmit(c *gin.Context) {
 		true,  // httpOnly
 	)
 
-	// Load original OAuth2 query params từ Redis
-	queryParams, err := h.authRequestRepo.GetQueryParams(c.Request.Context(), requestID)
-	if err != nil {
-		h.logger.Error("Failed to load query params after login - request expired",
-			zap.String("error", err.Error()),
-			zap.String("request_id", requestID),
-			zap.String("user_id", user.ID.String()),
-		)
-
-		// Authorization request expired (TTL exceeded)
-		// Show error page với option để user thử lại
-		h.showErrorPage(c,
-			"invalid_request",
-			"Your authorization request has expired. Please try again.",
-			"Authorization requests are valid for 10 minutes. Click below to start over.",
-		)
-		return
-	}
-
-	h.logger.Debug("Loaded query params from Redis",
-		zap.String("request_id", requestID),
-		zap.String("query_params", queryParams),
-	)
-
-	// Redirect back to /oauth2/auth with original params + session cookie
-	// Now /oauth2/auth will see authenticated user and continue flow
-	redirectURL := "/oauth2/auth?" + queryParams
+	// Redirect back to /oauth2/auth with just request_id
+	// The Authorize handler will detect this and load full params from Redis
+	redirectURL := "/oauth2/auth?request_id=" + requestID
 	h.logger.Info("Login successful, redirecting to authorization endpoint",
 		zap.String("request_id", requestID),
 		zap.String("user_id", user.ID.String()),
