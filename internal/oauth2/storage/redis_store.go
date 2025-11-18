@@ -238,26 +238,130 @@ func (s *RedisStore) DeleteOpenIDConnectSession(ctx context.Context, authorizeCo
 func (s *RedisStore) CreatePKCERequestSession(ctx context.Context, signature string, requester fosite.Requester) error {
 	key := fmt.Sprintf(pkceKeyPrefix, signature)
 	lifespan := requester.GetSession().GetExpiresAt(fosite.AuthorizeCode).Sub(time.Now().UTC())
-	data, err := json.Marshal(requester)
+
+	// Serialize session separately
+	sessionData, err := json.Marshal(requester.GetSession())
 	if err != nil {
+		s.logger.Error("Failed to marshal PKCE session",
+			zap.String("error", err.Error()),
+		)
 		return fosite.ErrServerError.WithWrap(err)
 	}
+
+	// Create serializable wrapper with only client_id
+	serializable := &serializableRequest{
+		ID:                requester.GetID(),
+		RequestedAt:       requester.GetRequestedAt(),
+		ClientID:          requester.GetClient().GetID(),
+		RequestedScopes:   requester.GetRequestedScopes(),
+		GrantedScopes:     requester.GetGrantedScopes(),
+		Form:              requester.GetRequestForm(),
+		Session:           sessionData,
+		RequestedAudience: requester.GetRequestedAudience(),
+		GrantedAudience:   requester.GetGrantedAudience(),
+	}
+
+	data, err := json.Marshal(serializable)
+	if err != nil {
+		s.logger.Error("Failed to marshal PKCE request session",
+			zap.String("error", err.Error()),
+		)
+		return fosite.ErrServerError.WithWrap(err)
+	}
+
+	s.logger.Debug("Saving PKCE request to Redis",
+		zap.String("key", key),
+		zap.String("client_id", serializable.ClientID),
+		zap.Duration("lifespan", lifespan),
+	)
+
 	return s.client.Set(ctx, key, data, lifespan)
 }
 
 func (s *RedisStore) GetPKCERequestSession(ctx context.Context, signature string, session fosite.Session) (fosite.Requester, error) {
 	key := fmt.Sprintf(pkceKeyPrefix, signature)
+
+	s.logger.Debug("Fetching PKCE request from Redis",
+		zap.String("key", key),
+		zap.String("signature", signature),
+	)
+
 	data, err := s.client.Get(ctx, key)
 	if err != nil {
 		if errors.Is(err, redis.Nil) {
+			s.logger.Warn("PKCE request not found in Redis",
+				zap.String("key", key),
+			)
 			return nil, fosite.ErrNotFound.WithWrap(err)
 		}
+		s.logger.Error("Redis error fetching PKCE request",
+			zap.String("error", err.Error()),
+			zap.String("key", key),
+		)
 		return nil, fosite.ErrServerError.WithWrap(err)
 	}
-	requester := &fosite.Request{Session: session}
-	if err := json.Unmarshal([]byte(data), requester); err != nil {
-		return nil, fosite.ErrServerError.WithWrap(err)
+
+	s.logger.Debug("PKCE request found in Redis",
+		zap.String("key", key),
+		zap.Int("data_length", len(data)),
+	)
+
+	// Unmarshal into serializable wrapper
+	var serializable serializableRequest
+	if err := json.Unmarshal([]byte(data), &serializable); err != nil {
+		s.logger.Error("Failed to unmarshal PKCE request session",
+			zap.String("error", err.Error()),
+			zap.String("key", key),
+		)
+		return nil, fosite.ErrServerError.WithWrap(err).WithDebug("JSON unmarshal failed: " + err.Error())
 	}
+
+	s.logger.Debug("Deserialized PKCE request data",
+		zap.String("client_id", serializable.ClientID),
+		zap.String("request_id", serializable.ID),
+	)
+
+	// Load client from database
+	if s.clientManager == nil {
+		s.logger.Error("ClientManager not set in RedisStore for PKCE")
+		return nil, fosite.ErrServerError.WithDebug("ClientManager not configured")
+	}
+
+	client, err := s.clientManager.GetClient(ctx, serializable.ClientID)
+	if err != nil {
+		s.logger.Error("Failed to load client for PKCE request",
+			zap.String("error", err.Error()),
+			zap.String("client_id", serializable.ClientID),
+		)
+		return nil, fosite.ErrServerError.WithWrap(err).WithDebug("Failed to load client: " + err.Error())
+	}
+
+	// Unmarshal session
+	if err := json.Unmarshal(serializable.Session, session); err != nil {
+		s.logger.Error("Failed to unmarshal PKCE session",
+			zap.String("error", err.Error()),
+		)
+		return nil, fosite.ErrServerError.WithWrap(err).WithDebug("Session unmarshal failed: " + err.Error())
+	}
+
+	// Reconstruct fosite.Request
+	requester := &fosite.Request{
+		ID:                serializable.ID,
+		RequestedAt:       serializable.RequestedAt,
+		Client:            client,
+		RequestedScope:    serializable.RequestedScopes,
+		GrantedScope:      serializable.GrantedScopes,
+		Form:              serializable.Form,
+		Session:           session,
+		RequestedAudience: serializable.RequestedAudience,
+		GrantedAudience:   serializable.GrantedAudience,
+	}
+
+	s.logger.Debug("PKCE request session loaded successfully",
+		zap.String("key", key),
+		zap.String("client_id", client.GetID()),
+	)
+
 	return requester, nil
 }
 
