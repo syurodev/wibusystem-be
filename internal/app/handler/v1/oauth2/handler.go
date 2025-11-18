@@ -8,7 +8,6 @@ import (
 	"strings"
 	"system/configs"
 	"system/internal/domain"
-	"system/internal/platform/logger"
 	"system/pkg/util/errcode"
 	"system/pkg/util/response"
 	"time"
@@ -16,6 +15,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/gofrs/uuid/v5"
 	"github.com/ory/fosite"
+	"go.uber.org/zap"
 )
 
 // OAuth2Service interface định nghĩa business logic cho OAuth2
@@ -34,6 +34,7 @@ type Handler struct {
 	provider        fosite.OAuth2Provider
 	oauth2Service   OAuth2Service
 	authRequestRepo domain.AuthRequestRepository
+	logger          *zap.Logger
 }
 
 // NewHandler khởi tạo một OAuth2 handler mới.
@@ -42,12 +43,14 @@ func NewHandler(
 	provider fosite.OAuth2Provider,
 	oauth2Service OAuth2Service,
 	authRequestRepo domain.AuthRequestRepository,
+	logger *zap.Logger,
 ) *Handler {
 	return &Handler{
 		config:          cfg,
 		provider:        provider,
 		oauth2Service:   oauth2Service,
 		authRequestRepo: authRequestRepo,
+		logger:          logger,
 	}
 }
 
@@ -256,12 +259,12 @@ func (h *Handler) Authorize(c *gin.Context) {
 	ar, err := h.provider.NewAuthorizeRequest(ctx, c.Request)
 	if err != nil {
 		// Log chi tiết lỗi để debug
-		logger.GetLogger().Error("OAuth2 authorization request failed",
-			logger.String("error", err.Error()),
-			logger.String("client_id", c.Query("client_id")),
-			logger.String("redirect_uri", c.Query("redirect_uri")),
-			logger.String("response_type", c.Query("response_type")),
-			logger.String("scope", c.Query("scope")),
+		h.logger.Error("OAuth2 authorization request failed",
+			zap.String("error", err.Error()),
+			zap.String("client_id", c.Query("client_id")),
+			zap.String("redirect_uri", c.Query("redirect_uri")),
+			zap.String("response_type", c.Query("response_type")),
+			zap.String("scope", c.Query("scope")),
 		)
 		writeOAuth2Error(c, err)
 		return
@@ -272,18 +275,18 @@ func (h *Handler) Authorize(c *gin.Context) {
 
 	if !authenticated {
 		// User chưa đăng nhập - redirect đến login page
-		logger.GetLogger().Info("User not authenticated, redirecting to login",
-			logger.String("client_id", ar.GetClient().GetID()),
-			logger.String("request_id", ar.GetID()),
+		h.logger.Info("User not authenticated, redirecting to login",
+			zap.String("client_id", ar.GetClient().GetID()),
+			zap.String("request_id", ar.GetID()),
 		)
 		// Lưu authorization request vào session để resume sau khi login
 		h.redirectToLogin(c, ar)
 		return
 	}
 
-	logger.GetLogger().Info("User authenticated",
-		logger.String("user_id", userID),
-		logger.String("client_id", ar.GetClient().GetID()),
+	h.logger.Info("User authenticated",
+		zap.String("user_id", userID),
+		zap.String("client_id", ar.GetClient().GetID()),
 	)
 
 	// User đã đăng nhập - kiểm tra xem đã consent chưa
@@ -345,10 +348,10 @@ func (h *Handler) redirectToLogin(c *gin.Context, ar fosite.AuthorizeRequester) 
 
 	err := h.authRequestRepo.SaveAuthRequest(c.Request.Context(), requestID, ar, time.Minute*10)
 	if err != nil {
-		logger.GetLogger().Error("Failed to save auth request to Redis",
-			logger.String("error", err.Error()),
-			logger.String("request_id", requestID),
-			logger.String("client_id", ar.GetClient().GetID()),
+		h.logger.Error("Failed to save auth request to Redis",
+			zap.String("error", err.Error()),
+			zap.String("request_id", requestID),
+			zap.String("client_id", ar.GetClient().GetID()),
 		)
 		writeOAuth2Error(c, fosite.ErrServerError.WithWrap(err).WithDebug("Failed to save auth request"))
 		return
@@ -356,9 +359,9 @@ func (h *Handler) redirectToLogin(c *gin.Context, ar fosite.AuthorizeRequester) 
 
 	// Redirect đến login page với request_id
 	loginURL := "/oauth2/login?request_id=" + requestID
-	logger.GetLogger().Info("Redirecting to login page",
-		logger.String("request_id", requestID),
-		logger.String("login_url", loginURL),
+	h.logger.Info("Redirecting to login page",
+		zap.String("request_id", requestID),
+		zap.String("login_url", loginURL),
 	)
 	c.Redirect(http.StatusFound, loginURL)
 }
