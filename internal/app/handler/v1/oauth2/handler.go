@@ -454,8 +454,37 @@ func (h *Handler) LoginSubmit(c *gin.Context) {
 		true,  // httpOnly
 	)
 
-	// Redirect back to authorization endpoint
-	c.Redirect(http.StatusFound, "/oauth2/auth?request_id="+requestID)
+	// Load auth request từ Redis để resume authorization flow
+	ar, err := h.authRequestRepo.GetAuthRequest(c.Request.Context(), requestID)
+	if err != nil {
+		h.logger.Error("Failed to load auth request after login",
+			zap.String("error", err.Error()),
+			zap.String("request_id", requestID),
+		)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid or expired authorization request"})
+		return
+	}
+
+	// Check consent
+	consentGiven := h.checkUserConsent(c, user.ID.String(), ar.GetClient().GetID())
+
+	if !consentGiven {
+		// Chưa consent - lưu userID vào auth request và redirect đến consent page
+		err = h.authRequestRepo.SaveAuthRequestWithUserID(c.Request.Context(), requestID, ar, user.ID.String(), time.Minute*10)
+		if err != nil {
+			h.logger.Error("Failed to save auth request with user ID",
+				zap.String("error", err.Error()),
+				zap.String("request_id", requestID),
+			)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to process request"})
+			return
+		}
+		c.Redirect(http.StatusFound, "/oauth2/consent?request_id="+requestID)
+		return
+	}
+
+	// User đã consent - finalize authorization ngay
+	h.finalizeAuthorization(c, ar, user.ID.String())
 }
 
 // ScopeInfo chứa thông tin về scope
