@@ -1,0 +1,233 @@
+# Loki Alert Rules for OAuth2 Server
+# These rules should be placed in /loki/rules/ directory
+
+groups:
+  - name: authentication_alerts
+    interval: 1m
+    rules:
+      # Alert on high failed login rate (possible brute force)
+      - alert: HighFailedLoginRate
+        expr: |
+          sum(rate({category="audit", event_type="auth.login.failure"}[5m])) > 10
+        for: 5m
+        labels:
+          severity: warning
+          category: security
+        annotations:
+          summary: "High failed login rate detected"
+          description: "More than 10 failed login attempts per minute in the last 5 minutes. Possible brute force attack."
+
+      # Alert on failed logins from single IP
+      - alert: BruteForceFromSingleIP
+        expr: |
+          sum by (ip_address) (count_over_time({category="audit", event_type="auth.login.failure"} | json [5m])) > 20
+        for: 2m
+        labels:
+          severity: critical
+          category: security
+        annotations:
+          summary: "Brute force attack from single IP"
+          description: "More than 20 failed login attempts from IP {{ $labels.ip_address }} in 5 minutes"
+
+      # Alert on account lockouts
+      - alert: AccountLockoutSpike
+        expr: |
+          sum(rate({category="audit", event_type="auth.account.locked"}[10m])) > 5
+        for: 5m
+        labels:
+          severity: warning
+          category: security
+        annotations:
+          summary: "High rate of account lockouts"
+          description: "More than 5 accounts locked per minute. Investigate for potential attack."
+
+  - name: oauth2_alerts
+    interval: 1m
+    rules:
+      # Alert on high token revocation rate (unusual activity)
+      - alert: HighTokenRevocationRate
+        expr: |
+          sum(rate({category="audit", event_type="oauth2.token.revoked"}[10m])) > 50
+        for: 5m
+        labels:
+          severity: warning
+          category: oauth2
+        annotations:
+          summary: "High token revocation rate"
+          description: "More than 50 tokens revoked per minute. Investigate for security issues."
+
+      # Alert on consent denial spike (UX or trust issue)
+      - alert: ConsentDenialSpike
+        expr: |
+          sum(rate({category="audit", event_type="oauth2.consent.denied"}[10m])) > 10
+        for: 10m
+        labels:
+          severity: info
+          category: oauth2
+        annotations:
+          summary: "High rate of consent denials"
+          description: "Users are denying consent at high rate. Check for UX issues or suspicious client."
+
+      # Alert on invalid token usage spike
+      - alert: InvalidTokenSpike
+        expr: |
+          sum(rate({category="audit", event_type="security.invalid.token"}[5m])) > 20
+        for: 5m
+        labels:
+          severity: warning
+          category: security
+        annotations:
+          summary: "High rate of invalid token usage"
+          description: "More than 20 invalid tokens per minute. Possible attack or misconfigured client."
+
+  - name: performance_alerts
+    interval: 1m
+    rules:
+      # Alert on slow HTTP requests (p95 > 2s)
+      - alert: SlowHTTPRequests
+        expr: |
+          quantile_over_time(0.95, {category="performance", operation_type="http"} | json | unwrap duration_ms [5m]) > 2000
+        for: 5m
+        labels:
+          severity: warning
+          category: performance
+        annotations:
+          summary: "High HTTP latency detected"
+          description: "P95 HTTP request latency is above 2 seconds ({{ $value }}ms)"
+
+      # Alert on slow database queries (p95 > 500ms)
+      - alert: SlowDatabaseQueries
+        expr: |
+          quantile_over_time(0.95, {category="performance", operation_type="database"} | json | unwrap duration_ms [5m]) > 500
+        for: 5m
+        labels:
+          severity: warning
+          category: performance
+        annotations:
+          summary: "Slow database queries detected"
+          description: "P95 database query latency is above 500ms ({{ $value }}ms)"
+
+      # Alert on cache miss rate > 50%
+      - alert: HighCacheMissRate
+        expr: |
+          (sum(rate({category="performance", operation_type="redis"} | json | cache_hit="false" [5m])) /
+           sum(rate({category="performance", operation_type="redis"} | json [5m]))) > 0.5
+        for: 10m
+        labels:
+          severity: warning
+          category: performance
+        annotations:
+          summary: "High cache miss rate"
+          description: "Cache miss rate is above 50%. Consider cache warmup or review cache strategy."
+
+  - name: error_alerts
+    interval: 1m
+    rules:
+      # Alert on high error rate
+      - alert: HighErrorRate
+        expr: |
+          sum(rate({level="error"}[5m])) > 5
+        for: 5m
+        labels:
+          severity: critical
+          category: errors
+        annotations:
+          summary: "High error rate detected"
+          description: "More than 5 errors per minute in the last 5 minutes"
+
+      # Alert on panic/fatal errors
+      - alert: ApplicationPanic
+        expr: |
+          count_over_time({level="fatal"} [5m]) > 0 or count_over_time({category="panic"} [5m]) > 0
+        labels:
+          severity: critical
+          category: errors
+        annotations:
+          summary: "Application panic detected"
+          description: "Application experienced a panic or fatal error. Immediate investigation required."
+
+      # Alert on database connection errors
+      - alert: DatabaseConnectionErrors
+        expr: |
+          sum(rate({category="error"} | json | error_code="DB_CONNECTION_ERROR" [5m])) > 1
+        for: 2m
+        labels:
+          severity: critical
+          category: infrastructure
+        annotations:
+          summary: "Database connection errors"
+          description: "Database connection failures detected. Check database health."
+
+  - name: security_alerts
+    interval: 1m
+    rules:
+      # Alert on unauthorized access attempts
+      - alert: UnauthorizedAccessSpike
+        expr: |
+          sum(rate({event_type="security.unauthorized.access"}[5m])) > 20
+        for: 2m
+        labels:
+          severity: critical
+          category: security
+        annotations:
+          summary: "Spike in unauthorized access attempts"
+          description: "More than 20 unauthorized access attempts per minute. Possible security attack."
+
+      # Alert on rate limit violations
+      - alert: RateLimitViolations
+        expr: |
+          sum(rate({event_type="security.rate_limit.exceeded"}[5m])) > 10
+        for: 5m
+        labels:
+          severity: warning
+          category: security
+        annotations:
+          summary: "High rate of rate limit violations"
+          description: "Multiple clients exceeding rate limits. Review rate limit settings or investigate abuse."
+
+      # Alert on suspicious activity
+      - alert: SuspiciousActivity
+        expr: |
+          count_over_time({event_type="security.suspicious.activity"}[10m]) > 0
+        labels:
+          severity: critical
+          category: security
+        annotations:
+          summary: "Suspicious activity detected"
+          description: "Security system flagged suspicious activity. Immediate investigation required."
+
+      # Alert on CSRF attempts
+      - alert: CSRFDetected
+        expr: |
+          count_over_time({event_type="security.csrf.detected"}[5m]) > 0
+        labels:
+          severity: critical
+          category: security
+        annotations:
+          summary: "CSRF attack detected"
+          description: "Cross-Site Request Forgery attempt detected. Review security logs."
+
+  - name: admin_alerts
+    interval: 5m
+    rules:
+      # Alert on OAuth2 client deletions
+      - alert: OAuth2ClientDeleted
+        expr: |
+          count_over_time({event_type="oauth2.client.deleted"}[1h]) > 0
+        labels:
+          severity: info
+          category: admin
+        annotations:
+          summary: "OAuth2 client deleted"
+          description: "An OAuth2 client was deleted. Review admin audit logs."
+
+      # Alert on multiple client secret regenerations
+      - alert: MultipleSecretRegenerations
+        expr: |
+          sum(count_over_time({event_type="oauth2.client.secret.regenerated"}[1h])) > 5
+        labels:
+          severity: warning
+          category: admin
+        annotations:
+          summary: "Multiple client secret regenerations"
+          description: "More than 5 client secrets regenerated in an hour. Unusual activity."
