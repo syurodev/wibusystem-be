@@ -10,6 +10,7 @@ import (
 
 	"github.com/ory/fosite"
 	"github.com/redis/go-redis/v9"
+	"go.uber.org/zap"
 )
 
 const (
@@ -24,11 +25,15 @@ const (
 // RedisStore triển khai các interface lưu trữ tạm thời của Fosite bằng Redis.
 type RedisStore struct {
 	client *database.RedisClient
+	logger *zap.Logger
 }
 
 // NewRedisStore tạo một instance mới của RedisStore.
-func NewRedisStore(client *database.RedisClient) *RedisStore {
-	return &RedisStore{client: client}
+func NewRedisStore(client *database.RedisClient, logger *zap.Logger) *RedisStore {
+	return &RedisStore{
+		client: client,
+		logger: logger,
+	}
 }
 
 // --- oauth2.AuthorizeCodeStorage --- //
@@ -45,18 +50,56 @@ func (s *RedisStore) CreateAuthorizeCodeSession(ctx context.Context, signature s
 
 func (s *RedisStore) GetAuthorizeCodeSession(ctx context.Context, signature string, session fosite.Session) (fosite.Requester, error) {
 	key := fmt.Sprintf(authCodeKeyPrefix, signature)
+
+	s.logger.Debug("Fetching authorization code from Redis",
+		zap.String("key", key),
+		zap.String("signature", signature),
+	)
+
 	data, err := s.client.Get(ctx, key)
 	if err != nil {
 		if errors.Is(err, redis.Nil) {
+			s.logger.Warn("Authorization code not found in Redis",
+				zap.String("key", key),
+				zap.String("signature", signature),
+			)
 			return nil, fosite.ErrNotFound.WithWrap(err)
 		}
+		s.logger.Error("Redis error fetching authorization code",
+			zap.String("error", err.Error()),
+			zap.String("key", key),
+		)
 		return nil, fosite.ErrServerError.WithWrap(err)
 	}
+
+	s.logger.Debug("Authorization code found in Redis",
+		zap.String("key", key),
+		zap.Int("data_length", len(data)),
+	)
+
 	requester := &fosite.Request{Session: session}
 	if err := json.Unmarshal([]byte(data), requester); err != nil {
-		return nil, fosite.ErrServerError.WithWrap(err)
+		s.logger.Error("Failed to unmarshal authorization code session",
+			zap.String("error", err.Error()),
+			zap.String("key", key),
+			zap.String("data_preview", data[:min(len(data), 200)]),
+		)
+		return nil, fosite.ErrServerError.WithWrap(err).WithDebug("JSON unmarshal failed: " + err.Error())
 	}
+
+	s.logger.Debug("Authorization code session loaded successfully",
+		zap.String("key", key),
+		zap.String("client_id", requester.GetClient().GetID()),
+	)
+
 	return requester, nil
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }
 
 func (s *RedisStore) InvalidateAuthorizeCodeSession(ctx context.Context, signature string) error {
