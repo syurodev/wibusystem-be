@@ -299,7 +299,7 @@ func (h *Handler) GetChapter(c *gin.Context) {
 // @Router /api/v1/novels/{novel_id}/chapters [get]
 func (h *Handler) ListChaptersByNovel(c *gin.Context) {
 	// Get novel ID from path
-	novelIDStr := c.Param("novel_id")
+	novelIDStr := c.Param("id")
 	novelID, err := uuid.FromString(novelIDStr)
 	if err != nil {
 		response.Error(c, http.StatusBadRequest, "INVALID_NOVEL_ID", "novel.invalid_id", nil)
@@ -372,7 +372,7 @@ func (h *Handler) ListChaptersByNovel(c *gin.Context) {
 // @Router /api/v1/volumes/{volume_id}/chapters [get]
 func (h *Handler) ListChaptersByVolume(c *gin.Context) {
 	// Get volume ID from path
-	volumeIDStr := c.Param("volume_id")
+	volumeIDStr := c.Param("id")
 	volumeID, err := uuid.FromString(volumeIDStr)
 	if err != nil {
 		response.Error(c, http.StatusBadRequest, "INVALID_VOLUME_ID", "volume.invalid_id", nil)

@@ -157,11 +157,11 @@ func NewRouter(cfg *configs.Config, i18nInstance *i18n.I18n, zapLogger *zap.Logg
 		{
 			novelHandler.RegisterRoutes(novelGroup)
 
-			// Nested: Volumes by novel
-			novelGroup.GET("/:novel_id/volumes", volumeHandler.ListVolumesByNovel)
+			// Nested: Volumes by novel (use :id to match existing routes)
+			novelGroup.GET("/:id/volumes", volumeHandler.ListVolumesByNovel)
 
-			// Nested: Chapters by novel
-			novelChaptersGroup := novelGroup.Group("/:novel_id/chapters")
+			// Nested: Chapters by novel (use :id to match existing routes)
+			novelChaptersGroup := novelGroup.Group("/:id/chapters")
 			{
 				chapterHandler.RegisterNovelChaptersRoutes(novelChaptersGroup)
 			}
@@ -172,8 +172,8 @@ func NewRouter(cfg *configs.Config, i18nInstance *i18n.I18n, zapLogger *zap.Logg
 		{
 			volumeHandler.RegisterRoutes(volumeGroup)
 
-			// Nested: Chapters by volume
-			volumeChaptersGroup := volumeGroup.Group("/:volume_id/chapters")
+			// Nested: Chapters by volume (use :id to match existing routes)
+			volumeChaptersGroup := volumeGroup.Group("/:id/chapters")
 			{
 				chapterHandler.RegisterVolumeChaptersRoutes(volumeChaptersGroup)
 			}

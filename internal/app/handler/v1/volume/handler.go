@@ -231,7 +231,7 @@ func (h *Handler) GetVolume(c *gin.Context) {
 // @Router /api/v1/novels/{novel_id}/volumes [get]
 func (h *Handler) ListVolumesByNovel(c *gin.Context) {
 	// Get novel ID from path
-	novelIDStr := c.Param("novel_id")
+	novelIDStr := c.Param("id")
 	novelID, err := uuid.FromString(novelIDStr)
 	if err != nil {
 		response.Error(c, http.StatusBadRequest, "INVALID_NOVEL_ID", "novel.invalid_id", nil)
