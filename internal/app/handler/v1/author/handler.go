@@ -8,6 +8,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/gofrs/uuid/v5"
 	"github.com/jackc/pgx/v5"
+	"go.uber.org/zap"
 
 	"system/internal/domain"
 	"system/internal/pkg/service"
@@ -17,11 +18,13 @@ import (
 
 type Handler struct {
 	authorService *service.AuthorService
+	logger        *zap.Logger
 }
 
-func NewHandler(authorService *service.AuthorService) *Handler {
+func NewHandler(authorService *service.AuthorService, logger *zap.Logger) *Handler {
 	return &Handler{
 		authorService: authorService,
+		logger:        logger,
 	}
 }
 
@@ -231,6 +234,15 @@ func (h *Handler) ListAuthors(c *gin.Context) {
 		req.IsVerified,
 	)
 	if err != nil {
+		h.logger.Error("Failed to list authors",
+			zap.Error(err),
+			zap.Int("page", req.Page),
+			zap.Int("limit", req.Limit),
+			zap.String("search", req.Search),
+			zap.String("sort_by", req.SortBy),
+			zap.String("sort_order", req.SortOrder),
+			zap.Any("is_verified", req.IsVerified),
+		)
 		response.Error(c, http.StatusInternalServerError, "LIST_FAILED", "author.list_failed", nil)
 		return
 	}

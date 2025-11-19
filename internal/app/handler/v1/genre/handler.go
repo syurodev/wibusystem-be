@@ -84,11 +84,6 @@ func (h *Handler) CreateGenre(c *gin.Context) {
 			response.Error(c, http.StatusBadRequest, "PARENT_NOT_FOUND", "genre.parent_not_found", nil)
 			return
 		}
-		h.logger.Error("Failed to create genre",
-			zap.Error(err),
-			zap.String("name", req.Name),
-			zap.Any("parent_id", parentID),
-		)
 		response.Error(c, http.StatusInternalServerError, "CREATE_FAILED", "genre.create_failed", nil)
 		return
 	}
@@ -323,15 +318,6 @@ func (h *Handler) ListGenres(c *gin.Context) {
 		req.ActiveOnly,
 	)
 	if err != nil {
-		h.logger.Error("Failed to list genres",
-			zap.Error(err),
-			zap.Int("page", req.Page),
-			zap.Int("limit", req.Limit),
-			zap.String("search", req.Search),
-			zap.String("sort_by", req.SortBy),
-			zap.String("sort_order", req.SortOrder),
-			zap.Bool("active_only", req.ActiveOnly),
-		)
 		response.Error(c, http.StatusInternalServerError, "LIST_FAILED", "genre.list_failed", nil)
 		return
 	}
