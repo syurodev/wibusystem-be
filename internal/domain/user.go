@@ -29,6 +29,7 @@ type User struct {
 	CreatedAt     time.Time
 	UpdatedAt     time.Time
 	LastLoginAt   *time.Time
+	Settings      map[string]any
 }
 
 // UserRepository định nghĩa interface cho việc truy cập dữ liệu user

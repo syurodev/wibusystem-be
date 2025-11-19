@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"context"
 	"net/http"
 	"slices"
 	"strings"
@@ -9,11 +10,12 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/ory/fosite"
+	"go.uber.org/zap"
 )
 
 // OAuth2Provider interface để inject vào middleware
 type OAuth2Provider interface {
-	IntrospectToken(ctx any, token string, tokenUse fosite.TokenUse, session fosite.Session, scopes ...string) (fosite.TokenUse, fosite.AccessRequester, error)
+	IntrospectToken(ctx context.Context, token string, tokenUse fosite.TokenUse, session fosite.Session, scopes ...string) (fosite.TokenUse, fosite.AccessRequester, error)
 }
 
 // RequireAuth là middleware xác thực Bearer Token sử dụng OAuth2 introspection.
@@ -23,12 +25,22 @@ type OAuth2Provider interface {
 //
 //	protectedRoutes := router.Group("/api")
 //	protectedRoutes.Use(middleware.RequireAuth(oauth2Provider))
+//	protectedRoutes.Use(middleware.RequireAuth(oauth2Provider, logger))
 //	protectedRoutes.GET("/profile", profileHandler)
-func RequireAuth(provider OAuth2Provider) gin.HandlerFunc {
+func RequireAuth(provider OAuth2Provider, logger *zap.Logger) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// Lấy Authorization header
 		authHeader := c.GetHeader("Authorization")
+		
+		// DEBUG LOGGING
+		logger.Info("Auth Middleware: Checking Authorization header", 
+			zap.String("path", c.Request.URL.Path),
+			zap.String("auth_header_len", string(len(authHeader))),
+			zap.Bool("has_auth_header", authHeader != ""),
+		)
+
 		if authHeader == "" {
+			logger.Warn("Auth Middleware: Missing Authorization header")
 			response.AbortWithError(c, http.StatusUnauthorized, errcode.AuthMissingAuthHeader.String(), "auth.missing_authorization_header")
 			return
 		}
@@ -36,18 +48,27 @@ func RequireAuth(provider OAuth2Provider) gin.HandlerFunc {
 		// Parse Bearer token
 		token := strings.TrimPrefix(authHeader, "Bearer ")
 		if token == authHeader {
+			logger.Warn("Auth Middleware: Invalid Authorization format (missing Bearer prefix)")
 			// Header không có "Bearer " prefix
 			response.AbortWithError(c, http.StatusUnauthorized, errcode.AuthInvalidAuthorizationFormat.String(), "auth.invalid_authorization_format")
 			return
 		}
 
+		logger.Info("Auth Middleware: Token found, introspecting...", zap.String("token_prefix", token[:min(5, len(token))]))
+
 		// Introspect token để xác thực
 		session := &fosite.DefaultSession{}
 		tokenUse, ar, err := provider.IntrospectToken(c.Request.Context(), token, fosite.AccessToken, session)
 		if err != nil {
+			logger.Error("Auth Middleware: Token introspection failed", zap.Error(err))
 			response.AbortWithError(c, http.StatusUnauthorized, errcode.AuthInvalidToken.String(), "auth.invalid_token")
 			return
 		}
+
+		logger.Info("Auth Middleware: Token valid", 
+			zap.String("subject", ar.GetSession().GetSubject()),
+			zap.String("client_id", ar.GetClient().GetID()),
+		)
 
 		// Token valid - lưu thông tin vào context để handlers sử dụng
 		c.Set("oauth2_token_use", string(tokenUse))
@@ -172,4 +193,11 @@ func GetScopes(c *gin.Context) ([]string, bool) {
 
 	scopeList, ok := scopes.([]string)
 	return scopeList, ok
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }

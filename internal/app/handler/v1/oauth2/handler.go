@@ -488,18 +488,19 @@ func (h *Handler) redirectToConsent(c *gin.Context, ar fosite.AuthorizeRequester
 		return
 	}
 
-	// IMPORTANT: Lưu query params với request_id MỚI này
-	// Vì mỗi lần gọi NewAuthorizeRequest, fosite tạo một request_id mới
-	// ConsentPage sẽ cần query params để load client info
-	originalParams := c.Request.URL.RawQuery
-	err = h.authRequestRepo.SaveQueryParams(c.Request.Context(), requestID, originalParams, time.Minute*10)
-	if err != nil {
-		h.logger.Error("Failed to save query params for consent",
-			zap.String("error", err.Error()),
-			zap.String("request_id", requestID),
-		)
-		writeOAuth2Error(c, fosite.ErrServerError.WithWrap(err).WithDebug("Failed to save query params"))
-		return
+	// IMPORTANT: Chỉ lưu query params nếu đây là request gốc (có client_id)
+	// Nếu đây là resume request (chỉ có request_id), ta không nên overwrite params cũ trong Redis
+	if c.Query("client_id") != "" {
+		originalParams := c.Request.URL.RawQuery
+		err = h.authRequestRepo.SaveQueryParams(c.Request.Context(), requestID, originalParams, time.Minute*10)
+		if err != nil {
+			h.logger.Error("Failed to save query params for consent",
+				zap.String("error", err.Error()),
+				zap.String("request_id", requestID),
+			)
+			writeOAuth2Error(c, fosite.ErrServerError.WithWrap(err).WithDebug("Failed to save query params"))
+			return
+		}
 	}
 
 	// Redirect đến consent page

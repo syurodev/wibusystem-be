@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"encoding/json"
 	"system/internal/domain"
 
 	"github.com/gofrs/uuid/v5"
@@ -23,7 +24,7 @@ func NewUserRepository(pool *pgxpool.Pool) domain.UserRepository {
 func (r *userRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.User, error) {
 	query := `
 		SELECT id, email, email_verified, password_hash, full_name, avatar_url,
-		       phone, status, created_at, updated_at, last_login_at
+		       phone, status, created_at, updated_at, last_login_at, settings
 		FROM identify.users
 		WHERE id = $1 AND status != 'deleted'
 	`
@@ -45,7 +46,7 @@ func (r *userRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.Use
 func (r *userRepository) GetByEmail(ctx context.Context, email string) (*domain.User, error) {
 	query := `
 		SELECT id, email, email_verified, password_hash, full_name, avatar_url,
-		       phone, status, created_at, updated_at, last_login_at
+		       phone, status, created_at, updated_at, last_login_at, settings
 		FROM identify.users
 		WHERE email = $1 AND status != 'deleted'
 	`
@@ -68,11 +69,16 @@ func (r *userRepository) Create(ctx context.Context, user *domain.User) error {
 	query := `
 		INSERT INTO identify.users (
 			id, email, email_verified, password_hash, full_name,
-			avatar_url, phone, status
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+			avatar_url, phone, status, settings
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb)
 	`
 
-	_, err := r.pool.Exec(ctx, query,
+	settingsJSON, err := json.Marshal(user.Settings)
+	if err != nil {
+		return err
+	}
+
+	_, err = r.pool.Exec(ctx, query,
 		user.ID,
 		user.Email,
 		user.EmailVerified,
@@ -81,6 +87,7 @@ func (r *userRepository) Create(ctx context.Context, user *domain.User) error {
 		user.AvatarURL,
 		user.Phone,
 		user.Status,
+		string(settingsJSON),
 	)
 
 	return err
@@ -97,11 +104,17 @@ func (r *userRepository) Update(ctx context.Context, user *domain.User) error {
 		    avatar_url = $6,
 		    phone = $7,
 		    status = $8,
+		    settings = $9::jsonb,
 		    updated_at = NOW()
 		WHERE id = $1
 	`
 
-	_, err := r.pool.Exec(ctx, query,
+	settingsJSON, err := json.Marshal(user.Settings)
+	if err != nil {
+		return err
+	}
+
+	_, err = r.pool.Exec(ctx, query,
 		user.ID,
 		user.Email,
 		user.EmailVerified,
@@ -110,6 +123,7 @@ func (r *userRepository) Update(ctx context.Context, user *domain.User) error {
 		user.AvatarURL,
 		user.Phone,
 		user.Status,
+		string(settingsJSON),
 	)
 
 	return err

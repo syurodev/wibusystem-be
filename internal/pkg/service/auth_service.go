@@ -59,6 +59,20 @@ func (s *AuthService) RegisterUser(ctx context.Context, email, password, fullNam
 		PasswordHash:  passwordHash,
 		FullName:      &fullName,
 		Status:        "active",
+		Settings: map[string]any{
+			"theme":                 "system",
+			"language":              "en",
+			"notifications_enabled": true,
+			"content_filters":       []string{},
+			"ui_preferences": map[string]any{
+				"reduce_blur":         false,
+				"auto_play_video":     false,
+				"show_mature_content": false,
+				"compact_view":        false,
+			},
+			"created_at": time.Now().Format(time.RFC3339),
+			"updated_at": time.Now().Format(time.RFC3339),
+		},
 		CreatedAt:     time.Now(),
 		UpdatedAt:     time.Now(),
 	}

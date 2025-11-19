@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 
 	"system/internal/pkg/service"
 	pkgerrors "system/pkg/errors"
@@ -27,7 +28,10 @@ func NewHandler(authService *service.AuthService, emailService *service.EmailSer
 
 // RegisterPage hiển thị trang đăng ký
 func (h *Handler) RegisterPage(c *gin.Context) {
-	c.HTML(http.StatusOK, "register.html", gin.H{})
+	requestID := c.Query("request_id")
+	c.HTML(http.StatusOK, "register.html", gin.H{
+		"RequestID": requestID,
+	})
 }
 
 // Register xử lý đăng ký user mới
@@ -52,6 +56,7 @@ func (h *Handler) Register(c *gin.Context) {
 			return
 		}
 		response.Error(c, http.StatusInternalServerError, "REGISTRATION_FAILED", "auth.registration_failed", nil)
+		zap.L().Error("Registration failed", zap.Error(err))
 		return
 	}
 

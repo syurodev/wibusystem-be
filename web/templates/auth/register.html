@@ -423,7 +423,9 @@
 
           // Redirect to login after 3 seconds
           setTimeout(() => {
-            window.location.href = "/oauth2/login";
+            const requestId = "{{.RequestID}}";
+            const loginUrl = requestId ? `/oauth2/login?request_id=${requestId}` : "/oauth2/login";
+            window.location.href = loginUrl;
           }, 3000);
         } catch (err) {
           errorDiv.textContent = err.message;

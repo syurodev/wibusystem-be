@@ -12,7 +12,9 @@ import (
 	"system/internal/app/handler/v1/novel"
 	oauth2_handler "system/internal/app/handler/v1/oauth2"
 	"system/internal/app/handler/v1/oauth2_admin"
+	"system/internal/app/handler/v1/user"
 	"system/internal/app/handler/v1/volume"
+	"system/internal/app/middleware"
 	"system/internal/oauth2"
 	fosite_storage "system/internal/oauth2/storage"
 	"system/internal/pkg/repository"
@@ -127,7 +129,9 @@ func NewRouter(cfg *configs.Config, i18nInstance *i18n.I18n, zapLogger *zap.Logg
 	artistHandler := artist.NewHandler(artistService)
 	novelHandler := novel.NewHandler(novelService)
 	volumeHandler := volume.NewHandler(volumeService)
+
 	chapterHandler := chapter.NewHandler(chapterService)
+	userHandler := user.NewHandler(userRepo)
 
 	// --- Đăng ký Routes ---
 	apiV1 := router.Group("/api/v1")
@@ -183,6 +187,14 @@ func NewRouter(cfg *configs.Config, i18nInstance *i18n.I18n, zapLogger *zap.Logg
 		chapterGroup := apiV1.Group("/chapters")
 		{
 			chapterHandler.RegisterRoutes(chapterGroup)
+		}
+
+
+		// User routes
+		userGroup := apiV1.Group("/users/me")
+		userGroup.Use(middleware.RequireAuth(oauth2Provider, zapLogger))
+		{
+			userHandler.RegisterRoutes(userGroup)
 		}
 	}
 
