@@ -9,10 +9,12 @@ import (
 	"github.com/jackc/pgx/v5"
 	"go.uber.org/zap"
 
+	"system/internal/app/middleware"
 	"system/internal/domain"
 	"system/internal/pkg/service"
 	pkgerrors "system/pkg/errors"
 	"system/pkg/util/response"
+	"system/pkg/util/timeutil"
 )
 
 type Handler struct {
@@ -45,14 +47,14 @@ func (h *Handler) CreateGenre(c *gin.Context) {
 		return
 	}
 
-	// Get user ID from context (assuming auth middleware sets this)
-	userIDStr, exists := c.Get("userID")
+	// Get user ID from context
+	userIDStr, exists := middleware.GetUserID(c)
 	if !exists {
 		response.Error(c, http.StatusUnauthorized, "UNAUTHORIZED", "auth.unauthorized", nil)
 		return
 	}
 
-	userID, err := uuid.FromString(userIDStr.(string))
+	userID, err := uuid.FromString(userIDStr)
 	if err != nil {
 		response.Error(c, http.StatusBadRequest, "INVALID_USER_ID", "auth.invalid_user_id", nil)
 		return
@@ -123,13 +125,13 @@ func (h *Handler) UpdateGenre(c *gin.Context) {
 	}
 
 	// Get user ID from context
-	userIDStr, exists := c.Get("userID")
+	userIDStr, exists := middleware.GetUserID(c)
 	if !exists {
 		response.Error(c, http.StatusUnauthorized, "UNAUTHORIZED", "auth.unauthorized", nil)
 		return
 	}
 
-	userID, err := uuid.FromString(userIDStr.(string))
+	userID, err := uuid.FromString(userIDStr)
 	if err != nil {
 		response.Error(c, http.StatusBadRequest, "INVALID_USER_ID", "auth.invalid_user_id", nil)
 		return
@@ -200,13 +202,13 @@ func (h *Handler) DeleteGenre(c *gin.Context) {
 	}
 
 	// Get user ID from context
-	userIDStr, exists := c.Get("userID")
+	userIDStr, exists := middleware.GetUserID(c)
 	if !exists {
 		response.Error(c, http.StatusUnauthorized, "UNAUTHORIZED", "auth.unauthorized", nil)
 		return
 	}
 
-	userID, err := uuid.FromString(userIDStr.(string))
+	userID, err := uuid.FromString(userIDStr)
 	if err != nil {
 		response.Error(c, http.StatusBadRequest, "INVALID_USER_ID", "auth.invalid_user_id", nil)
 		return
@@ -318,6 +320,7 @@ func (h *Handler) ListGenres(c *gin.Context) {
 		req.ActiveOnly,
 	)
 	if err != nil {
+		h.logger.Error("Failed to list genres", zap.Error(err))
 		response.Error(c, http.StatusInternalServerError, "LIST_FAILED", "genre.list_failed", nil)
 		return
 	}
@@ -328,13 +331,15 @@ func (h *Handler) ListGenres(c *gin.Context) {
 		genreResponses[i] = GenreResponse{
 			ID:            gwt.Genre.ID.String(),
 			Name:          gwt.Genre.Name,
+			Slug:          gwt.Genre.Slug,
+			IsActive:      gwt.Genre.IsActive,
 			SeriesCount:   gwt.Genre.NovelCount,
 			ActiveReaders: gwt.Genre.ActiveReaders,
 			TotalViews:    gwt.Genre.TotalViews,
 			Trend:         string(gwt.Trend),
 			Description:   gwt.Genre.Description,
-			CreatedAt:     gwt.Genre.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
-			UpdatedAt:     gwt.Genre.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"),
+			CreatedAt:     gwt.Genre.CreatedAt.Format(timeutil.ISO8601Layout),
+			UpdatedAt:     gwt.Genre.UpdatedAt.Format(timeutil.ISO8601Layout),
 		}
 	}
 
@@ -363,8 +368,8 @@ func mapToGenreDetailResponse(genre *domain.Genre, trend string) GenreDetailResp
 		ActiveReaders: genre.ActiveReaders,
 		TotalViews:    genre.TotalViews,
 		Trend:         trend,
-		CreatedAt:     genre.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
-		UpdatedAt:     genre.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"),
+		CreatedAt:     genre.CreatedAt.Format(timeutil.ISO8601Layout),
+		UpdatedAt:     genre.UpdatedAt.Format(timeutil.ISO8601Layout),
 	}
 
 	if genre.ParentID != nil {

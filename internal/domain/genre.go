@@ -16,7 +16,7 @@ type Genre struct {
 
 	// Parent genre cho phân cấp (ví dụ: Fantasy > Xuanhuan)
 	ParentID *uuid.UUID
-	Parent   *Genre // Optional: được load bởi JOIN query
+	Parent   *Genre `db:"-"` // Optional: được load bởi JOIN query
 
 	// Display
 	DisplayOrder int

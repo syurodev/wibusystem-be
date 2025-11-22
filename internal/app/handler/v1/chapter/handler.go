@@ -14,6 +14,7 @@ import (
 	"system/internal/pkg/service"
 	pkgerrors "system/pkg/errors"
 	"system/pkg/util/response"
+	"system/pkg/util/timeutil"
 )
 
 type Handler struct {
@@ -577,8 +578,8 @@ func mapToChapterDetailResponse(chapter *domain.Chapter) ChapterDetailResponse {
 		LikeCount:      chapter.LikeCount,
 		CommentCount:   chapter.CommentCount,
 		DisplayOrder:   chapter.DisplayOrder,
-		CreatedAt:      chapter.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
-		UpdatedAt:      chapter.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"),
+		CreatedAt:      chapter.CreatedAt.Format(timeutil.ISO8601Layout),
+		UpdatedAt:      chapter.UpdatedAt.Format(timeutil.ISO8601Layout),
 	}
 
 	if chapter.VolumeID != nil {
@@ -596,12 +597,12 @@ func mapToChapterDetailResponse(chapter *domain.Chapter) ChapterDetailResponse {
 
 	// Format optional dates
 	if chapter.PublishedAt != nil {
-		publishedAt := chapter.PublishedAt.Format("2006-01-02T15:04:05Z07:00")
+		publishedAt := chapter.PublishedAt.Format(timeutil.ISO8601Layout)
 		resp.PublishedAt = &publishedAt
 	}
 
 	if chapter.ScheduledAt != nil {
-		scheduledAt := chapter.ScheduledAt.Format("2006-01-02T15:04:05Z07:00")
+		scheduledAt := chapter.ScheduledAt.Format(timeutil.ISO8601Layout)
 		resp.ScheduledAt = &scheduledAt
 	}
 
@@ -625,8 +626,8 @@ func mapToChapterResponse(chapter *domain.Chapter) ChapterResponse {
 		LikeCount:     chapter.LikeCount,
 		CommentCount:  chapter.CommentCount,
 		DisplayOrder:  chapter.DisplayOrder,
-		CreatedAt:     chapter.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
-		UpdatedAt:     chapter.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"),
+		CreatedAt:     chapter.CreatedAt.Format(timeutil.ISO8601Layout),
+		UpdatedAt:     chapter.UpdatedAt.Format(timeutil.ISO8601Layout),
 	}
 
 	if chapter.VolumeID != nil {
@@ -636,12 +637,12 @@ func mapToChapterResponse(chapter *domain.Chapter) ChapterResponse {
 
 	// Format optional dates
 	if chapter.PublishedAt != nil {
-		publishedAt := chapter.PublishedAt.Format("2006-01-02T15:04:05Z07:00")
+		publishedAt := chapter.PublishedAt.Format(timeutil.ISO8601Layout)
 		resp.PublishedAt = &publishedAt
 	}
 
 	if chapter.ScheduledAt != nil {
-		scheduledAt := chapter.ScheduledAt.Format("2006-01-02T15:04:05Z07:00")
+		scheduledAt := chapter.ScheduledAt.Format(timeutil.ISO8601Layout)
 		resp.ScheduledAt = &scheduledAt
 	}
 

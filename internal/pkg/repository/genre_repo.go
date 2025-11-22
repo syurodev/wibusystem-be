@@ -23,7 +23,7 @@ func NewGenreRepository(pool *pgxpool.Pool) domain.GenreRepository {
 const genreColumns = `
 	id, name, slug, description, parent_id,
 	display_order, is_active, novel_count, active_readers, total_views,
-	created_at, updated_at
+	created_by, updated_by, created_at, updated_at
 `
 
 // GetByID lấy genre từ database theo ID

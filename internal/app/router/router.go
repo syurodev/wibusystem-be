@@ -141,7 +141,7 @@ func NewRouter(cfg *configs.Config, i18nInstance *i18n.I18n, zapLogger *zap.Logg
 		// Genre routes
 		genreGroup := apiV1.Group("/genres")
 		{
-			genreHandler.RegisterRoutes(genreGroup)
+			genreHandler.RegisterRoutes(genreGroup, middleware.RequireAuth(oauth2Provider, zapLogger))
 		}
 
 		// Author routes

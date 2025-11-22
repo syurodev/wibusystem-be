@@ -20,6 +20,8 @@ type UpdateGenreRequest struct {
 type GenreResponse struct {
 	ID            string  `json:"id"`
 	Name          string  `json:"name"`
+	Slug          string  `json:"slug"`
+	IsActive      bool    `json:"is_active"`
 	SeriesCount   int     `json:"series_count"`   // tổng số novel (sau này sẽ có cả manga và anime)
 	ActiveReaders int64   `json:"active_readers"` // số độc giả đang active
 	TotalViews    int64   `json:"total_views"`    // tổng lượt xem

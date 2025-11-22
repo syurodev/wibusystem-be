@@ -13,6 +13,7 @@ import (
 	"system/internal/pkg/service"
 	pkgerrors "system/pkg/errors"
 	"system/pkg/util/response"
+	"system/pkg/util/timeutil"
 )
 
 type Handler struct {
@@ -266,8 +267,8 @@ func mapToArtistDetailResponse(artist *domain.Artist) ArtistDetailResponse {
 		ArtworkCount:   artist.ArtworkCount,
 		FollowerCount:  artist.FollowerCount,
 		IsVerified:     artist.IsVerified,
-		CreatedAt:      artist.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
-		UpdatedAt:      artist.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"),
+		CreatedAt:      artist.CreatedAt.Format(timeutil.ISO8601Layout),
+		UpdatedAt:      artist.UpdatedAt.Format(timeutil.ISO8601Layout),
 	}
 
 	// Extract description from biography JSON
@@ -300,7 +301,7 @@ func mapToArtistResponse(artist *domain.Artist) ArtistResponse {
 		Name:           artist.Name,
 		NovelCount:     artist.NovelCount,
 		Specialization: artist.Specialization,
-		CreatedAt:      artist.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+		CreatedAt:      artist.CreatedAt.Format(timeutil.ISO8601Layout),
 	}
 
 	// Extract description from biography JSON

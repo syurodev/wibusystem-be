@@ -13,6 +13,7 @@ import (
 	"system/internal/pkg/service"
 	pkgerrors "system/pkg/errors"
 	"system/pkg/util/response"
+	"system/pkg/util/timeutil"
 )
 
 type Handler struct {
@@ -324,8 +325,8 @@ func mapToNovelDetailResponse(novel *domain.Novel) NovelDetailResponse {
 		FavoriteCount:    novel.FavoriteCount,
 		RatingAverage:    novel.RatingAverage,
 		RatingCount:      novel.RatingCount,
-		CreatedAt:        novel.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
-		UpdatedAt:        novel.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"),
+		CreatedAt:        novel.CreatedAt.Format(timeutil.ISO8601Layout),
+		UpdatedAt:        novel.UpdatedAt.Format(timeutil.ISO8601Layout),
 	}
 
 	// Extract synopsis from JSON
@@ -346,17 +347,17 @@ func mapToNovelDetailResponse(novel *domain.Novel) NovelDetailResponse {
 
 	// Format optional dates
 	if novel.FirstPublishedAt != nil {
-		publishedAt := novel.FirstPublishedAt.Format("2006-01-02T15:04:05Z07:00")
+		publishedAt := novel.FirstPublishedAt.Format(timeutil.ISO8601Layout)
 		resp.FirstPublishedAt = &publishedAt
 	}
 
 	if novel.LastChapterAt != nil {
-		lastChapter := novel.LastChapterAt.Format("2006-01-02T15:04:05Z07:00")
+		lastChapter := novel.LastChapterAt.Format(timeutil.ISO8601Layout)
 		resp.LastChapterAt = &lastChapter
 	}
 
 	if novel.CompletedAt != nil {
-		completedAt := novel.CompletedAt.Format("2006-01-02T15:04:05Z07:00")
+		completedAt := novel.CompletedAt.Format(timeutil.ISO8601Layout)
 		resp.CompletedAt = &completedAt
 	}
 
@@ -377,13 +378,13 @@ func mapToNovelResponse(novel *domain.Novel) NovelResponse {
 		FavoriteCount: novel.FavoriteCount,
 		RatingAverage: novel.RatingAverage,
 		RatingCount:   novel.RatingCount,
-		CreatedAt:     novel.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
-		UpdatedAt:     novel.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"),
+		CreatedAt:     novel.CreatedAt.Format(timeutil.ISO8601Layout),
+		UpdatedAt:     novel.UpdatedAt.Format(timeutil.ISO8601Layout),
 	}
 
 	// Format last chapter date
 	if novel.LastChapterAt != nil {
-		lastChapter := novel.LastChapterAt.Format("2006-01-02T15:04:05Z07:00")
+		lastChapter := novel.LastChapterAt.Format(timeutil.ISO8601Layout)
 		resp.LastChapterAt = &lastChapter
 	}
 
