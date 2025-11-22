@@ -15,13 +15,14 @@ import (
 
 // Config là struct tổng hợp chứa tất cả các cấu hình của ứng dụng.
 type Config struct {
-	Server ServerConfig
-	DB     DatabaseConfig
-	Redis  RedisConfig
-	CORS   CORSConfig
-	Log    LogConfig
-	OAuth2 OAuthConfig
-	Email  EmailConfig
+	Server   ServerConfig
+	DB       DatabaseConfig
+	Redis    RedisConfig
+	CORS     CORSConfig
+	Log      LogConfig
+	OAuth2   OAuthConfig
+	Email    EmailConfig
+	WebAuthn WebAuthnConfig
 }
 
 // OAuthConfig chứa cấu hình cho OAuth 2.0 Server.
@@ -95,6 +96,14 @@ type EmailConfig struct {
 	BaseURL          string // Base URL for email links (e.g., https://yourdomain.com)
 	VerificationURL  string // URL template for email verification
 	PasswordResetURL string // URL template for password reset
+}
+
+// WebAuthnConfig chứa cấu hình cho WebAuthn/Passkey authentication.
+type WebAuthnConfig struct {
+	RPID      string   // Relying Party ID (e.g., "example.com" or "localhost")
+	RPName    string   // Relying Party Name (e.g., "Example Corp")
+	RPOrigins []string // Allowed origins (e.g., ["https://example.com", "http://localhost:8080"])
+	Timeout   int      // Timeout in milliseconds (default: 60000)
 }
 
 // LoadConfig tải file .env và ánh xạ các biến môi trường vào struct Config.
@@ -185,6 +194,12 @@ func LoadConfig(envPath string) (*Config, error) {
 	cfg.Email.BaseURL = getEnv("EMAIL_BASE_URL", "http://localhost:8080")
 	cfg.Email.VerificationURL = getEnv("EMAIL_VERIFICATION_URL", cfg.Email.BaseURL+"/oauth2/verify-email?token={{.Token}}")
 	cfg.Email.PasswordResetURL = getEnv("EMAIL_PASSWORD_RESET_URL", cfg.Email.BaseURL+"/oauth2/reset-password?token={{.Token}}")
+
+	// WEBAUTHN CONFIG
+	cfg.WebAuthn.RPID = getEnv("WEBAUTHN_RP_ID", "localhost")
+	cfg.WebAuthn.RPName = getEnv("WEBAUTHN_RP_NAME", "System")
+	cfg.WebAuthn.RPOrigins = getEnvAsSlice("WEBAUTHN_RP_ORIGINS", []string{"http://localhost:8080"})
+	cfg.WebAuthn.Timeout = getEnvAsInt("WEBAUTHN_TIMEOUT", 60000)
 
 	return cfg, nil
 }

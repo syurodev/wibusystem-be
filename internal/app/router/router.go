@@ -76,6 +76,8 @@ func NewRouter(cfg *configs.Config, i18nInstance *i18n.I18n, zapLogger *zap.Logg
 	volumeHistoryRepo := repository.NewVolumeHistoryRepository(db.Pool)
 	chapterRepo := repository.NewChapterRepository(db.Pool)
 	chapterHistoryRepo := repository.NewChapterHistoryRepository(db.Pool)
+	webAuthnCredentialRepo := repository.NewWebAuthnCredentialRepository(db.Pool)
+	webAuthnSessionRepo := repository.NewWebAuthnSessionRepository(db.Pool)
 
 	// Fosite Storage
 	sqlStore := fosite_storage.NewSQLStore(oauth2ClientRepo, oauth2SessionRepo)
@@ -112,6 +114,17 @@ func NewRouter(cfg *configs.Config, i18nInstance *i18n.I18n, zapLogger *zap.Logg
 	volumeService := service.NewVolumeService(volumeRepo, volumeHistoryRepo)
 	chapterService := service.NewChapterService(chapterRepo, chapterHistoryRepo)
 
+	// WebAuthn Service
+	webAuthnService, err := service.NewWebAuthnService(
+		&cfg.WebAuthn,
+		userRepo,
+		webAuthnCredentialRepo,
+		webAuthnSessionRepo,
+	)
+	if err != nil {
+		zapLogger.Fatal("Failed to initialize WebAuthn service", zap.Error(err))
+	}
+
 	// Handlers
 	oauth2Handler := oauth2_handler.NewHandler(
 		&cfg.OAuth2,
@@ -123,6 +136,7 @@ func NewRouter(cfg *configs.Config, i18nInstance *i18n.I18n, zapLogger *zap.Logg
 	)
 
 	authHandler := auth.NewHandler(authService, emailService)
+	webAuthnHandler := auth.NewWebAuthnHandler(webAuthnService)
 
 	genreHandler := genre.NewHandler(genreService, zapLogger)
 	authorHandler := author.NewHandler(authorService, zapLogger)
@@ -222,6 +236,23 @@ func NewRouter(cfg *configs.Config, i18nInstance *i18n.I18n, zapLogger *zap.Logg
 		authAPIGroup.POST("/verify-email", authHandler.VerifyEmail)
 		authAPIGroup.POST("/forgot-password", authHandler.ForgotPassword)
 		authAPIGroup.POST("/reset-password", authHandler.ResetPassword)
+
+		// WebAuthn/Passkey endpoints
+		passkeyGroup := authAPIGroup.Group("/passkey")
+		{
+			// Registration
+			passkeyGroup.POST("/register/begin", webAuthnHandler.BeginRegistration)
+			passkeyGroup.POST("/register/finish", webAuthnHandler.FinishRegistration)
+
+			// Authentication
+			passkeyGroup.POST("/authenticate/begin", webAuthnHandler.BeginAuthentication)
+			passkeyGroup.POST("/authenticate/finish", webAuthnHandler.FinishAuthentication)
+
+			// Credential management (requires authentication)
+			passkeyGroup.GET("/credentials", middleware.RequireAuth(oauth2Provider, zapLogger), webAuthnHandler.ListCredentials)
+			passkeyGroup.DELETE("/credentials", middleware.RequireAuth(oauth2Provider, zapLogger), webAuthnHandler.DeleteCredential)
+			passkeyGroup.PUT("/credentials/name", middleware.RequireAuth(oauth2Provider, zapLogger), webAuthnHandler.UpdateCredentialName)
+		}
 	}
 
 	// OAuth2 Admin API
