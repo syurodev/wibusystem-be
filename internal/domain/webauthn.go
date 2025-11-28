@@ -92,3 +92,30 @@ type WebAuthnSessionRepository interface {
 	// DeleteExpired xóa các sessions đã hết hạn
 	DeleteExpired(ctx context.Context) error
 }
+
+// WebAuthnService định nghĩa interface cho WebAuthn business logic
+type WebAuthnService interface {
+	// BeginRegistration bắt đầu quá trình đăng ký passkey
+	BeginRegistration(ctx context.Context, userID uuid.UUID) (interface{}, error)
+
+	// FinishRegistration hoàn tất quá trình đăng ký passkey
+	FinishRegistration(ctx context.Context, userID uuid.UUID, response interface{}, credentialName string) (*WebAuthnCredential, error)
+
+	// BeginAuthentication bắt đầu quá trình xác thực với passkey
+	BeginAuthentication(ctx context.Context, userID uuid.UUID) (interface{}, error)
+
+	// FinishAuthentication hoàn tất quá trình xác thực với passkey
+	FinishAuthentication(ctx context.Context, userID uuid.UUID, response interface{}) (*WebAuthnCredential, error)
+
+	// ListUserCredentials lấy danh sách credentials của user
+	ListUserCredentials(ctx context.Context, userID uuid.UUID) ([]*WebAuthnCredential, error)
+
+	// DeleteCredential xóa credential
+	DeleteCredential(ctx context.Context, userID uuid.UUID, credentialID uuid.UUID) error
+
+	// UpdateCredentialName cập nhật tên credential
+	UpdateCredentialName(ctx context.Context, userID uuid.UUID, credentialID uuid.UUID, name string) error
+
+	// HasPasskeys kiểm tra xem user có passkey nào không
+	HasPasskeys(ctx context.Context, userID uuid.UUID) (bool, error)
+}

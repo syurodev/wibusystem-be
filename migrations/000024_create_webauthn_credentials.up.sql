@@ -7,7 +7,7 @@
 -- Table: webauthn_credentials
 -- Description: Lưu trữ WebAuthn/FIDO2 credentials cho passwordless authentication
 -- =====================================================
-CREATE TABLE webauthn_credentials (
+CREATE TABLE identify.webauthn_credentials (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL,
 
@@ -38,7 +38,7 @@ CREATE TABLE webauthn_credentials (
     -- Foreign key constraint
     CONSTRAINT fk_webauthn_credentials_user
         FOREIGN KEY (user_id)
-        REFERENCES users(id)
+        REFERENCES identify.users(id)
         ON DELETE CASCADE,
 
     -- Check constraints
@@ -47,29 +47,29 @@ CREATE TABLE webauthn_credentials (
 );
 
 -- Indexes
-CREATE INDEX idx_webauthn_credentials_user_id ON webauthn_credentials(user_id);
-CREATE INDEX idx_webauthn_credentials_credential_id ON webauthn_credentials(credential_id);
-CREATE INDEX idx_webauthn_credentials_created_at ON webauthn_credentials(created_at);
-CREATE INDEX idx_webauthn_credentials_last_used_at ON webauthn_credentials(last_used_at);
+CREATE INDEX idx_webauthn_credentials_user_id ON identify.webauthn_credentials(user_id);
+CREATE INDEX idx_webauthn_credentials_credential_id ON identify.webauthn_credentials(credential_id);
+CREATE INDEX idx_webauthn_credentials_created_at ON identify.webauthn_credentials(created_at);
+CREATE INDEX idx_webauthn_credentials_last_used_at ON identify.webauthn_credentials(last_used_at);
 
 -- Comments
-COMMENT ON TABLE webauthn_credentials IS 'Bảng lưu trữ WebAuthn/FIDO2 credentials cho passwordless authentication';
-COMMENT ON COLUMN webauthn_credentials.credential_id IS 'Unique identifier của credential từ authenticator (Base64URL encoded)';
-COMMENT ON COLUMN webauthn_credentials.public_key IS 'Public key của credential trong binary format';
-COMMENT ON COLUMN webauthn_credentials.attestation_type IS 'Loại attestation: none (no attestation), indirect (anonymized), direct (full)';
-COMMENT ON COLUMN webauthn_credentials.aaguid IS 'Authenticator AAGUID (16 bytes) - identifies authenticator model';
-COMMENT ON COLUMN webauthn_credentials.sign_count IS 'Counter tăng dần mỗi lần authentication - dùng để phát hiện cloned authenticators';
-COMMENT ON COLUMN webauthn_credentials.transports IS 'Supported transports (usb, nfc, ble, internal, hybrid)';
-COMMENT ON COLUMN webauthn_credentials.backup_eligible IS 'Credential có thể được backup (multi-device credentials)';
-COMMENT ON COLUMN webauthn_credentials.backup_state IS 'Credential hiện đang được backup hay không';
-COMMENT ON COLUMN webauthn_credentials.credential_name IS 'User-defined name để nhận diện credential';
-COMMENT ON COLUMN webauthn_credentials.last_used_at IS 'Timestamp lần cuối credential được sử dụng để authentication';
+COMMENT ON TABLE identify.webauthn_credentials IS 'Bảng lưu trữ WebAuthn/FIDO2 credentials cho passwordless authentication';
+COMMENT ON COLUMN identify.webauthn_credentials.credential_id IS 'Unique identifier của credential từ authenticator (Base64URL encoded)';
+COMMENT ON COLUMN identify.webauthn_credentials.public_key IS 'Public key của credential trong binary format';
+COMMENT ON COLUMN identify.webauthn_credentials.attestation_type IS 'Loại attestation: none (no attestation), indirect (anonymized), direct (full)';
+COMMENT ON COLUMN identify.webauthn_credentials.aaguid IS 'Authenticator AAGUID (16 bytes) - identifies authenticator model';
+COMMENT ON COLUMN identify.webauthn_credentials.sign_count IS 'Counter tăng dần mỗi lần authentication - dùng để phát hiện cloned authenticators';
+COMMENT ON COLUMN identify.webauthn_credentials.transports IS 'Supported transports (usb, nfc, ble, internal, hybrid)';
+COMMENT ON COLUMN identify.webauthn_credentials.backup_eligible IS 'Credential có thể được backup (multi-device credentials)';
+COMMENT ON COLUMN identify.webauthn_credentials.backup_state IS 'Credential hiện đang được backup hay không';
+COMMENT ON COLUMN identify.webauthn_credentials.credential_name IS 'User-defined name để nhận diện credential';
+COMMENT ON COLUMN identify.webauthn_credentials.last_used_at IS 'Timestamp lần cuối credential được sử dụng để authentication';
 
 -- =====================================================
 -- Table: webauthn_sessions
 -- Description: Lưu trữ temporary sessions cho WebAuthn registration/authentication flow
 -- =====================================================
-CREATE TABLE webauthn_sessions (
+CREATE TABLE identify.webauthn_sessions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID, -- NULL for registration of new users, set for authentication
 
@@ -88,7 +88,7 @@ CREATE TABLE webauthn_sessions (
     -- Foreign key constraint (optional, as user_id can be NULL for registration)
     CONSTRAINT fk_webauthn_sessions_user
         FOREIGN KEY (user_id)
-        REFERENCES users(id)
+        REFERENCES identify.users(id)
         ON DELETE CASCADE,
 
     -- Check constraints
@@ -97,22 +97,22 @@ CREATE TABLE webauthn_sessions (
 );
 
 -- Indexes
-CREATE INDEX idx_webauthn_sessions_user_id ON webauthn_sessions(user_id);
-CREATE INDEX idx_webauthn_sessions_challenge ON webauthn_sessions(challenge);
-CREATE INDEX idx_webauthn_sessions_expires_at ON webauthn_sessions(expires_at);
-CREATE INDEX idx_webauthn_sessions_created_at ON webauthn_sessions(created_at);
+CREATE INDEX idx_webauthn_sessions_user_id ON identify.webauthn_sessions(user_id);
+CREATE INDEX idx_webauthn_sessions_challenge ON identify.webauthn_sessions(challenge);
+CREATE INDEX idx_webauthn_sessions_expires_at ON identify.webauthn_sessions(expires_at);
+CREATE INDEX idx_webauthn_sessions_created_at ON identify.webauthn_sessions(created_at);
 
 -- Comments
-COMMENT ON TABLE webauthn_sessions IS 'Bảng lưu trữ temporary sessions cho WebAuthn registration/authentication flow';
-COMMENT ON COLUMN webauthn_sessions.challenge IS 'Random challenge string (Base64URL encoded) dùng cho ceremony';
-COMMENT ON COLUMN webauthn_sessions.session_type IS 'Loại session: registration (đăng ký credential mới) hoặc authentication (xác thực)';
-COMMENT ON COLUMN webauthn_sessions.expires_at IS 'Session timeout (default 5 minutes)';
+COMMENT ON TABLE identify.webauthn_sessions IS 'Bảng lưu trữ temporary sessions cho WebAuthn registration/authentication flow';
+COMMENT ON COLUMN identify.webauthn_sessions.challenge IS 'Random challenge string (Base64URL encoded) dùng cho ceremony';
+COMMENT ON COLUMN identify.webauthn_sessions.session_type IS 'Loại session: registration (đăng ký credential mới) hoặc authentication (xác thực)';
+COMMENT ON COLUMN identify.webauthn_sessions.expires_at IS 'Session timeout (default 5 minutes)';
 
 -- =====================================================
 -- Update users table to support passwordless accounts
 -- =====================================================
 -- Make password_hash optional to support passwordless accounts
-ALTER TABLE users ALTER COLUMN password_hash DROP NOT NULL;
+ALTER TABLE identify.users ALTER COLUMN password_hash DROP NOT NULL;
 
 -- Add comment
-COMMENT ON COLUMN users.password_hash IS 'Password hash (NULL for passwordless accounts using only WebAuthn)';
+COMMENT ON COLUMN identify.users.password_hash IS 'Password hash (NULL for passwordless accounts using only WebAuthn)';

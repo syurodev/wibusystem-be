@@ -16,9 +16,10 @@ import (
 )
 
 const (
-	authRequestKeyPrefix   = "auth_request:%s"           // Stores original query string
-	authUserIDKeyPrefix    = "auth_request_user:%s"
-	authRequestParamsPrefix = "auth_request_params:%s"   // Stores original OAuth2 params
+	authRequestKeyPrefix      = "auth_request:%s"           // Stores original query string
+	authUserIDKeyPrefix       = "auth_request_user:%s"
+	authRequestParamsPrefix   = "auth_request_params:%s"    // Stores original OAuth2 params
+	authPasskeyPromptPrefix   = "auth_passkey_prompt:%s"    // Stores passkey prompt flag
 )
 
 // storedAuthorizeRequest là dạng đã được "strip" client để có thể lưu/khôi phục.
@@ -201,4 +202,29 @@ func (r *authRequestRepository) GetQueryParams(ctx context.Context, requestID st
 	}
 
 	return params, nil
+}
+
+// SavePasskeyPromptFlag lưu flag hiển thị passkey prompt
+func (r *authRequestRepository) SavePasskeyPromptFlag(ctx context.Context, requestID string, show bool, ttl time.Duration) error {
+	key := fmt.Sprintf(authPasskeyPromptPrefix, requestID)
+	value := "0"
+	if show {
+		value = "1"
+	}
+	return r.client.Set(ctx, key, value, ttl)
+}
+
+// GetPasskeyPromptFlag lấy flag hiển thị passkey prompt
+func (r *authRequestRepository) GetPasskeyPromptFlag(ctx context.Context, requestID string) (bool, error) {
+	key := fmt.Sprintf(authPasskeyPromptPrefix, requestID)
+
+	value, err := r.client.Get(ctx, key)
+	if err != nil {
+		if errors.Is(err, redis.Nil) {
+			return false, nil // Default to false if not found
+		}
+		return false, err
+	}
+
+	return value == "1", nil
 }

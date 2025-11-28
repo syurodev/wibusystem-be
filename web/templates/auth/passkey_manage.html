@@ -1,0 +1,694 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Manage Passkeys</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          "Helvetica Neue", Arial, sans-serif;
+        background: #f9fafb;
+        min-height: 100vh;
+        padding: 2rem;
+      }
+
+      .container {
+        max-width: 900px;
+        margin: 0 auto;
+      }
+
+      .header {
+        margin-bottom: 2rem;
+      }
+
+      .header h1 {
+        font-size: 2rem;
+        font-weight: 700;
+        color: #1f2937;
+        margin-bottom: 0.5rem;
+      }
+
+      .header p {
+        color: #6b7280;
+        font-size: 0.9375rem;
+      }
+
+      .card {
+        background: white;
+        border-radius: 16px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        padding: 2rem;
+        margin-bottom: 1.5rem;
+      }
+
+      .card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1.5rem;
+        padding-bottom: 1rem;
+        border-bottom: 1px solid #e5e7eb;
+      }
+
+      .card-header h2 {
+        font-size: 1.25rem;
+        font-weight: 600;
+        color: #1f2937;
+      }
+
+      .btn {
+        padding: 0.625rem 1.25rem;
+        border: none;
+        border-radius: 8px;
+        font-size: 0.875rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.15s ease-in-out;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+      }
+
+      .btn-primary {
+        background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+        color: white;
+        box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+      }
+
+      .btn-primary:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+      }
+
+      .btn-secondary {
+        background: #f3f4f6;
+        color: #4b5563;
+      }
+
+      .btn-secondary:hover {
+        background: #e5e7eb;
+      }
+
+      .btn-danger {
+        background: #fee2e2;
+        color: #991b1b;
+      }
+
+      .btn-danger:hover {
+        background: #fecaca;
+      }
+
+      .btn-sm {
+        padding: 0.5rem 0.875rem;
+        font-size: 0.8125rem;
+      }
+
+      .alert {
+        padding: 0.875rem 1.25rem;
+        border-radius: 12px;
+        margin-bottom: 1.5rem;
+        font-size: 0.875rem;
+        line-height: 1.5;
+      }
+
+      .alert-error {
+        background: #fee2e2;
+        border: 1px solid #fecaca;
+        color: #991b1b;
+      }
+
+      .alert-success {
+        background: #dcfce7;
+        border: 1px solid #bbf7d0;
+        color: #166534;
+      }
+
+      .alert-info {
+        background: #f0f9ff;
+        border: 1px solid #bae6fd;
+        color: #0c4a6e;
+      }
+
+      .passkey-list {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+      }
+
+      .passkey-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 1.25rem;
+        background: #f9fafb;
+        border-radius: 12px;
+        border: 1px solid #e5e7eb;
+        transition: all 0.15s;
+      }
+
+      .passkey-item:hover {
+        background: #f3f4f6;
+        border-color: #d1d5db;
+      }
+
+      .passkey-info {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+      }
+
+      .passkey-icon {
+        width: 48px;
+        height: 48px;
+        background: linear-gradient(135deg, #dbeafe 0%, #e0e7ff 100%);
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 24px;
+      }
+
+      .passkey-details {
+        flex: 1;
+      }
+
+      .passkey-name {
+        font-weight: 600;
+        color: #1f2937;
+        margin-bottom: 0.25rem;
+        font-size: 0.9375rem;
+      }
+
+      .passkey-meta {
+        color: #6b7280;
+        font-size: 0.8125rem;
+        display: flex;
+        gap: 1rem;
+        flex-wrap: wrap;
+      }
+
+      .passkey-meta span {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+      }
+
+      .passkey-actions {
+        display: flex;
+        gap: 0.5rem;
+      }
+
+      .empty-state {
+        text-align: center;
+        padding: 3rem 2rem;
+      }
+
+      .empty-state-icon {
+        font-size: 64px;
+        margin-bottom: 1rem;
+        opacity: 0.5;
+      }
+
+      .empty-state h3 {
+        font-size: 1.125rem;
+        font-weight: 600;
+        color: #1f2937;
+        margin-bottom: 0.5rem;
+      }
+
+      .empty-state p {
+        color: #6b7280;
+        margin-bottom: 1.5rem;
+      }
+
+      .skeleton {
+        background: linear-gradient(90deg, #f3f4f6 25%, #e5e7eb 50%, #f3f4f6 75%);
+        background-size: 200% 100%;
+        animation: skeleton-loading 1.5s infinite;
+        border-radius: 8px;
+      }
+
+      @keyframes skeleton-loading {
+        0% {
+          background-position: 200% 0;
+        }
+        100% {
+          background-position: -200% 0;
+        }
+      }
+
+      .modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 1000;
+        align-items: center;
+        justify-content: center;
+        padding: 1rem;
+      }
+
+      .modal.active {
+        display: flex;
+      }
+
+      .modal-content {
+        background: white;
+        border-radius: 16px;
+        padding: 2rem;
+        max-width: 450px;
+        width: 100%;
+        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+      }
+
+      .modal-header {
+        margin-bottom: 1.5rem;
+      }
+
+      .modal-header h3 {
+        font-size: 1.25rem;
+        font-weight: 600;
+        color: #1f2937;
+        margin-bottom: 0.5rem;
+      }
+
+      .modal-header p {
+        color: #6b7280;
+        font-size: 0.875rem;
+      }
+
+      .modal-footer {
+        display: flex;
+        gap: 0.75rem;
+        margin-top: 1.5rem;
+      }
+
+      .modal-footer .btn {
+        flex: 1;
+      }
+
+      .form-group {
+        margin-bottom: 1rem;
+      }
+
+      .form-group label {
+        display: block;
+        margin-bottom: 0.5rem;
+        color: #374151;
+        font-weight: 500;
+        font-size: 0.875rem;
+      }
+
+      .form-group input {
+        width: 100%;
+        padding: 0.75rem 1rem;
+        border: 1px solid #d1d5db;
+        background: white;
+        border-radius: 8px;
+        font-size: 0.9375rem;
+        transition: border-color 0.15s;
+      }
+
+      .form-group input:focus {
+        outline: none;
+        border-color: #3b82f6;
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+      }
+
+      .back-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        color: #6b7280;
+        text-decoration: none;
+        font-size: 0.875rem;
+        transition: color 0.15s;
+      }
+
+      .back-link:hover {
+        color: #3b82f6;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="header">
+        <h1>Manage Passkeys</h1>
+        <p>Manage your registered passkeys for secure sign-in</p>
+      </div>
+
+      <div id="alertContainer"></div>
+
+      <div class="card">
+        <div class="card-header">
+          <h2>Your Passkeys</h2>
+          <button class="btn btn-primary" onclick="addPasskey()">
+            + Add New Passkey
+          </button>
+        </div>
+
+        <div id="passkeyList">
+          <!-- Loading state -->
+          <div class="passkey-item skeleton" style="height: 88px"></div>
+          <div class="passkey-item skeleton" style="height: 88px"></div>
+        </div>
+      </div>
+
+      <a href="/oauth2/authorize" class="back-link">
+        ← Back to account settings
+      </a>
+    </div>
+
+    <!-- Rename Modal -->
+    <div id="renameModal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>Rename Passkey</h3>
+          <p>Give this passkey a memorable name</p>
+        </div>
+
+        <form id="renameForm">
+          <div class="form-group">
+            <label for="newName">Passkey name</label>
+            <input
+              type="text"
+              id="newName"
+              placeholder="e.g., My MacBook Pro"
+              required
+            />
+          </div>
+
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" onclick="closeRenameModal()">
+              Cancel
+            </button>
+            <button type="submit" class="btn btn-primary">
+              Save
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div id="deleteModal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>Delete Passkey</h3>
+          <p>Are you sure you want to remove this passkey? You won't be able to use it to sign in anymore.</p>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="closeDeleteModal()">
+            Cancel
+          </button>
+          <button type="button" class="btn btn-danger" onclick="confirmDelete()">
+            Delete
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      // Configuration
+      const API_BASE = '/api/v1/auth/passkey';
+
+      // State
+      let credentials = [];
+      let currentCredentialId = null;
+
+      // Get access token
+      function getAccessToken() {
+        const token = sessionStorage.getItem('access_token');
+        if (token) return token;
+
+        const cookies = document.cookie.split(';');
+        for (let cookie of cookies) {
+          const [name, value] = cookie.trim().split('=');
+          if (name === 'access_token') {
+            return value;
+          }
+        }
+
+        return null;
+      }
+
+      // Utility functions
+      function showAlert(message, type = 'error') {
+        const container = document.getElementById('alertContainer');
+        const alertClass = type === 'success' ? 'alert-success' : type === 'info' ? 'alert-info' : 'alert-error';
+        container.innerHTML = `<div class="alert ${alertClass}">${message}</div>`;
+
+        if (type === 'success' || type === 'info') {
+          setTimeout(() => {
+            container.innerHTML = '';
+          }, 5000);
+        }
+      }
+
+      function formatDate(dateString) {
+        if (!dateString) return 'Never';
+        const date = new Date(dateString);
+        const now = new Date();
+        const diffMs = now - date;
+        const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+        if (diffDays === 0) return 'Today';
+        if (diffDays === 1) return 'Yesterday';
+        if (diffDays < 7) return `${diffDays} days ago`;
+        if (diffDays < 30) return `${Math.floor(diffDays / 7)} weeks ago`;
+
+        return date.toLocaleDateString('en-US', {
+          year: 'numeric',
+          month: 'short',
+          day: 'numeric'
+        });
+      }
+
+      function getDeviceIcon(credential) {
+        const name = (credential.credential_name || '').toLowerCase();
+        if (name.includes('iphone') || name.includes('ios')) return '📱';
+        if (name.includes('mac') || name.includes('macbook')) return '💻';
+        if (name.includes('windows') || name.includes('pc')) return '🖥️';
+        if (name.includes('android')) return '📱';
+        if (name.includes('ipad')) return '📱';
+        return '🔐';
+      }
+
+      // Load credentials
+      async function loadCredentials() {
+        const token = getAccessToken();
+        if (!token) {
+          showAlert('You must be signed in to view passkeys.', 'error');
+          setTimeout(() => {
+            window.location.href = '/oauth2/authorize';
+          }, 2000);
+          return;
+        }
+
+        try {
+          const response = await fetch(`${API_BASE}/credentials`, {
+            headers: {
+              'Authorization': `Bearer ${token}`
+            }
+          });
+
+          if (!response.ok) {
+            throw new Error('Failed to load passkeys');
+          }
+
+          const data = await response.json();
+          credentials = data.data?.credentials || [];
+
+          renderCredentials();
+
+        } catch (error) {
+          console.error('Error loading credentials:', error);
+          showAlert('Failed to load your passkeys. Please try again.', 'error');
+          renderEmptyState();
+        }
+      }
+
+      // Render credentials list
+      function renderCredentials() {
+        const container = document.getElementById('passkeyList');
+
+        if (credentials.length === 0) {
+          renderEmptyState();
+          return;
+        }
+
+        container.innerHTML = credentials.map(cred => `
+          <div class="passkey-item">
+            <div class="passkey-info">
+              <div class="passkey-icon">${getDeviceIcon(cred)}</div>
+              <div class="passkey-details">
+                <div class="passkey-name">
+                  ${cred.credential_name || 'Unnamed Passkey'}
+                </div>
+                <div class="passkey-meta">
+                  <span>📅 Added ${formatDate(cred.created_at)}</span>
+                  ${cred.last_used_at ? `<span>🕐 Last used ${formatDate(cred.last_used_at)}</span>` : '<span>🕐 Never used</span>'}
+                  ${cred.backup_state ? '<span>☁️ Synced</span>' : ''}
+                </div>
+              </div>
+            </div>
+            <div class="passkey-actions">
+              <button class="btn btn-secondary btn-sm" onclick="openRenameModal('${cred.id}')">
+                ✏️ Rename
+              </button>
+              <button class="btn btn-danger btn-sm" onclick="openDeleteModal('${cred.id}')">
+                🗑️ Delete
+              </button>
+            </div>
+          </div>
+        `).join('');
+      }
+
+      // Render empty state
+      function renderEmptyState() {
+        const container = document.getElementById('passkeyList');
+        container.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-state-icon">🔐</div>
+            <h3>No passkeys yet</h3>
+            <p>Add a passkey to sign in more securely with your fingerprint, face, or device screen lock.</p>
+            <button class="btn btn-primary" onclick="addPasskey()">
+              Add Your First Passkey
+            </button>
+          </div>
+        `;
+      }
+
+      // Add new passkey
+      function addPasskey() {
+        window.location.href = '/auth/passkey/register';
+      }
+
+      // Rename modal
+      function openRenameModal(credentialId) {
+        currentCredentialId = credentialId;
+        const credential = credentials.find(c => c.id === credentialId);
+        if (credential) {
+          document.getElementById('newName').value = credential.credential_name || '';
+        }
+        document.getElementById('renameModal').classList.add('active');
+      }
+
+      function closeRenameModal() {
+        document.getElementById('renameModal').classList.remove('active');
+        currentCredentialId = null;
+      }
+
+      document.getElementById('renameForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const newName = document.getElementById('newName').value.trim();
+
+        if (!newName) {
+          showAlert('Please enter a name', 'error');
+          return;
+        }
+
+        const token = getAccessToken();
+        if (!token) {
+          showAlert('Session expired. Please sign in again.', 'error');
+          return;
+        }
+
+        try {
+          const response = await fetch(`${API_BASE}/credentials/name`, {
+            method: 'PUT',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              credential_id: currentCredentialId,
+              credential_name: newName
+            })
+          });
+
+          if (!response.ok) {
+            throw new Error('Failed to rename passkey');
+          }
+
+          showAlert('✓ Passkey renamed successfully', 'success');
+          closeRenameModal();
+          await loadCredentials();
+
+        } catch (error) {
+          console.error('Error renaming credential:', error);
+          showAlert('Failed to rename passkey. Please try again.', 'error');
+        }
+      });
+
+      // Delete modal
+      function openDeleteModal(credentialId) {
+        currentCredentialId = credentialId;
+        document.getElementById('deleteModal').classList.add('active');
+      }
+
+      function closeDeleteModal() {
+        document.getElementById('deleteModal').classList.remove('active');
+        currentCredentialId = null;
+      }
+
+      async function confirmDelete() {
+        const token = getAccessToken();
+        if (!token) {
+          showAlert('Session expired. Please sign in again.', 'error');
+          return;
+        }
+
+        try {
+          const response = await fetch(`${API_BASE}/credentials`, {
+            method: 'DELETE',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              credential_id: currentCredentialId
+            })
+          });
+
+          if (!response.ok) {
+            throw new Error('Failed to delete passkey');
+          }
+
+          showAlert('✓ Passkey deleted successfully', 'success');
+          closeDeleteModal();
+          await loadCredentials();
+
+        } catch (error) {
+          console.error('Error deleting credential:', error);
+          showAlert('Failed to delete passkey. Please try again.', 'error');
+        }
+      }
+
+      // Close modals on background click
+      document.getElementById('renameModal').addEventListener('click', (e) => {
+        if (e.target.id === 'renameModal') closeRenameModal();
+      });
+
+      document.getElementById('deleteModal').addEventListener('click', (e) => {
+        if (e.target.id === 'deleteModal') closeDeleteModal();
+      });
+
+      // Initialize
+      loadCredentials();
+    </script>
+  </body>
+</html>

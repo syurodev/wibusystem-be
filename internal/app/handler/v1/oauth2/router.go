@@ -18,6 +18,7 @@ func (h *Handler) RegisterRoutes(group *gin.RouterGroup) {
 	// Login flow
 	group.GET("/login", h.LoginPage)    // Login page
 	group.POST("/login", h.LoginSubmit) // Login form submit
+	group.POST("/login/check", h.LoginCheck) // Check login status (for multi-step login)
 
 	// Consent flow
 	group.GET("/consent", h.ConsentPage)    // Consent page

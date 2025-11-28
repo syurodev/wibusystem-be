@@ -165,3 +165,8 @@ func (s *OAuth2Service) RevokeUserTokens(ctx context.Context, userID uuid.UUID) 
 func (s *OAuth2Service) GetClientInfo(ctx context.Context, clientID uuid.UUID) (*domain.OAuth2Client, error) {
 	return s.clientRepo.GetByID(ctx, clientID)
 }
+
+// GetUserByEmail lấy thông tin user theo email.
+func (s *OAuth2Service) GetUserByEmail(ctx context.Context, email string) (*domain.User, error) {
+	return s.userRepo.GetByEmail(ctx, email)
+}

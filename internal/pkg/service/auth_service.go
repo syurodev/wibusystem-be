@@ -247,3 +247,8 @@ func (s *AuthService) ResetPassword(ctx context.Context, tokenStr, newPassword s
 
 	return nil
 }
+
+// GetUserByEmail lấy user theo email address
+func (s *AuthService) GetUserByEmail(ctx context.Context, email string) (*domain.User, error) {
+	return s.userRepo.GetByEmail(ctx, email)
+}

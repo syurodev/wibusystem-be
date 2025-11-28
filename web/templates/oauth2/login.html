@@ -1,9 +1,10 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Sign In</title>
+    <script src="/static/js/alpine.min.js" defer></script>
     <style>
       * {
         margin: 0;
@@ -18,8 +19,7 @@
       }
 
       body {
-        font-family:
-          -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
           "Helvetica Neue", Arial, sans-serif;
       }
 
@@ -254,7 +254,7 @@
       }
     </style>
   </head>
-  <body>
+  <body x-data="loginFlow()" x-init="init()">
     <div class="card">
       <div class="illustration">
         <img src="/images/logo.png" alt="Logo" class="logo" />
@@ -270,86 +270,391 @@
           <h1>Sign In</h1>
           <p class="subtitle">Enter your credentials to access your account</p>
 
-          <div class="error" id="error"></div>
+          <div
+            class="error"
+            x-show="error"
+            x-text="error"
+            style="display: none"
+          ></div>
 
-          <form id="loginForm" action="/oauth2/login" method="POST">
+          <form id="loginForm" @submit.prevent="handleSubmit">
             <input type="hidden" name="request_id" value="{{ .RequestID }}" />
 
-            <div class="form-group">
-              <label for="email">Email address</label>
-              <input
-                type="email"
-                id="email"
-                name="email"
-                required
-                autocomplete="email"
-                placeholder="your@email.com"
-              />
+            <!-- Step 1: Email -->
+            <div x-show="step === 'email'" x-transition>
+              <div class="form-group">
+                <label for="email">Email address</label>
+                <input
+                  type="email"
+                  id="email"
+                  name="email"
+                  x-model="email"
+                  required
+                  autocomplete="email"
+                  placeholder="your@email.com"
+                  autofocus
+                />
+              </div>
+              <button type="button" @click="checkEmail" :disabled="loading">
+                <span x-show="!loading">Next</span>
+                <span x-show="loading">Checking...</span>
+              </button>
             </div>
 
-            <div class="form-group">
-              <label for="password">Password</label>
-              <input
-                type="password"
-                id="password"
-                name="password"
-                required
-                autocomplete="current-password"
-                placeholder="Enter your password"
-              />
-            </div>
-
-            <div class="checkbox-group">
-              <input type="checkbox" id="remember" name="remember" />
-              <label for="remember" class="checkbox-label"
-                >Remember this computer</label
+            <!-- Step 2: Passkey Prompt -->
+            <div x-show="step === 'passkey'" x-transition style="display: none">
+              <div
+                class="form-group"
+                style="text-align: center; margin-bottom: 2rem"
               >
+                <div style="font-size: 4rem; margin-bottom: 1rem">🔐</div>
+                <h3 style="margin-bottom: 0.5rem; color: #374151">
+                  Use your passkey
+                </h3>
+                <p style="color: #6b7280; font-size: 0.9rem">
+                  Authenticate with Face ID, Touch ID, or screen lock
+                </p>
+              </div>
+
+              <button
+                type="button"
+                @click="startPasskeyAuth"
+                :disabled="loading"
+                style="margin-bottom: 1rem"
+              >
+                <span x-show="!loading">Sign in with Passkey</span>
+                <span x-show="loading">Waiting...</span>
+              </button>
+
+              <div style="text-align: center">
+                <a
+                  href="#"
+                  @click.prevent="step = 'password'"
+                  style="
+                    color: #3b82f6;
+                    text-decoration: none;
+                    font-size: 0.9rem;
+                  "
+                >
+                  Use password instead
+                </a>
+              </div>
+              <div style="text-align: center; margin-top: 1rem">
+                <a
+                  href="#"
+                  @click.prevent="step = 'email'"
+                  style="
+                    color: #6b7280;
+                    text-decoration: none;
+                    font-size: 0.875rem;
+                  "
+                >
+                  ← Back to email
+                </a>
+              </div>
             </div>
 
-            <button type="submit">Sign In</button>
+            <!-- Step 3: Password -->
+            <div
+              x-show="step === 'password'"
+              x-transition
+              style="display: none"
+            >
+              <div class="form-group">
+                <div
+                  style="
+                    display: flex;
+                    justify-content: space-between;
+                    margin-bottom: 0.5rem;
+                  "
+                >
+                  <label for="password" style="margin-bottom: 0"
+                    >Password</label
+                  >
+                  <span
+                    style="font-size: 0.875rem; color: #6b7280"
+                    x-text="email"
+                  ></span>
+                </div>
+                <input
+                  type="password"
+                  id="password"
+                  name="password"
+                  x-model="password"
+                  required
+                  autocomplete="current-password"
+                  placeholder="Enter your password"
+                  x-ref="passwordInput"
+                />
+              </div>
+
+              <div class="checkbox-group">
+                <input type="checkbox" id="remember" name="remember" />
+                <label for="remember" class="checkbox-label"
+                  >Remember this computer</label
+                >
+              </div>
+
+              <button type="submit" :disabled="loading">
+                <span x-show="!loading">Sign In</span>
+                <span x-show="loading">Signing in...</span>
+              </button>
+
+              <div style="text-align: center; margin-top: 1rem">
+                <a
+                  href="#"
+                  @click.prevent="step = 'email'"
+                  style="
+                    color: #6b7280;
+                    text-decoration: none;
+                    font-size: 0.875rem;
+                  "
+                >
+                  ← Back to email
+                </a>
+              </div>
+            </div>
           </form>
 
-          <div class="footer-link">
+          <div class="footer-link" x-show="step === 'email'">
             Don't have an account? <a href="/oauth2/register">Sign up</a>
           </div>
         </div>
       </div>
     </div>
 
+    <!-- Alpine.js -->
     <script>
-      document
-        .getElementById("loginForm")
-        .addEventListener("submit", async (e) => {
-          e.preventDefault();
-          const form = e.target;
-          const formData = new FormData(form);
-          const error = document.getElementById("error");
+      function loginFlow() {
+        return {
+          step: "email",
+          email: "",
+          password: "",
+          loading: false,
+          error: "",
+          hasPasskeys: false,
 
-          try {
-            const response = await fetch(form.action, {
-              method: "POST",
-              body: formData,
-              redirect: "manual",
-            });
-
-            if (
-              response.type === "opaqueredirect" ||
-              response.status === 302 ||
-              response.status === 303
-            ) {
-              window.location.href =
-                response.headers.get("Location") ||
-                "/oauth2/auth?request_id=" + formData.get("request_id");
-            } else if (!response.ok) {
-              const data = await response.json();
-              error.textContent = data.message || "Invalid email or password";
-              error.style.display = "block";
+          init() {
+            // Check if email is pre-filled (e.g. from query param or previous attempt)
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.has("email")) {
+              this.email = urlParams.get("email");
             }
-          } catch (err) {
-            error.textContent = "An error occurred. Please try again.";
-            error.style.display = "block";
-          }
-        });
+          },
+
+          async checkEmail() {
+            if (!this.email) {
+              this.error = "Please enter your email address";
+              return;
+            }
+
+            this.loading = true;
+            this.error = "";
+
+            try {
+              const formData = new FormData();
+              formData.append("email", this.email);
+
+              const response = await fetch("/oauth2/login/check", {
+                method: "POST",
+                body: formData,
+              });
+
+              if (response.ok) {
+                const data = await response.json();
+                this.hasPasskeys = data.has_passkeys;
+
+                if (this.hasPasskeys) {
+                  this.step = "passkey";
+                } else {
+                  this.step = "password";
+                  // Focus password input next tick
+                  this.$nextTick(() => {
+                    if (this.$refs.passwordInput)
+                      this.$refs.passwordInput.focus();
+                  });
+                }
+              } else {
+                // Fallback to password if check fails
+                this.step = "password";
+              }
+            } catch (e) {
+              console.error(e);
+              this.step = "password";
+            } finally {
+              this.loading = false;
+            }
+          },
+
+          async startPasskeyAuth() {
+            this.loading = true;
+            this.error = "";
+
+            try {
+              // 1. Begin authentication
+              const beginResponse = await fetch(
+                "/api/v1/auth/passkey/authenticate/begin",
+                {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ email: this.email }),
+                }
+              );
+
+              if (!beginResponse.ok)
+                throw new Error("Failed to start passkey authentication");
+
+              const data = await beginResponse.json();
+              console.log("Passkey Begin Data:", data); // Debug log
+
+              let options = data.publicKey;
+              const userId = data.user_id;
+
+              if (!options) {
+                throw new Error("No public key options received");
+              }
+
+              // Handle potential nesting of publicKey (go-webauthn serialization)
+              if (options.publicKey) {
+                console.log("Unwrapping nested publicKey options");
+                options = options.publicKey;
+              }
+
+              // 2. Decode options
+              // Handle case where challenge might be missing or named differently
+              if (!options.challenge) {
+                console.error("Missing challenge in options", options);
+                throw new Error(
+                  "Server returned invalid passkey options (missing challenge)"
+                );
+              }
+              options.challenge = this.base64urlDecode(options.challenge);
+
+              if (options.allowCredentials) {
+                options.allowCredentials.forEach((cred) => {
+                  if (cred.id) {
+                    cred.id = this.base64urlDecode(cred.id);
+                  }
+                });
+              }
+
+              // 3. Get credential
+              const credential = await navigator.credentials.get({
+                publicKey: options,
+              });
+
+              // 4. Encode response
+              const credentialJSON = {
+                id: credential.id,
+                rawId: this.base64urlEncode(credential.rawId),
+                type: credential.type,
+                response: {
+                  authenticatorData: this.base64urlEncode(
+                    credential.response.authenticatorData
+                  ),
+                  clientDataJSON: this.base64urlEncode(
+                    credential.response.clientDataJSON
+                  ),
+                  signature: this.base64urlEncode(
+                    credential.response.signature
+                  ),
+                  userHandle: credential.response.userHandle
+                    ? this.base64urlEncode(credential.response.userHandle)
+                    : null,
+                },
+              };
+
+              // 5. Finish authentication
+              const finishResponse = await fetch(
+                `/api/v1/auth/passkey/authenticate/finish?user_id=${userId}`,
+                {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify(credentialJSON),
+                }
+              );
+
+              if (finishResponse.ok) {
+                // Login successful!
+                // Redirect to OAuth2 auth endpoint
+                window.location.href =
+                  "/oauth2/auth?request_id={{ .RequestID }}";
+              } else {
+                const errorData = await finishResponse.json();
+                console.error("Finish Auth Error:", errorData);
+                this.error =
+                  "Authentication failed: " +
+                  (errorData.message || "Unknown error");
+              }
+            } catch (e) {
+              console.error("Passkey Auth Error:", e);
+              this.error =
+                "An error occurred during passkey authentication. Check console for details.";
+            } finally {
+              this.loading = false;
+            }
+          },
+
+          async handleSubmit(e) {
+            // Standard password login
+            const form = e.target;
+            const formData = new FormData(form);
+            this.loading = true;
+            this.error = "";
+
+            try {
+              const response = await fetch(form.action, {
+                method: "POST",
+                body: formData,
+                redirect: "manual",
+              });
+
+              if (
+                response.type === "opaqueredirect" ||
+                response.status === 302 ||
+                response.status === 303
+              ) {
+                window.location.href =
+                  response.headers.get("Location") ||
+                  "/oauth2/auth?request_id=" + formData.get("request_id");
+              } else if (!response.ok) {
+                const data = await response.json();
+                this.error = data.message || "Invalid email or password";
+              } else {
+                // Should not happen with manual redirect, but just in case
+                window.location.reload();
+              }
+            } catch (err) {
+              this.error = "An error occurred. Please try again.";
+            } finally {
+              this.loading = false;
+            }
+          },
+
+          // Utils
+          base64urlDecode(base64url) {
+            const base64 = base64url.replace(/-/g, "+").replace(/_/g, "/");
+            const paddedBase64 = base64.padEnd(
+              base64.length + ((4 - (base64.length % 4)) % 4),
+              "="
+            );
+            const binaryString = atob(paddedBase64);
+            const bytes = new Uint8Array(binaryString.length);
+            for (let i = 0; i < binaryString.length; i++) {
+              bytes[i] = binaryString.charCodeAt(i);
+            }
+            return bytes.buffer;
+          },
+
+          base64urlEncode(buffer) {
+            const base64 = btoa(String.fromCharCode(...new Uint8Array(buffer)));
+            return base64
+              .replace(/\+/g, "-")
+              .replace(/\//g, "_")
+              .replace(/=/g, "");
+          },
+        };
+      }
     </script>
   </body>
 </html>

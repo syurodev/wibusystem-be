@@ -30,4 +30,10 @@ type AuthRequestRepository interface {
 
 	// GetQueryParams lấy original OAuth2 query params string
 	GetQueryParams(ctx context.Context, requestID string) (string, error)
+
+	// SavePasskeyPromptFlag lưu flag hiển thị passkey prompt
+	SavePasskeyPromptFlag(ctx context.Context, requestID string, show bool, ttl time.Duration) error
+
+	// GetPasskeyPromptFlag lấy flag hiển thị passkey prompt
+	GetPasskeyPromptFlag(ctx context.Context, requestID string) (bool, error)
 }

@@ -1,0 +1,553 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Add Passkey</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        height: 100%;
+        overflow: hidden;
+      }
+
+      body {
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          "Helvetica Neue", Arial, sans-serif;
+      }
+
+      .card {
+        height: 100vh;
+        display: grid;
+        grid-template-columns: 45% 55%;
+      }
+
+      .illustration {
+        background: linear-gradient(
+          135deg,
+          #dbeafe 0%,
+          #a5b4fc 50%,
+          #c084fc 100%
+        );
+        position: relative;
+        padding: 3rem;
+        display: flex;
+        flex-direction: column;
+      }
+
+      .logo {
+        height: 40px;
+        width: auto;
+        object-fit: contain;
+        object-position: left;
+      }
+
+      .artwork {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        position: relative;
+        flex-direction: column;
+        gap: 2rem;
+      }
+
+      .passkey-icon {
+        font-size: 120px;
+        filter: drop-shadow(0 10px 30px rgba(0, 0, 0, 0.2));
+      }
+
+      .feature-list {
+        background: rgba(255, 255, 255, 0.15);
+        backdrop-filter: blur(10px);
+        border-radius: 16px;
+        padding: 1.5rem 2rem;
+        color: white;
+        max-width: 400px;
+      }
+
+      .feature-list h3 {
+        font-size: 1.25rem;
+        margin-bottom: 1rem;
+        font-weight: 600;
+      }
+
+      .feature-list ul {
+        list-style: none;
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+      }
+
+      .feature-list li {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        font-size: 0.9375rem;
+      }
+
+      .feature-list li::before {
+        content: "✓";
+        display: inline-block;
+        width: 24px;
+        height: 24px;
+        background: rgba(255, 255, 255, 0.3);
+        border-radius: 50%;
+        text-align: center;
+        line-height: 24px;
+        font-weight: bold;
+      }
+
+      .content {
+        background: white;
+        padding: 3rem 4rem;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        overflow-y: auto;
+      }
+
+      .content-wrapper {
+        max-width: 480px;
+        margin: 0 auto;
+        width: 100%;
+      }
+
+      h1 {
+        font-size: 2rem;
+        font-weight: 700;
+        color: #1f2937;
+        margin-bottom: 0.5rem;
+        line-height: 1.2;
+      }
+
+      .subtitle {
+        color: #6b7280;
+        margin-bottom: 2.5rem;
+        font-size: 0.9375rem;
+        line-height: 1.5;
+      }
+
+      .info-box {
+        background: #f0f9ff;
+        border: 1px solid #bae6fd;
+        border-radius: 12px;
+        padding: 1rem 1.25rem;
+        margin-bottom: 2rem;
+      }
+
+      .info-box p {
+        color: #0c4a6e;
+        font-size: 0.875rem;
+        line-height: 1.6;
+      }
+
+      .form-group {
+        margin-bottom: 1.5rem;
+      }
+
+      label {
+        display: block;
+        margin-bottom: 0.5rem;
+        color: #374151;
+        font-weight: 500;
+        font-size: 0.875rem;
+      }
+
+      input[type="text"] {
+        width: 100%;
+        padding: 0.875rem 1rem;
+        border: none;
+        background: #f3f4f6;
+        border-radius: 12px;
+        font-size: 0.9375rem;
+        transition: background 0.15s ease-in-out;
+        color: #1f2937;
+      }
+
+      input[type="text"]:focus {
+        outline: none;
+        background: #e5e7eb;
+      }
+
+      .btn {
+        width: 100%;
+        padding: 1rem 1.5rem;
+        border: none;
+        border-radius: 12px;
+        font-size: 1rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.15s ease-in-out;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+      }
+
+      .btn-primary {
+        background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+        color: white;
+        box-shadow: 0 4px 14px rgba(59, 130, 246, 0.4);
+      }
+
+      .btn-primary:hover:not(:disabled) {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(59, 130, 246, 0.5);
+      }
+
+      .btn-primary:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+      }
+
+      .btn-secondary {
+        background: #f3f4f6;
+        color: #4b5563;
+        margin-top: 0.75rem;
+      }
+
+      .btn-secondary:hover {
+        background: #e5e7eb;
+      }
+
+      .alert {
+        padding: 0.875rem 1.25rem;
+        border-radius: 12px;
+        margin-bottom: 1.5rem;
+        font-size: 0.875rem;
+        line-height: 1.5;
+      }
+
+      .alert-error {
+        background: #fee2e2;
+        border: 1px solid #fecaca;
+        color: #991b1b;
+      }
+
+      .alert-success {
+        background: #dcfce7;
+        border: 1px solid #bbf7d0;
+        color: #166534;
+      }
+
+      .spinner {
+        border: 3px solid rgba(255, 255, 255, 0.3);
+        border-top-color: white;
+        border-radius: 50%;
+        width: 20px;
+        height: 20px;
+        animation: spin 0.8s linear infinite;
+      }
+
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      .back-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        color: #6b7280;
+        text-decoration: none;
+        font-size: 0.875rem;
+        margin-top: 1.5rem;
+        transition: color 0.15s;
+      }
+
+      .back-link:hover {
+        color: #3b82f6;
+      }
+
+      @media (max-width: 1024px) {
+        .card {
+          grid-template-columns: 1fr;
+        }
+
+        .illustration {
+          display: none;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <!-- Left Side: Illustration -->
+      <div class="illustration">
+        <img
+          src="/images/logo.svg"
+          alt="Logo"
+          class="logo"
+          onerror="this.style.display='none'"
+        />
+
+        <div class="artwork">
+          <div class="passkey-icon">🔐</div>
+
+          <div class="feature-list">
+            <h3>Why use passkeys?</h3>
+            <ul>
+              <li>Sign in with just your fingerprint or face</li>
+              <li>No passwords to remember or type</li>
+              <li>More secure than passwords</li>
+              <li>Works across all your devices</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right Side: Form -->
+      <div class="content">
+        <div class="content-wrapper">
+          <h1>Add a passkey</h1>
+          <p class="subtitle">
+            Secure your account with biometric authentication. You can use Face
+            ID, Touch ID, Windows Hello, or your device screen lock.
+          </p>
+
+          <div id="alertContainer"></div>
+
+          <div class="info-box">
+            <p>
+              <strong>Your privacy is protected:</strong> Your biometric data
+              never leaves your device. Only a secure cryptographic key is
+              shared with our servers.
+            </p>
+          </div>
+
+          <form id="passkeyForm">
+            <div class="form-group">
+              <label for="credentialName">
+                Device name (optional)
+                <span style="color: #9ca3af; font-weight: normal">
+                  - helps you identify this passkey
+                </span>
+              </label>
+              <input
+                type="text"
+                id="credentialName"
+                name="credentialName"
+                placeholder="e.g., My MacBook Pro, iPhone 15"
+                autocomplete="off"
+              />
+            </div>
+
+            <button
+              type="submit"
+              class="btn btn-primary"
+              id="createButton"
+            >
+              <span id="buttonText">Create Passkey</span>
+              <div id="buttonSpinner" class="spinner" style="display: none"></div>
+            </button>
+
+            <a href="/oauth2/authorize{{ if .RequestID }}?request_id={{ .RequestID }}{{ end }}" class="btn btn-secondary">
+              Skip for now
+            </a>
+          </form>
+
+          <a href="/oauth2/authorize{{ if .RequestID }}?request_id={{ .RequestID }}{{ end }}" class="back-link">
+            ← Back to sign in
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      // Configuration
+      const API_BASE = '/api/v1/auth/passkey';
+
+      // Get access token from cookie or session storage
+      // NOTE: In production, token should be from httpOnly cookie set by server
+      function getAccessToken() {
+        // Try to get from session storage (set during OAuth2 flow)
+        const token = sessionStorage.getItem('access_token');
+        if (token) return token;
+
+        // Try to get from cookie
+        const cookies = document.cookie.split(';');
+        for (let cookie of cookies) {
+          const [name, value] = cookie.trim().split('=');
+          if (name === 'access_token') {
+            return value;
+          }
+        }
+
+        return null;
+      }
+
+      // Utility functions
+      function showAlert(message, type = 'error') {
+        const container = document.getElementById('alertContainer');
+        const alertClass = type === 'success' ? 'alert-success' : 'alert-error';
+        container.innerHTML = `<div class="alert ${alertClass}">${message}</div>`;
+
+        if (type === 'success') {
+          setTimeout(() => {
+            container.innerHTML = '';
+          }, 5000);
+        }
+      }
+
+      function setLoading(isLoading) {
+        const button = document.getElementById('createButton');
+        const buttonText = document.getElementById('buttonText');
+        const spinner = document.getElementById('buttonSpinner');
+
+        button.disabled = isLoading;
+        buttonText.textContent = isLoading ? 'Creating passkey...' : 'Create Passkey';
+        spinner.style.display = isLoading ? 'block' : 'none';
+      }
+
+      // Base64URL encode/decode utilities
+      function base64urlEncode(buffer) {
+        const base64 = btoa(String.fromCharCode(...new Uint8Array(buffer)));
+        return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+      }
+
+      function base64urlDecode(base64url) {
+        const base64 = base64url.replace(/-/g, '+').replace(/_/g, '/');
+        const paddedBase64 = base64.padEnd(base64.length + (4 - base64.length % 4) % 4, '=');
+        const binaryString = atob(paddedBase64);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
+        }
+        return bytes.buffer;
+      }
+
+      // Check WebAuthn support
+      if (!window.PublicKeyCredential) {
+        showAlert(
+          'Your browser does not support passkeys. Please use a modern browser like Chrome, Safari, or Edge.',
+          'error'
+        );
+        document.getElementById('createButton').disabled = true;
+      }
+
+      // Handle form submission
+      document.getElementById('passkeyForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        const token = getAccessToken();
+        if (!token) {
+          showAlert('You must be signed in to add a passkey. Please sign in first.', 'error');
+          setTimeout(() => {
+            window.location.href = '/oauth2/authorize{{ if .RequestID }}?request_id={{ .RequestID }}{{ end }}';
+          }, 2000);
+          return;
+        }
+
+        setLoading(true);
+        document.getElementById('alertContainer').innerHTML = '';
+
+        try {
+          // Step 1: Begin registration
+          const beginResponse = await fetch(`${API_BASE}/register/begin`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            }
+          });
+
+          if (!beginResponse.ok) {
+            const errorData = await beginResponse.json();
+            throw new Error(errorData.message || 'Failed to start passkey registration');
+          }
+
+          const options = await beginResponse.json();
+
+          // Step 2: Prepare credential creation options
+          const publicKey = {
+            ...options.publicKey,
+            challenge: base64urlDecode(options.publicKey.challenge),
+            user: {
+              ...options.publicKey.user,
+              id: base64urlDecode(options.publicKey.user.id)
+            },
+            excludeCredentials: (options.publicKey.excludeCredentials || []).map(cred => ({
+              ...cred,
+              id: base64urlDecode(cred.id)
+            }))
+          };
+
+          // Step 3: Create credential using WebAuthn API
+          const credential = await navigator.credentials.create({ publicKey });
+
+          if (!credential) {
+            throw new Error('Failed to create passkey');
+          }
+
+          // Step 4: Prepare credential data for server
+          const credentialJSON = {
+            id: credential.id,
+            rawId: base64urlEncode(credential.rawId),
+            type: credential.type,
+            response: {
+              clientDataJSON: base64urlEncode(credential.response.clientDataJSON),
+              attestationObject: base64urlEncode(credential.response.attestationObject),
+              transports: credential.response.getTransports ? credential.response.getTransports() : []
+            }
+          };
+
+          // Step 5: Finish registration
+          const credentialName = document.getElementById('credentialName').value.trim();
+          const finishURL = `${API_BASE}/register/finish${credentialName ? '?credential_name=' + encodeURIComponent(credentialName) : ''}`;
+
+          const finishResponse = await fetch(finishURL, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(credentialJSON)
+          });
+
+          if (!finishResponse.ok) {
+            const errorData = await finishResponse.json();
+            throw new Error(errorData.message || 'Failed to complete passkey registration');
+          }
+
+          const result = await finishResponse.json();
+
+          // Success!
+          showAlert('✓ Passkey created successfully! You can now sign in with your biometrics.', 'success');
+
+          // Redirect after success
+          setTimeout(() => {
+            window.location.href = '/oauth2/authorize{{ if .RequestID }}?request_id={{ .RequestID }}{{ end }}';
+          }, 2000);
+
+        } catch (error) {
+          console.error('Passkey registration error:', error);
+
+          let errorMessage = 'Failed to create passkey. ';
+
+          if (error.name === 'NotAllowedError') {
+            errorMessage += 'The operation was cancelled or timed out.';
+          } else if (error.name === 'InvalidStateError') {
+            errorMessage += 'This passkey is already registered.';
+          } else if (error.name === 'NotSupportedError') {
+            errorMessage += 'Your device does not support this type of passkey.';
+          } else {
+            errorMessage += error.message;
+          }
+
+          showAlert(errorMessage, 'error');
+        } finally {
+          setLoading(false);
+        }
+      });
+    </script>
+  </body>
+</html>

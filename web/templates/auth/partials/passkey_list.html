@@ -1,0 +1,30 @@
+<!-- Passkey List Fragment (loaded via HTMX) -->
+{{ if .credentials }}
+  {{ if gt (len .credentials) 0 }}
+    <div class="passkey-list">
+      {{ range .credentials }}
+        {{ template "auth/partials/passkey_card.html" (dict "credential" .) }}
+      {{ end }}
+    </div>
+  {{ else }}
+    <!-- Empty state -->
+    <div class="empty-state">
+      <div class="empty-state-icon">🔐</div>
+      <h3>No passkeys yet</h3>
+      <p>Add a passkey to sign in more securely with your fingerprint, face, or device screen lock.</p>
+      <a href="/auth/passkey/register" class="btn btn-primary">
+        Add Your First Passkey
+      </a>
+    </div>
+  {{ end }}
+{{ else }}
+  <!-- Empty state -->
+  <div class="empty-state">
+    <div class="empty-state-icon">🔐</div>
+    <h3>No passkeys yet</h3>
+    <p>Add a passkey to sign in more securely with your fingerprint, face, or device screen lock.</p>
+    <a href="/auth/passkey/register" class="btn btn-primary">
+      Add Your First Passkey
+    </a>
+  </div>
+{{ end }}

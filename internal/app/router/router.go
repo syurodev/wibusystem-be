@@ -1,7 +1,12 @@
 package router
 
 import (
+	"html/template"
+	"io/fs"
 	"net/http"
+	"os"
+	"path/filepath"
+	"strings"
 	"system/configs"
 	v1 "system/internal/app/handler/v1"
 	"system/internal/app/handler/v1/artist"
@@ -40,11 +45,78 @@ func NewRouter(cfg *configs.Config, i18nInstance *i18n.I18n, zapLogger *zap.Logg
 
 	router := gin.New()
 
-	// Load HTML templates
-	router.LoadHTMLGlob("web/templates/**/*")
+	// Load HTML templates recursively from web/templates
+	// Build list of all template files
+	var templateFiles []string
+	err := filepath.WalkDir("web/templates", func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if !d.IsDir() && filepath.Ext(path) == ".html" {
+			templateFiles = append(templateFiles, path)
+		}
+		return nil
+	})
+
+	if err != nil {
+		zapLogger.Fatal("Failed to walk templates directory", zap.Error(err))
+	}
+
+	// Parse all templates into a single template set with custom names
+	if len(templateFiles) > 0 {
+		funcMap := template.FuncMap{
+			"contains": strings.Contains,
+			"dict": func(values ...interface{}) map[string]interface{} {
+				if len(values)%2 != 0 {
+					return nil
+				}
+				dict := make(map[string]interface{}, len(values)/2)
+				for i := 0; i < len(values); i += 2 {
+					key, ok := values[i].(string)
+					if !ok {
+						return nil
+					}
+					dict[key] = values[i+1]
+				}
+				return dict
+			},
+		}
+
+		tmpl := template.New("").Funcs(funcMap)
+
+		// Parse each template file with a custom name (relative to web/templates/)
+		for _, filePath := range templateFiles {
+			// Remove "web/templates/" prefix to get template name
+			templateName := strings.TrimPrefix(filePath, "web/templates/")
+
+			// Read file content
+			content, err := os.ReadFile(filePath)
+			if err != nil {
+				zapLogger.Fatal("Failed to read template file",
+					zap.String("file", filePath),
+					zap.Error(err),
+				)
+			}
+
+			// Parse the template content with custom name
+			_, err = tmpl.New(templateName).Parse(string(content))
+			if err != nil {
+				zapLogger.Fatal("Failed to parse template",
+					zap.String("file", filePath),
+					zap.String("name", templateName),
+					zap.Error(err),
+				)
+			}
+		}
+
+		router.SetHTMLTemplate(tmpl)
+	} else {
+		zapLogger.Warn("No templates found")
+	}
 
 	// Serve static files
 	router.Static("/images", "./web/images")
+	router.Static("/static", "./web/static")
 
 	// Middleware
 	router.Use(logger.GinZap(zapLogger, cfg.Server.IsProd))
@@ -76,6 +148,8 @@ func NewRouter(cfg *configs.Config, i18nInstance *i18n.I18n, zapLogger *zap.Logg
 	volumeHistoryRepo := repository.NewVolumeHistoryRepository(db.Pool)
 	chapterRepo := repository.NewChapterRepository(db.Pool)
 	chapterHistoryRepo := repository.NewChapterHistoryRepository(db.Pool)
+	webauthnCredentialRepo := repository.NewWebAuthnCredentialRepository(db.Pool)
+	webauthnSessionRepo := repository.NewWebAuthnSessionRepository(db.Pool)
 
 	// Fosite Storage
 	sqlStore := fosite_storage.NewSQLStore(oauth2ClientRepo, oauth2SessionRepo)
@@ -112,6 +186,16 @@ func NewRouter(cfg *configs.Config, i18nInstance *i18n.I18n, zapLogger *zap.Logg
 	volumeService := service.NewVolumeService(volumeRepo, volumeHistoryRepo)
 	chapterService := service.NewChapterService(chapterRepo, chapterHistoryRepo)
 
+	webauthnService, err := service.NewWebAuthnService(
+		cfg.WebAuthn,
+		webauthnCredentialRepo,
+		webauthnSessionRepo,
+		userRepo,
+		zapLogger,
+	)
+	if err != nil {
+		zapLogger.Fatal("Failed to initialize WebAuthn service", zap.Error(err))
+	}
 
 	// Handlers
 	oauth2Handler := oauth2_handler.NewHandler(
@@ -120,10 +204,11 @@ func NewRouter(cfg *configs.Config, i18nInstance *i18n.I18n, zapLogger *zap.Logg
 		oauth2Service,
 		authRequestRepo,
 		oauth2ClientRepo,
+		webauthnService,
 		zapLogger,
 	)
 
-	authHandler := auth.NewHandler(authService, emailService)
+	authHandler := auth.NewHandler(authService, emailService, webauthnService, oauth2Service)
 
 	genreHandler := genre.NewHandler(genreService, zapLogger)
 	authorHandler := author.NewHandler(authorService, zapLogger)
@@ -215,6 +300,23 @@ func NewRouter(cfg *configs.Config, i18nInstance *i18n.I18n, zapLogger *zap.Logg
 		oauth2Group.GET("/reset-password", authHandler.ResetPasswordPage)
 	}
 
+	// Passkey HTML pages
+	authHTMLGroup := router.Group("/auth")
+	{
+		authHTMLGroup.GET("/passkey/setup", authHandler.PasskeySetupPage)
+		authHTMLGroup.GET("/passkey/register", authHandler.PasskeyRegisterPage)
+		authHTMLGroup.GET("/passkey/manage", authHandler.PasskeyManagePage)
+	}
+
+	// Account management pages with htmx fragments (requires authentication)
+	accountGroup := router.Group("/account", middleware.RequireSessionAuth(oauth2Service, zapLogger))
+	{
+		// Passkey management htmx fragments
+		accountGroup.GET("/passkeys", authHandler.PasskeyListFragment)
+		accountGroup.DELETE("/passkeys/:id", authHandler.PasskeyDeleteFragment)
+		accountGroup.PUT("/passkeys/:id/name", authHandler.PasskeyUpdateNameFragment)
+	}
+
 	// Auth API endpoints
 	authAPIGroup := apiV1.Group("/auth")
 	{
@@ -224,7 +326,18 @@ func NewRouter(cfg *configs.Config, i18nInstance *i18n.I18n, zapLogger *zap.Logg
 		authAPIGroup.POST("/forgot-password", authHandler.ForgotPassword)
 		authAPIGroup.POST("/reset-password", authHandler.ResetPassword)
 
-		
+		// WebAuthn/Passkey endpoints - Registration (requires authentication)
+		authAPIGroup.POST("/passkey/register/begin", middleware.RequireSessionAuth(oauth2Service, zapLogger), authHandler.PasskeyRegisterBegin)
+		authAPIGroup.POST("/passkey/register/finish", middleware.RequireSessionAuth(oauth2Service, zapLogger), authHandler.PasskeyRegisterFinish)
+
+		// WebAuthn/Passkey endpoints - Authentication (public)
+		authAPIGroup.POST("/passkey/authenticate/begin", authHandler.PasskeyAuthenticateBegin)
+		authAPIGroup.POST("/passkey/authenticate/finish", authHandler.PasskeyAuthenticateFinish)
+
+		// WebAuthn/Passkey endpoints - Credential management (requires authentication)
+		authAPIGroup.GET("/passkey/credentials", middleware.RequireSessionAuth(oauth2Service, zapLogger), authHandler.PasskeyListCredentials)
+		authAPIGroup.DELETE("/passkey/credentials", middleware.RequireSessionAuth(oauth2Service, zapLogger), authHandler.PasskeyDeleteCredential)
+		authAPIGroup.PUT("/passkey/credentials/name", middleware.RequireSessionAuth(oauth2Service, zapLogger), authHandler.PasskeyUpdateCredentialName)
 	}
 
 	// OAuth2 Admin API

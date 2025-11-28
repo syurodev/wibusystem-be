@@ -10,6 +10,7 @@ import (
 	"strings"
 	"system/configs"
 	"system/internal/domain"
+	"system/internal/pkg/service"
 	"system/pkg/util/errcode"
 	"system/pkg/util/response"
 	"time"
@@ -33,6 +34,7 @@ type OAuth2Service interface {
 	LogoutUser(ctx context.Context, sessionID string, revokeTokens bool) error
 	RevokeUserTokens(ctx context.Context, userID uuid.UUID) error
 	GetClientInfo(ctx context.Context, clientID uuid.UUID) (*domain.OAuth2Client, error)
+	GetUserByEmail(ctx context.Context, email string) (*domain.User, error)
 }
 
 // Handler là struct chứa các dependencies cho OAuth2 handlers.
@@ -42,6 +44,7 @@ type Handler struct {
 	oauth2Service   OAuth2Service
 	authRequestRepo domain.AuthRequestRepository
 	clientRepo      domain.OAuth2ClientRepository
+	webauthnService service.WebAuthnService
 	logger          *zap.Logger
 }
 
@@ -52,6 +55,7 @@ func NewHandler(
 	oauth2Service OAuth2Service,
 	authRequestRepo domain.AuthRequestRepository,
 	clientRepo domain.OAuth2ClientRepository,
+	webauthnService service.WebAuthnService,
 	logger *zap.Logger,
 ) *Handler {
 	return &Handler{
@@ -60,6 +64,7 @@ func NewHandler(
 		oauth2Service:   oauth2Service,
 		authRequestRepo: authRequestRepo,
 		clientRepo:      clientRepo,
+		webauthnService: webauthnService,
 		logger:          logger,
 	}
 }
@@ -88,7 +93,7 @@ func (h *Handler) showErrorPage(c *gin.Context, errorCode, errorDescription, hin
 		true,  // httpOnly
 	)
 
-	c.HTML(http.StatusBadRequest, "error.html", gin.H{
+	c.HTML(http.StatusBadRequest, "oauth2/error.html", gin.H{
 		"Error":            errorCode,
 		"ErrorDescription": errorDescription,
 		"Hint":             hint,
@@ -385,11 +390,33 @@ func (h *Handler) Authorize(c *gin.Context) {
 		zap.String("client_id", ar.GetClient().GetID()),
 	)
 
+	// Check if we need to show passkey prompt from Redis
+	showPasskeyPrompt, err := h.authRequestRepo.GetPasskeyPromptFlag(c.Request.Context(), ar.GetID())
+	if err != nil {
+		h.logger.Warn("Failed to get passkey prompt flag",
+			zap.String("request_id", ar.GetID()),
+			zap.Error(err),
+		)
+		showPasskeyPrompt = false
+	}
+
+	// Fix: Double check if user actually has passkeys now (maybe they just created one)
+	if showPasskeyPrompt {
+		if userUUID, err := uuid.FromString(userID); err == nil {
+			if hasPasskeys, _ := h.webauthnService.HasPasskeys(c.Request.Context(), userUUID); hasPasskeys {
+				showPasskeyPrompt = false
+				// Update flag in Redis to avoid re-showing
+				_ = h.authRequestRepo.SavePasskeyPromptFlag(c.Request.Context(), ar.GetID(), false, time.Minute*10)
+			}
+		}
+	}
+
 	// User đã đăng nhập - kiểm tra xem đã consent chưa
 	consentGiven := h.checkUserConsent(c, userID, ar.GetClient().GetID())
 
-	if !consentGiven {
-		// Chưa consent - redirect đến consent page
+	// Always show consent page if passkey prompt is needed, even if consent was previously given
+	if !consentGiven || showPasskeyPrompt {
+		// Chưa consent hoặc cần hiển thị passkey prompt - redirect đến consent page
 		h.redirectToConsent(c, ar, userID)
 		return
 	}
@@ -565,7 +592,7 @@ func (h *Handler) LoginPage(c *gin.Context) {
 	// TODO: Validate requestID và lấy thông tin client từ stored request
 	// ar, err := h.store.GetAuthRequest(c.Request.Context(), requestID)
 
-	c.HTML(http.StatusOK, "login.html", gin.H{
+	c.HTML(http.StatusOK, "oauth2/login.html", gin.H{
 		"RequestID": requestID,
 	})
 }
@@ -607,9 +634,42 @@ func (h *Handler) LoginSubmit(c *gin.Context) {
 		true,  // httpOnly
 	)
 
+	// Check if user has any passkeys
+	hasPasskeys, err := h.webauthnService.HasPasskeys(c.Request.Context(), user.ID)
+	if err != nil {
+		h.logger.Warn("Failed to check user passkeys",
+			zap.String("user_id", user.ID.String()),
+			zap.Error(err),
+		)
+		// Continue with normal flow even if check fails
+		hasPasskeys = true
+	}
+
+	// If user doesn't have passkeys, save flag to Redis
+	if !hasPasskeys {
+		err := h.authRequestRepo.SavePasskeyPromptFlag(c.Request.Context(), requestID, true, time.Minute*10)
+		if err != nil {
+			h.logger.Warn("Failed to save passkey prompt flag",
+				zap.String("request_id", requestID),
+				zap.Error(err),
+			)
+		} else {
+			h.logger.Info("Login successful, will show passkey setup prompt",
+				zap.String("request_id", requestID),
+				zap.String("user_id", user.ID.String()),
+			)
+		}
+	}
+
 	// Redirect back to /oauth2/auth with just request_id
 	// The Authorize handler will detect this and load full params from Redis
 	redirectURL := "/oauth2/auth?request_id=" + requestID
+
+	h.logger.Info("Login successful, redirecting to authorization endpoint",
+		zap.String("request_id", requestID),
+		zap.String("user_id", user.ID.String()),
+		zap.String("redirect_url", redirectURL),
+	)
 	h.logger.Info("Login successful, redirecting to authorization endpoint",
 		zap.String("request_id", requestID),
 		zap.String("user_id", user.ID.String()),
@@ -617,6 +677,41 @@ func (h *Handler) LoginSubmit(c *gin.Context) {
 	)
 	c.Redirect(http.StatusFound, redirectURL)
 }
+
+// LoginCheck kiểm tra email và trạng thái passkey của user
+func (h *Handler) LoginCheck(c *gin.Context) {
+	email := c.PostForm("email")
+	if email == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Email is required"})
+		return
+	}
+
+	// Check if user exists
+	user, err := h.oauth2Service.GetUserByEmail(c.Request.Context(), email)
+	if err != nil {
+		// User not found - return generic response to avoid enumeration (or handle as per requirements)
+		// For this flow, we'll just say no passkeys
+		c.JSON(http.StatusOK, gin.H{
+			"exists":       false,
+			"has_passkeys": false,
+		})
+		return
+	}
+
+	// Check if user has passkeys
+	hasPasskeys, err := h.webauthnService.HasPasskeys(c.Request.Context(), user.ID)
+	if err != nil {
+		h.logger.Error("Failed to check passkeys", zap.Error(err))
+		// Default to false on error
+		hasPasskeys = false
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"exists":       true,
+		"has_passkeys": hasPasskeys,
+	})
+}
+
 
 // ScopeInfo chứa thông tin về scope
 type ScopeInfo struct {
@@ -703,19 +798,42 @@ func (h *Handler) ConsentPage(c *gin.Context) {
 	// 6. Build scope info list với real scopes
 	scopes := h.buildScopeInfoList(requestedScopes)
 
-	// 7. Show consent page với real data
+	// 7. Check if we should show passkey setup prompt from Redis
+	showPasskeyPrompt, err := h.authRequestRepo.GetPasskeyPromptFlag(c.Request.Context(), requestID)
+	if err != nil {
+		h.logger.Warn("Failed to get passkey prompt flag",
+			zap.String("request_id", requestID),
+			zap.Error(err),
+		)
+		showPasskeyPrompt = false
+	}
+
+	// Fix: Double check if user actually has passkeys now
+	if showPasskeyPrompt {
+		if userUUID, err := uuid.FromString(userID); err == nil {
+			if hasPasskeys, _ := h.webauthnService.HasPasskeys(c.Request.Context(), userUUID); hasPasskeys {
+				showPasskeyPrompt = false
+				// Update flag in Redis
+				_ = h.authRequestRepo.SavePasskeyPromptFlag(c.Request.Context(), requestID, false, time.Minute*10)
+			}
+		}
+	}
+
+	// 8. Show consent page với real data
 	h.logger.Info("Showing consent page",
 		zap.String("user_id", userID),
 		zap.String("client_id", clientID),
 		zap.String("client_name", domainClient.ClientName),
 		zap.Strings("scopes", requestedScopes),
+		zap.Bool("show_passkey_prompt", showPasskeyPrompt),
 	)
 
-	c.HTML(http.StatusOK, "consent.html", gin.H{
-		"RequestID":  requestID,
-		"ClientName": domainClient.ClientName,
-		"ClientID":   clientUUID.String(),
-		"Scopes":     scopes,
+	c.HTML(http.StatusOK, "oauth2/consent.html", gin.H{
+		"RequestID":          requestID,
+		"ClientName":         domainClient.ClientName,
+		"ClientID":           clientUUID.String(),
+		"Scopes":             scopes,
+		"ShowPasskeyPrompt":  showPasskeyPrompt,
 	})
 }
 

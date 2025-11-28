@@ -198,7 +198,7 @@ func LoadConfig(envPath string) (*Config, error) {
 	// WEBAUTHN CONFIG
 	cfg.WebAuthn.RPID = getEnv("WEBAUTHN_RP_ID", "localhost")
 	cfg.WebAuthn.RPName = getEnv("WEBAUTHN_RP_NAME", "System")
-	cfg.WebAuthn.RPOrigins = getEnvAsSlice("WEBAUTHN_RP_ORIGINS", []string{"http://localhost:8080"})
+	cfg.WebAuthn.RPOrigins = getEnvAsSlice("WEBAUTHN_RP_ORIGINS", []string{"http://localhost:8080", "http://localhost:3000"})
 	cfg.WebAuthn.Timeout = getEnvAsInt("WEBAUTHN_TIMEOUT", 60000)
 
 	return cfg, nil

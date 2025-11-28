@@ -1,0 +1,77 @@
+<!-- Single Passkey Card (reusable component) -->
+<div class="passkey-item"
+     id="passkey-{{ .credential.ID }}"
+     x-data="{ editing: false }">
+
+  <div class="passkey-info">
+    <div class="passkey-icon">
+      {{ if .credential.CredentialName }}
+        {{ if contains .credential.CredentialName "iPhone" }}📱
+        {{ else if contains .credential.CredentialName "Mac" }}💻
+        {{ else if contains .credential.CredentialName "Windows" }}🖥️
+        {{ else if contains .credential.CredentialName "Android" }}📱
+        {{ else }}🔐{{ end }}
+      {{ else }}🔐{{ end }}
+    </div>
+
+    <div class="passkey-details">
+      <!-- View mode -->
+      <div x-show="!editing">
+        <div class="passkey-name">
+          {{ if .credential.CredentialName }}
+            {{ .credential.CredentialName }}
+          {{ else }}
+            Unnamed Passkey
+          {{ end }}
+        </div>
+        <div class="passkey-meta">
+          <span>📅 Added {{ .credential.CreatedAt.Format "Jan 2, 2006" }}</span>
+          {{ if .credential.LastUsedAt }}
+            <span>🕐 Last used {{ .credential.LastUsedAt.Format "Jan 2, 2006" }}</span>
+          {{ else }}
+            <span>🕐 Never used</span>
+          {{ end }}
+          {{ if .credential.BackupState }}
+            <span>☁️ Synced</span>
+          {{ end }}
+        </div>
+      </div>
+
+      <!-- Edit mode -->
+      <form x-show="editing"
+            hx-put="/account/passkeys/{{ .credential.ID }}/name"
+            hx-target="#passkey-{{ .credential.ID }}"
+            hx-swap="outerHTML"
+            @submit="editing = false">
+        <input type="text"
+               name="credential_name"
+               value="{{ if .credential.CredentialName }}{{ .credential.CredentialName }}{{ end }}"
+               placeholder="Device name"
+               x-ref="nameInput"
+               class="passkey-name-input">
+        <div class="edit-actions">
+          <button type="submit" class="btn btn-primary btn-sm">Save</button>
+          <button type="button"
+                  class="btn btn-secondary btn-sm"
+                  @click="editing = false">
+            Cancel
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="passkey-actions">
+    <button class="btn btn-secondary btn-sm"
+            @click="editing = true; $nextTick(() => $refs.nameInput.focus())">
+      ✏️ Rename
+    </button>
+    <button class="btn btn-danger btn-sm"
+            hx-delete="/account/passkeys/{{ .credential.ID }}"
+            hx-target="#passkey-{{ .credential.ID }}"
+            hx-swap="outerHTML swap:1s"
+            hx-confirm="Are you sure you want to delete this passkey? You won't be able to use it to sign in anymore.">
+      🗑️ Delete
+    </button>
+  </div>
+</div>

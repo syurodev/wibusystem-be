@@ -15,21 +15,25 @@ import (
 )
 
 type Handler struct {
-	authService  *service.AuthService
-	emailService *service.EmailService
+	authService     *service.AuthService
+	emailService    *service.EmailService
+	webauthnService service.WebAuthnService
+	oauth2Service   *service.OAuth2Service
 }
 
-func NewHandler(authService *service.AuthService, emailService *service.EmailService) *Handler {
+func NewHandler(authService *service.AuthService, emailService *service.EmailService, webauthnService service.WebAuthnService, oauth2Service *service.OAuth2Service) *Handler {
 	return &Handler{
-		authService:  authService,
-		emailService: emailService,
+		authService:     authService,
+		emailService:    emailService,
+		webauthnService: webauthnService,
+		oauth2Service:   oauth2Service,
 	}
 }
 
 // RegisterPage hiển thị trang đăng ký
 func (h *Handler) RegisterPage(c *gin.Context) {
 	requestID := c.Query("request_id")
-	c.HTML(http.StatusOK, "register.html", gin.H{
+	c.HTML(http.StatusOK, "auth/register.html", gin.H{
 		"RequestID": requestID,
 	})
 }
@@ -84,7 +88,7 @@ func (h *Handler) Register(c *gin.Context) {
 // VerifyEmailPage hiển thị trang verify email
 func (h *Handler) VerifyEmailPage(c *gin.Context) {
 	token := c.Query("token")
-	c.HTML(http.StatusOK, "verify_email.html", gin.H{
+	c.HTML(http.StatusOK, "auth/verify_email.html", gin.H{
 		"Token": token,
 	})
 }
@@ -123,7 +127,7 @@ func (h *Handler) VerifyEmail(c *gin.Context) {
 
 // ForgotPasswordPage hiển thị trang quên mật khẩu
 func (h *Handler) ForgotPasswordPage(c *gin.Context) {
-	c.HTML(http.StatusOK, "forgot_password.html", gin.H{})
+	c.HTML(http.StatusOK, "auth/forgot_password.html", gin.H{})
 }
 
 // ForgotPassword tạo token reset password và gửi email
@@ -155,7 +159,7 @@ func (h *Handler) ForgotPassword(c *gin.Context) {
 // ResetPasswordPage hiển thị trang reset password
 func (h *Handler) ResetPasswordPage(c *gin.Context) {
 	token := c.Query("token")
-	c.HTML(http.StatusOK, "reset_password.html", gin.H{
+	c.HTML(http.StatusOK, "auth/reset_password.html", gin.H{
 		"Token": token,
 	})
 }
@@ -192,6 +196,27 @@ func (h *Handler) ResetPassword(c *gin.Context) {
 	}
 
 	response.Success(c, http.StatusOK, "auth.password_reset", nil, nil)
+}
+
+// PasskeySetupPage hiển thị trang đề xuất tạo passkey
+func (h *Handler) PasskeySetupPage(c *gin.Context) {
+	requestID := c.Query("request_id")
+	c.HTML(http.StatusOK, "auth/passkey_setup.html", gin.H{
+		"RequestID": requestID,
+	})
+}
+
+// PasskeyRegisterPage hiển thị trang đăng ký passkey
+func (h *Handler) PasskeyRegisterPage(c *gin.Context) {
+	requestID := c.Query("request_id")
+	c.HTML(http.StatusOK, "auth/passkey_register_htmx.html", gin.H{
+		"RequestID": requestID,
+	})
+}
+
+// PasskeyManagePage hiển thị trang quản lý passkey
+func (h *Handler) PasskeyManagePage(c *gin.Context) {
+	c.HTML(http.StatusOK, "auth/passkey_manage_htmx.html", gin.H{})
 }
 
 // Helper functions

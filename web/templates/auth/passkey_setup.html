@@ -1,0 +1,331 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Secure Your Account with Passkey</title>
+
+    <!-- Alpine.js -->
+    <script src="/static/js/alpine.min.js" defer></script>
+
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        height: 100%;
+        overflow: hidden;
+      }
+
+      body {
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          "Helvetica Neue", Arial, sans-serif;
+      }
+
+      .card {
+        height: 100vh;
+        display: grid;
+        grid-template-columns: 45% 55%;
+      }
+
+      .illustration {
+        background: linear-gradient(
+          135deg,
+          #dbeafe 0%,
+          #a5b4fc 50%,
+          #c084fc 100%
+        );
+        position: relative;
+        padding: 3rem;
+        display: flex;
+        flex-direction: column;
+      }
+
+      .logo {
+        height: 40px;
+        width: auto;
+        object-fit: contain;
+        object-position: left;
+      }
+
+      .artwork {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        position: relative;
+        flex-direction: column;
+        gap: 2rem;
+      }
+
+      .passkey-icon {
+        font-size: 120px;
+        filter: drop-shadow(0 10px 30px rgba(0, 0, 0, 0.2));
+        animation: float 3s ease-in-out infinite;
+      }
+
+      @keyframes float {
+        0%, 100% {
+          transform: translateY(0px);
+        }
+        50% {
+          transform: translateY(-20px);
+        }
+      }
+
+      .feature-list {
+        background: rgba(255, 255, 255, 0.15);
+        backdrop-filter: blur(10px);
+        border-radius: 16px;
+        padding: 1.5rem 2rem;
+        color: white;
+        max-width: 400px;
+      }
+
+      .feature-list h3 {
+        font-size: 1.25rem;
+        margin-bottom: 1rem;
+        font-weight: 600;
+      }
+
+      .feature-list ul {
+        list-style: none;
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+      }
+
+      .feature-list li {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        font-size: 0.9375rem;
+      }
+
+      .feature-list li::before {
+        content: "✓";
+        display: inline-block;
+        width: 24px;
+        height: 24px;
+        background: rgba(255, 255, 255, 0.3);
+        border-radius: 50%;
+        text-align: center;
+        line-height: 24px;
+        font-weight: bold;
+      }
+
+      .content {
+        background: white;
+        padding: 3rem 4rem;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        overflow-y: auto;
+      }
+
+      .content-wrapper {
+        max-width: 480px;
+        margin: 0 auto;
+        width: 100%;
+      }
+
+      h1 {
+        font-size: 2rem;
+        font-weight: 700;
+        color: #1f2937;
+        margin-bottom: 0.5rem;
+        line-height: 1.2;
+      }
+
+      .subtitle {
+        color: #6b7280;
+        margin-bottom: 2.5rem;
+        font-size: 0.9375rem;
+        line-height: 1.5;
+      }
+
+      .info-box {
+        background: #f0f9ff;
+        border: 1px solid #bae6fd;
+        border-radius: 12px;
+        padding: 1rem 1.25rem;
+        margin-bottom: 2rem;
+      }
+
+      .info-box p {
+        color: #0c4a6e;
+        font-size: 0.875rem;
+        line-height: 1.6;
+      }
+
+      .info-box strong {
+        display: block;
+        margin-bottom: 0.25rem;
+      }
+
+      .btn {
+        width: 100%;
+        padding: 1rem 1.5rem;
+        border: none;
+        border-radius: 12px;
+        font-size: 1rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.15s ease-in-out;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        text-decoration: none;
+        text-align: center;
+      }
+
+      .btn-primary {
+        background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+        color: white;
+        box-shadow: 0 4px 14px rgba(59, 130, 246, 0.4);
+      }
+
+      .btn-primary:hover:not(:disabled) {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(59, 130, 246, 0.5);
+      }
+
+      .btn-secondary {
+        background: #f3f4f6;
+        color: #4b5563;
+        margin-top: 0.75rem;
+      }
+
+      .btn-secondary:hover {
+        background: #e5e7eb;
+      }
+
+      .btn-text {
+        background: transparent;
+        color: #6b7280;
+        margin-top: 1rem;
+        padding: 0.5rem;
+        font-size: 0.875rem;
+      }
+
+      .btn-text:hover {
+        color: #3b82f6;
+      }
+
+      .benefits {
+        margin-bottom: 2rem;
+      }
+
+      .benefits h2 {
+        font-size: 1.125rem;
+        font-weight: 600;
+        color: #1f2937;
+        margin-bottom: 1rem;
+      }
+
+      .benefits ul {
+        list-style: none;
+        display: flex;
+        flex-direction: column;
+        gap: 0.875rem;
+      }
+
+      .benefits li {
+        display: flex;
+        align-items: flex-start;
+        gap: 0.75rem;
+        color: #4b5563;
+        font-size: 0.9375rem;
+        line-height: 1.5;
+      }
+
+      .benefits li::before {
+        content: "🔐";
+        flex-shrink: 0;
+        font-size: 1.25rem;
+      }
+
+      @media (max-width: 1024px) {
+        .card {
+          grid-template-columns: 1fr;
+        }
+
+        .illustration {
+          display: none;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <!-- Left Side: Illustration -->
+      <div class="illustration">
+        <img
+          src="/images/logo.svg"
+          alt="Logo"
+          class="logo"
+          onerror="this.style.display='none'"
+        />
+
+        <div class="artwork">
+          <div class="passkey-icon">🔐</div>
+
+          <div class="feature-list">
+            <h3>Why use passkeys?</h3>
+            <ul>
+              <li>Sign in instantly with Face ID or Touch ID</li>
+              <li>No passwords to remember</li>
+              <li>Phishing-resistant security</li>
+              <li>Works across all your devices</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right Side: Content -->
+      <div class="content">
+        <div class="content-wrapper">
+          <h1>Secure your account</h1>
+          <p class="subtitle">
+            Add a passkey to sign in quickly and securely with your fingerprint, face, or device screen lock.
+          </p>
+
+          <div class="benefits">
+            <h2>What you'll get:</h2>
+            <ul>
+              <li>Sign in with just your fingerprint or face - no typing required</li>
+              <li>More secure than passwords - resistant to phishing and data breaches</li>
+              <li>Works across all your devices that support biometric authentication</li>
+              <li>You can always add or remove passkeys later from your account settings</li>
+            </ul>
+          </div>
+
+          <div class="info-box">
+            <p>
+              <strong>Your privacy is protected</strong>
+              Your biometric data never leaves your device. Only a secure cryptographic key is shared with our servers.
+            </p>
+          </div>
+
+          <a href="/auth/passkey/register?request_id={{ .RequestID }}" class="btn btn-primary">
+            🔐 Set Up Passkey Now
+          </a>
+
+          <a href="/oauth2/auth?request_id={{ .RequestID }}" class="btn btn-secondary">
+            Maybe Later
+          </a>
+
+          <a href="/oauth2/auth?request_id={{ .RequestID }}" class="btn btn-text">
+            Skip, don't ask again
+          </a>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>
