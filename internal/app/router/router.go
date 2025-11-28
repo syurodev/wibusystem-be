@@ -66,11 +66,11 @@ func NewRouter(cfg *configs.Config, i18nInstance *i18n.I18n, zapLogger *zap.Logg
 	if len(templateFiles) > 0 {
 		funcMap := template.FuncMap{
 			"contains": strings.Contains,
-			"dict": func(values ...interface{}) map[string]interface{} {
+			"dict": func(values ...any) map[string]any {
 				if len(values)%2 != 0 {
 					return nil
 				}
-				dict := make(map[string]interface{}, len(values)/2)
+				dict := make(map[string]any, len(values)/2)
 				for i := 0; i < len(values); i += 2 {
 					key, ok := values[i].(string)
 					if !ok {

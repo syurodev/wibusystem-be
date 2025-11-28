@@ -273,7 +273,7 @@ func mapToArtistDetailResponse(artist *domain.Artist) ArtistDetailResponse {
 
 	// Extract description from biography JSON
 	if len(artist.Biography) > 0 {
-		var bio map[string]interface{}
+		var bio map[string]any
 		if err := json.Unmarshal(artist.Biography, &bio); err == nil {
 			if text, ok := bio["text"].(string); ok && text != "" {
 				resp.Description = &text
@@ -306,7 +306,7 @@ func mapToArtistResponse(artist *domain.Artist) ArtistResponse {
 
 	// Extract description from biography JSON
 	if len(artist.Biography) > 0 {
-		var bio map[string]interface{}
+		var bio map[string]any
 		if err := json.Unmarshal(artist.Biography, &bio); err == nil {
 			if text, ok := bio["text"].(string); ok && text != "" {
 				resp.Description = &text

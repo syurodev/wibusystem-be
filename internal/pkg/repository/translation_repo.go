@@ -98,7 +98,7 @@ func (r *chapterTranslationRepository) GetByChapterID(ctx context.Context, chapt
 // GetByTranslatorID lấy danh sách translations của translator
 func (r *chapterTranslationRepository) GetByTranslatorID(ctx context.Context, translatorID uuid.UUID, filter domain.TranslationFilter) ([]*domain.ChapterTranslation, error) {
 	var whereClauses []string
-	var args []interface{}
+	var args []any
 	argIdx := 2
 
 	whereClauses = append(whereClauses, "translator_id = $1")
@@ -260,7 +260,7 @@ func (r *chapterTranslationRepository) IncrementViewCount(ctx context.Context, i
 // UpdateStatistics cập nhật thống kê
 func (r *chapterTranslationRepository) UpdateStatistics(ctx context.Context, id uuid.UUID, stats domain.TranslationStatisticsUpdate) error {
 	var setClauses []string
-	var args []interface{}
+	var args []any
 	argIdx := 2
 
 	args = append(args, id)
@@ -342,7 +342,7 @@ func (r *translationContributionRepository) GetByID(ctx context.Context, id uuid
 // GetByChapterID lấy danh sách contributions của một chapter
 func (r *translationContributionRepository) GetByChapterID(ctx context.Context, chapterID uuid.UUID, filter domain.ContributionFilter) ([]*domain.TranslationContribution, error) {
 	var whereClauses []string
-	var args []interface{}
+	var args []any
 	argIdx := 2
 
 	whereClauses = append(whereClauses, "chapter_id = $1")
@@ -410,7 +410,7 @@ func (r *translationContributionRepository) GetByChapterID(ctx context.Context, 
 // GetByContributorID lấy danh sách contributions của contributor
 func (r *translationContributionRepository) GetByContributorID(ctx context.Context, contributorID uuid.UUID, filter domain.ContributionFilter) ([]*domain.TranslationContribution, error) {
 	var whereClauses []string
-	var args []interface{}
+	var args []any
 	argIdx := 2
 
 	whereClauses = append(whereClauses, "contributor_id = $1")
@@ -482,7 +482,7 @@ func (r *translationContributionRepository) GetPendingReview(ctx context.Context
 		WHERE status = 'pending_review' AND deleted_at IS NULL
 	`
 
-	var args []interface{}
+	var args []any
 	argIdx := 1
 
 	if language != nil {
@@ -630,7 +630,7 @@ func (r *translationContributionRepository) Vote(ctx context.Context, contributi
 // UpdateStatistics cập nhật thống kê
 func (r *translationContributionRepository) UpdateStatistics(ctx context.Context, id uuid.UUID, stats domain.ContributionStatisticsUpdate) error {
 	var setClauses []string
-	var args []interface{}
+	var args []any
 	argIdx := 2
 
 	args = append(args, id)

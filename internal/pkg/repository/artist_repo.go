@@ -94,7 +94,7 @@ func (r *artistRepository) GetByUserID(ctx context.Context, userID uuid.UUID) (*
 // List lấy danh sách artists với filter
 func (r *artistRepository) List(ctx context.Context, filter domain.ArtistFilter) ([]*domain.Artist, int64, error) {
 	var whereClauses []string
-	var args []interface{}
+	var args []any
 	argIdx := 1
 
 	whereClauses = append(whereClauses, "deleted_at IS NULL")
@@ -308,7 +308,7 @@ func (r *artistRepository) RemoveNovelArtist(ctx context.Context, novelID, artis
 // UpdateStatistics cập nhật thống kê
 func (r *artistRepository) UpdateStatistics(ctx context.Context, id uuid.UUID, stats domain.ArtistStatistics) error {
 	var setClauses []string
-	var args []interface{}
+	var args []any
 	argIdx := 2
 
 	args = append(args, id)

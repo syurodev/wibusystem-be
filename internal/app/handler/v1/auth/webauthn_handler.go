@@ -171,7 +171,7 @@ func (h *Handler) PasskeyAuthenticateBegin(c *gin.Context) {
 	// For now, we'll include user_id in the response (client must send it back)
 
 	// Return options with user_id hint
-	result := map[string]interface{}{
+	result := map[string]any{
 		"publicKey": options,
 		"user_id":   user.ID.String(), // Client must send this back
 	}

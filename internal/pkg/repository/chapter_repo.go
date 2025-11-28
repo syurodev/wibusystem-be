@@ -73,7 +73,7 @@ func (r *chapterRepository) GetByNovelIDAndNumber(ctx context.Context, novelID u
 // GetByNovelID lấy danh sách chapter theo novel ID
 func (r *chapterRepository) GetByNovelID(ctx context.Context, novelID uuid.UUID, filter domain.ChapterFilter) ([]*domain.Chapter, error) {
 	var whereClauses []string
-	var args []interface{}
+	var args []any
 	argIdx := 2
 
 	whereClauses = append(whereClauses, "novel_id = $1")
@@ -344,7 +344,7 @@ func (r *chapterRepository) IncrementViewCount(ctx context.Context, id uuid.UUID
 // UpdateStatistics cập nhật thống kê của chapter
 func (r *chapterRepository) UpdateStatistics(ctx context.Context, id uuid.UUID, stats domain.ChapterStatistics) error {
 	var setClauses []string
-	var args []interface{}
+	var args []any
 	argIdx := 2
 
 	args = append(args, id) // $1 là id

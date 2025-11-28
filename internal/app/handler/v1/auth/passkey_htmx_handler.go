@@ -138,7 +138,7 @@ func (h *Handler) PasskeyUpdateNameFragment(c *gin.Context) {
 	}
 
 	// Find the updated credential
-	var updatedCred interface{}
+	var updatedCred any
 	for _, cred := range credentials {
 		if cred.ID == credentialID {
 			updatedCred = cred

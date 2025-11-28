@@ -99,7 +99,7 @@ func (r *genreRepository) GetAll(ctx context.Context, activeOnly bool) ([]*domai
 func (r *genreRepository) List(ctx context.Context, offset, limit int, search, sortBy, sortOrder string, activeOnly bool) ([]*domain.Genre, int, error) {
 	// Build WHERE clause
 	var whereClauses []string
-	var args []interface{}
+	var args []any
 	argIdx := 1
 
 	whereClauses = append(whereClauses, "deleted_at IS NULL")

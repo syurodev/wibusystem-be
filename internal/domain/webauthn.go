@@ -96,16 +96,16 @@ type WebAuthnSessionRepository interface {
 // WebAuthnService định nghĩa interface cho WebAuthn business logic
 type WebAuthnService interface {
 	// BeginRegistration bắt đầu quá trình đăng ký passkey
-	BeginRegistration(ctx context.Context, userID uuid.UUID) (interface{}, error)
+	BeginRegistration(ctx context.Context, userID uuid.UUID) (any, error)
 
 	// FinishRegistration hoàn tất quá trình đăng ký passkey
-	FinishRegistration(ctx context.Context, userID uuid.UUID, response interface{}, credentialName string) (*WebAuthnCredential, error)
+	FinishRegistration(ctx context.Context, userID uuid.UUID, response any, credentialName string) (*WebAuthnCredential, error)
 
 	// BeginAuthentication bắt đầu quá trình xác thực với passkey
-	BeginAuthentication(ctx context.Context, userID uuid.UUID) (interface{}, error)
+	BeginAuthentication(ctx context.Context, userID uuid.UUID) (any, error)
 
 	// FinishAuthentication hoàn tất quá trình xác thực với passkey
-	FinishAuthentication(ctx context.Context, userID uuid.UUID, response interface{}) (*WebAuthnCredential, error)
+	FinishAuthentication(ctx context.Context, userID uuid.UUID, response any) (*WebAuthnCredential, error)
 
 	// ListUserCredentials lấy danh sách credentials của user
 	ListUserCredentials(ctx context.Context, userID uuid.UUID) ([]*WebAuthnCredential, error)

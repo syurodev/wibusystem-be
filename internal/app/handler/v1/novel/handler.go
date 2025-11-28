@@ -331,7 +331,7 @@ func mapToNovelDetailResponse(novel *domain.Novel) NovelDetailResponse {
 
 	// Extract synopsis from JSON
 	if len(novel.Synopsis) > 0 {
-		var synopsisData map[string]interface{}
+		var synopsisData map[string]any
 		if err := json.Unmarshal(novel.Synopsis, &synopsisData); err == nil {
 			if content, ok := synopsisData["content"].(string); ok && content != "" {
 				resp.Synopsis = content

@@ -99,7 +99,7 @@ type AuditEvent struct {
 	Message     string     `json:"message,omitempty"`
 	ErrorCode   string     `json:"error_code,omitempty"`
 	ErrorDetail string     `json:"error_detail,omitempty"`
-	Metadata    map[string]interface{} `json:"metadata,omitempty"`
+	Metadata    map[string]any `json:"metadata,omitempty"`
 
 	// Performance metrics
 	Duration    int64      `json:"duration_ms,omitempty"`  // milliseconds
@@ -301,7 +301,7 @@ func (al *AuditLogger) LogClientCreated(ctx context.Context, adminUserID *uuid.U
 		TargetType: "client",
 		TargetID:   clientID.String(),
 		IPAddress:  ipAddress,
-		Metadata: map[string]interface{}{
+		Metadata: map[string]any{
 			"client_name": clientName,
 		},
 	}
@@ -318,7 +318,7 @@ func (al *AuditLogger) LogUnauthorizedAccess(ctx context.Context, path, method, 
 		IPAddress:   ipAddress,
 		UserAgent:   userAgent,
 		ErrorDetail: reason,
-		Metadata: map[string]interface{}{
+		Metadata: map[string]any{
 			"path":   path,
 			"method": method,
 		},
@@ -334,7 +334,7 @@ func (al *AuditLogger) LogRateLimitExceeded(ctx context.Context, endpoint, ipAdd
 		Status:    StatusFailure,
 		Message:   "Rate limit exceeded",
 		IPAddress: ipAddress,
-		Metadata: map[string]interface{}{
+		Metadata: map[string]any{
 			"endpoint": endpoint,
 			"limit":    limit,
 		},

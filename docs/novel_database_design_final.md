@@ -26,6 +26,7 @@
 ### System Purpose
 
 Platform quản lý và dịch light novel với:
+
 - **Dual ownership**: User hoặc Tenant sở hữu novel
 - **Ownership transfer**: Chuyển quyền 2 chiều với approval workflow
 - **Separate translations**: Synopsis và Chapter độc lập
@@ -40,11 +41,13 @@ Platform quản lý và dịch light novel với:
 ### ✅ Strengths
 
 1. **Clear Separation of Concerns**
+
    - Synopsis vs Chapter translations tách biệt → Đúng với use case
    - Ownership system rõ ràng với polymorphic design
    - Team collaboration model flexible
 
 2. **Scalability**
+
    - JSONB cho flexible content
    - Separate tables cho translation types
    - Support horizontal scaling
@@ -57,47 +60,59 @@ Platform quản lý và dịch light novel với:
 ### ⚠️ Issues Found & Fixed
 
 #### Issue 1: Missing Audit Fields
+
 **Problem:** Tables thiếu audit fields (created_by, updated_by, version)
 **Fix:** Thêm audit fields vào tất cả core tables
 
 #### Issue 2: Polymorphic Reference Không An Toàn
+
 **Problem:** `novels.owner_id` reference đến 2 tables khác nhau → Không có FK constraint
 **Fix:**
+
 - Keep polymorphic design cho flexibility
 - Add application-level validation
 - Add check constraints để validate owner exists
 
 #### Issue 3: Missing Index cho Ownership Queries
+
 **Problem:** Query theo owner sẽ chậm
 **Fix:** Add composite index `(owner_type, owner_id)`
 
 #### Issue 4: Translation Team Assignment Thiếu Status
+
 **Problem:** Không track được team có đang active hay blocked
 **Fix:** Add `status` field: active, inactive, blocked
 
 #### Issue 5: Missing Default Language Tracking
+
 **Problem:** Novel phải có ngôn ngữ gốc nhưng không enforce
 **Fix:**
+
 - Make `original_language` NOT NULL
 - Auto-create `novel_languages` record với `is_original=true`
 
 #### Issue 6: Chapter Content History Có Thể Rất Lớn
+
 **Problem:** Lưu full JSONB content mỗi version sẽ chiếm nhiều storage
 **Fix:** Chỉ track metadata changes, không lưu full content snapshot
 
 #### Issue 7: Missing Cascade Behaviors
+
 **Problem:** Một số foreign keys thiếu ON DELETE behaviors
 **Fix:** Review và set đúng cascade: CASCADE, SET NULL, RESTRICT
 
 #### Issue 8: Translation Contributions Thiếu Contribution Quality Metrics
+
 **Problem:** Không có cách đánh giá quality của contribution
 **Fix:** Add quality_score, reviewer_rating fields
 
 #### Issue 9: Missing Novel Publication Workflow
+
 **Problem:** Không có workflow cho việc publish novel (draft → published)
 **Fix:** Có status enum rồi, nhưng cần document workflow rõ ràng
 
 #### Issue 10: Team Member Permissions Quá Đơn Giản
+
 **Problem:** JSONB permissions không structured, khó validate
 **Fix:** Define clear permission enum values
 
@@ -108,6 +123,7 @@ Platform quản lý và dịch light novel với:
 ### Decision: Application Layer Logging
 
 **Why Not Database Triggers:**
+
 ```
 ❌ Performance overhead on every write
 ❌ Synchronous blocking
@@ -118,6 +134,7 @@ Platform quản lý và dịch light novel với:
 ```
 
 **Why Application Layer:**
+
 ```
 ✅ Async/non-blocking
 ✅ Batch inserts for performance
@@ -342,17 +359,17 @@ func (s *NovelService) UpdateNovel(
 }
 
 func (s *NovelService) detectChanges(old, new *Novel) json.RawMessage {
-    changes := make(map[string]interface{})
+    changes := make(map[string]any)
 
     if old.Title != new.Title {
-        changes["title"] = map[string]interface{}{
+        changes["title"] = map[string]any{
             "old": old.Title,
             "new": new.Title,
         }
     }
 
     if old.Status != new.Status {
-        changes["status"] = map[string]interface{}{
+        changes["status"] = map[string]any{
             "old": old.Status,
             "new": new.Status,
         }
@@ -372,11 +389,13 @@ func (s *NovelService) detectChanges(old, new *Novel) json.RawMessage {
 ### 1. Ownership Model
 
 **Requirements:**
+
 - Novel thuộc về User (cá nhân) hoặc Tenant (nhóm)
 - Owner có thể transfer cho nhau
 - Transfer cần approval từ receiver
 
 **Design:**
+
 ```sql
 novels.owner_type: 'user' | 'tenant'
 novels.owner_id: UUID (polymorphic reference)
@@ -386,11 +405,13 @@ novels.created_by: UUID (actual creator, never changes)
 ### 2. Translation Model
 
 **Requirements:**
+
 - Synopsis và Chapter translations riêng biệt
 - Mỗi ngôn ngữ có thể có nhiều contributors
 - Official translations vs Community contributions
 
 **Design:**
+
 ```sql
 -- Synopsis (separate)
 novel_synopsis_translations
@@ -404,11 +425,13 @@ translation_contributions
 ### 3. Team Collaboration
 
 **Requirements:**
+
 - Nhiều teams có thể dịch cùng ngôn ngữ
 - Support exclusive rights (1 team only)
 - Report system cho conflicts
 
 **Design:**
+
 ```sql
 translation_teams (linked to tenants)
 novel_team_assignments (team → novel → language)
@@ -1146,7 +1169,7 @@ catalog.novel_translators
 catalog.novel_languages
 ```
 
-*(Same as v3.0, keep unchanged)*
+_(Same as v3.0, keep unchanged)_
 
 ---
 
@@ -1293,6 +1316,7 @@ Community:
 ### 1. Index Strategy
 
 **High Priority Indexes:**
+
 ```sql
 -- Most common queries
 idx_novels_owner (owner_type, owner_id)
@@ -1302,6 +1326,7 @@ idx_chapter_translations_chapter_id
 ```
 
 **Partial Indexes:**
+
 ```sql
 -- Only index active records
 WHERE deleted_at IS NULL
@@ -1312,6 +1337,7 @@ WHERE is_active = TRUE
 ### 2. JSONB Optimization
 
 **Use GIN indexes selectively:**
+
 ```sql
 -- Index synopsis for search
 CREATE INDEX idx_novels_synopsis ON catalog.novels USING GIN(synopsis);
@@ -1334,6 +1360,7 @@ LIMIT 20;
 ### 4. Statistics Updates
 
 **Use application triggers, not DB triggers:**
+
 ```go
 // Update statistics asynchronously
 go updateNovelStatistics(novelID)
@@ -1342,6 +1369,7 @@ go updateNovelStatistics(novelID)
 ### 5. Audit Log Performance
 
 **Batch inserts:**
+
 ```go
 // Buffer 100 logs before insert
 auditService.FlushBatch(logs)
@@ -1391,6 +1419,7 @@ func CanModifyNovel(user *User, novel *Novel) bool {
 ## Implementation Roadmap
 
 ### Phase 1: Core Foundation (Week 1-2)
+
 - [ ] Create migrations for core tables (novels, volumes, chapters)
 - [ ] Add enum types
 - [ ] Create audit fields and version triggers
@@ -1398,38 +1427,45 @@ func CanModifyNovel(user *User, novel *Novel) bool {
 - [ ] Basic repositories
 
 ### Phase 2: Ownership System (Week 3)
+
 - [ ] Ownership transfers table
 - [ ] Transfer workflow service
 - [ ] Approval system
 
 ### Phase 3: Teams & Collaboration (Week 4)
+
 - [ ] Translation teams
 - [ ] Team assignments
 - [ ] Exclusive rights & reports
 
 ### Phase 4: Synopsis Translations (Week 5)
+
 - [ ] Synopsis translations table
 - [ ] Contribution workflow
 - [ ] Review system
 
 ### Phase 5: Chapter Translations (Week 6-7)
+
 - [ ] Chapter translations table
 - [ ] Contribution workflow
 - [ ] History tracking
 
 ### Phase 6: Supporting Features (Week 8)
+
 - [ ] Genres system
 - [ ] Authors, artists, translators
 - [ ] Language tracking
 - [ ] Statistics updates
 
 ### Phase 7: Audit System (Week 9)
+
 - [ ] Audit service implementation
 - [ ] History tables
 - [ ] Queue workers
 - [ ] Monitoring
 
 ### Phase 8: Testing & Optimization (Week 10)
+
 - [ ] Unit tests
 - [ ] Integration tests
 - [ ] Performance testing
@@ -1440,6 +1476,7 @@ func CanModifyNovel(user *User, novel *Novel) bool {
 ## Summary of Changes from v3.0
 
 ### ✅ Added
+
 1. Audit fields to all core tables (created_by, updated_by, version, deleted_by)
 2. Application-layer audit strategy document
 3. Quality metrics to contributions (quality_score, reviewer_rating)
@@ -1452,6 +1489,7 @@ func CanModifyNovel(user *User, novel *Novel) bool {
 10. Implementation roadmap
 
 ### 🔧 Fixed
+
 1. Made original_language NOT NULL
 2. Added proper cascade behaviors
 3. Fixed missing indexes for common queries
@@ -1459,6 +1497,7 @@ func CanModifyNovel(user *User, novel *Novel) bool {
 5. Removed full content indexing for chapters (performance)
 
 ### 📝 Clarified
+
 1. Audit logging strategy (application layer, not triggers)
 2. Polymorphic reference validation approach
 3. History table purposes and scope

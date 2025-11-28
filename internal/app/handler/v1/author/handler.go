@@ -283,7 +283,7 @@ func mapToAuthorDetailResponse(author *domain.Author) AuthorDetailResponse {
 
 	// Extract description from biography JSON
 	if len(author.Biography) > 0 {
-		var bio map[string]interface{}
+		var bio map[string]any
 		if err := json.Unmarshal(author.Biography, &bio); err == nil {
 			if text, ok := bio["text"].(string); ok && text != "" {
 				resp.Description = &text
@@ -316,7 +316,7 @@ func mapToAuthorResponse(author *domain.Author) AuthorResponse {
 
 	// Extract description from biography JSON
 	if len(author.Biography) > 0 {
-		var bio map[string]interface{}
+		var bio map[string]any
 		if err := json.Unmarshal(author.Biography, &bio); err == nil {
 			if text, ok := bio["text"].(string); ok && text != "" {
 				resp.Description = &text

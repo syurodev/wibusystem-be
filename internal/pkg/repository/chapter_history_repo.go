@@ -39,7 +39,7 @@ func (r *chapterHistoryRepository) GetLatestVersion(ctx context.Context, chapter
 }
 
 // LogUpdate logs a chapter update to history
-func (r *chapterHistoryRepository) LogUpdate(ctx context.Context, chapterID, volumeID, novelID uuid.UUID, oldChapter, newChapter *domain.Chapter, changedBy uuid.UUID, requestContext map[string]interface{}) error {
+func (r *chapterHistoryRepository) LogUpdate(ctx context.Context, chapterID, volumeID, novelID uuid.UUID, oldChapter, newChapter *domain.Chapter, changedBy uuid.UUID, requestContext map[string]any) error {
 	// Get next version number
 	latestVersion, err := r.GetLatestVersion(ctx, chapterID)
 	if err != nil {
@@ -121,7 +121,7 @@ func (r *chapterHistoryRepository) LogUpdate(ctx context.Context, chapterID, vol
 }
 
 // LogPublish logs a chapter publish action to history
-func (r *chapterHistoryRepository) LogPublish(ctx context.Context, chapterID, volumeID, novelID uuid.UUID, changedBy uuid.UUID, requestContext map[string]interface{}) error {
+func (r *chapterHistoryRepository) LogPublish(ctx context.Context, chapterID, volumeID, novelID uuid.UUID, changedBy uuid.UUID, requestContext map[string]any) error {
 	// Get next version number
 	latestVersion, err := r.GetLatestVersion(ctx, chapterID)
 	if err != nil {

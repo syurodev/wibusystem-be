@@ -24,8 +24,8 @@ type ChapterService struct {
 // ChapterHistoryRepository interface for logging chapter history
 // TODO: Move to domain package once fully implemented
 type ChapterHistoryRepository interface {
-	LogUpdate(ctx context.Context, chapterID, volumeID, novelID uuid.UUID, oldChapter, newChapter *domain.Chapter, changedBy uuid.UUID, requestContext map[string]interface{}) error
-	LogPublish(ctx context.Context, chapterID, volumeID, novelID uuid.UUID, changedBy uuid.UUID, requestContext map[string]interface{}) error
+	LogUpdate(ctx context.Context, chapterID, volumeID, novelID uuid.UUID, oldChapter, newChapter *domain.Chapter, changedBy uuid.UUID, requestContext map[string]any) error
+	LogPublish(ctx context.Context, chapterID, volumeID, novelID uuid.UUID, changedBy uuid.UUID, requestContext map[string]any) error
 	GetLatestVersion(ctx context.Context, chapterID uuid.UUID) (int, error)
 }
 
@@ -114,7 +114,7 @@ func (s *ChapterService) CreateChapter(ctx context.Context, novelID uuid.UUID, v
 }
 
 // UpdateChapter updates chapter information with history tracking
-func (s *ChapterService) UpdateChapter(ctx context.Context, id uuid.UUID, volumeID *uuid.UUID, chapterNumber int, title, content string, authorNotes *string, isFree bool, price *float64, currency *string, status string, displayOrder int, scheduledAt *time.Time, changedBy uuid.UUID, requestContext map[string]interface{}) (*domain.Chapter, error) {
+func (s *ChapterService) UpdateChapter(ctx context.Context, id uuid.UUID, volumeID *uuid.UUID, chapterNumber int, title, content string, authorNotes *string, isFree bool, price *float64, currency *string, status string, displayOrder int, scheduledAt *time.Time, changedBy uuid.UUID, requestContext map[string]any) (*domain.Chapter, error) {
 	// Validate input
 	if title == "" || content == "" {
 		return nil, pkgerrors.ErrInvalidInput
@@ -256,7 +256,7 @@ func (s *ChapterService) GetChaptersByVolumeID(ctx context.Context, volumeID uui
 }
 
 // PublishChapter publishes a chapter immediately with history tracking
-func (s *ChapterService) PublishChapter(ctx context.Context, id uuid.UUID, changedBy uuid.UUID, requestContext map[string]interface{}) error {
+func (s *ChapterService) PublishChapter(ctx context.Context, id uuid.UUID, changedBy uuid.UUID, requestContext map[string]any) error {
 	// Check if chapter exists
 	chapter, err := s.chapterRepo.GetByID(ctx, id)
 	if err != nil {
@@ -360,7 +360,7 @@ func extractContentFromJSON(contentJSON json.RawMessage) string {
 		return ""
 	}
 
-	var contentData map[string]interface{}
+	var contentData map[string]any
 	if err := json.Unmarshal(contentJSON, &contentData); err == nil {
 		if content, ok := contentData["content"].(string); ok && content != "" {
 			return content

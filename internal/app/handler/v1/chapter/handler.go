@@ -655,7 +655,7 @@ func extractContentFromJSON(contentJSON json.RawMessage) string {
 		return ""
 	}
 
-	var contentData map[string]interface{}
+	var contentData map[string]any
 	if err := json.Unmarshal(contentJSON, &contentData); err == nil {
 		if content, ok := contentData["content"].(string); ok && content != "" {
 			return content
@@ -666,8 +666,8 @@ func extractContentFromJSON(contentJSON json.RawMessage) string {
 }
 
 // Helper function to extract request context for history logging
-func extractRequestContext(c *gin.Context) map[string]interface{} {
-	return map[string]interface{}{
+func extractRequestContext(c *gin.Context) map[string]any {
+	return map[string]any{
 		"request_id": c.GetHeader("X-Request-ID"),
 		"ip_address": c.ClientIP(),
 		"user_agent": c.GetHeader("User-Agent"),

@@ -219,7 +219,7 @@ func (pcc *ParsedCredentialCreationData) Verify(storedChallenge string, verifyUs
 // 9. Return the appid extension value from the Session data.
 func (ppkc ParsedPublicKeyCredential) GetAppID(authExt AuthenticationExtensions, credentialAttestationType string) (appID string, err error) {
 	var (
-		value, clientValue interface{}
+		value, clientValue any
 		enableAppID, ok    bool
 	)
 

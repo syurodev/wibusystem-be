@@ -23,9 +23,9 @@ type VolumeService struct {
 // VolumeHistoryRepository interface for logging volume history
 // TODO: Move to domain package once fully implemented
 type VolumeHistoryRepository interface {
-	LogUpdate(ctx context.Context, volumeID, novelID uuid.UUID, oldVolume, newVolume *domain.Volume, changedBy uuid.UUID, requestContext map[string]interface{}) error
-	LogPublish(ctx context.Context, volumeID, novelID uuid.UUID, changedBy uuid.UUID, requestContext map[string]interface{}) error
-	LogUnpublish(ctx context.Context, volumeID, novelID uuid.UUID, changedBy uuid.UUID, requestContext map[string]interface{}) error
+	LogUpdate(ctx context.Context, volumeID, novelID uuid.UUID, oldVolume, newVolume *domain.Volume, changedBy uuid.UUID, requestContext map[string]any) error
+	LogPublish(ctx context.Context, volumeID, novelID uuid.UUID, changedBy uuid.UUID, requestContext map[string]any) error
+	LogUnpublish(ctx context.Context, volumeID, novelID uuid.UUID, changedBy uuid.UUID, requestContext map[string]any) error
 	GetLatestVersion(ctx context.Context, volumeID uuid.UUID) (int, error)
 }
 
@@ -87,7 +87,7 @@ func (s *VolumeService) CreateVolume(ctx context.Context, novelID uuid.UUID, vol
 }
 
 // UpdateVolume updates volume information with history tracking
-func (s *VolumeService) UpdateVolume(ctx context.Context, id uuid.UUID, volumeNumber int, title string, description, coverImageURL *string, displayOrder int, isPublished bool, changedBy uuid.UUID, requestContext map[string]interface{}) (*domain.Volume, error) {
+func (s *VolumeService) UpdateVolume(ctx context.Context, id uuid.UUID, volumeNumber int, title string, description, coverImageURL *string, displayOrder int, isPublished bool, changedBy uuid.UUID, requestContext map[string]any) (*domain.Volume, error) {
 	// Validate input
 	if title == "" {
 		return nil, pkgerrors.ErrInvalidInput
@@ -207,7 +207,7 @@ func (s *VolumeService) UpdateDisplayOrder(ctx context.Context, id uuid.UUID, or
 }
 
 // PublishVolume publishes a volume with history tracking
-func (s *VolumeService) PublishVolume(ctx context.Context, id uuid.UUID, changedBy uuid.UUID, requestContext map[string]interface{}) error {
+func (s *VolumeService) PublishVolume(ctx context.Context, id uuid.UUID, changedBy uuid.UUID, requestContext map[string]any) error {
 	// Check if volume exists
 	volume, err := s.volumeRepo.GetByID(ctx, id)
 	if err != nil {
@@ -234,7 +234,7 @@ func (s *VolumeService) PublishVolume(ctx context.Context, id uuid.UUID, changed
 }
 
 // UnpublishVolume unpublishes a volume with history tracking
-func (s *VolumeService) UnpublishVolume(ctx context.Context, id uuid.UUID, changedBy uuid.UUID, requestContext map[string]interface{}) error {
+func (s *VolumeService) UnpublishVolume(ctx context.Context, id uuid.UUID, changedBy uuid.UUID, requestContext map[string]any) error {
 	// Check if volume exists
 	volume, err := s.volumeRepo.GetByID(ctx, id)
 	if err != nil {

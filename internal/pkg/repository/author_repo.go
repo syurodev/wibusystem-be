@@ -94,7 +94,7 @@ func (r *authorRepository) GetByUserID(ctx context.Context, userID uuid.UUID) (*
 // List lấy danh sách authors với filter
 func (r *authorRepository) List(ctx context.Context, filter domain.AuthorFilter) ([]*domain.Author, int64, error) {
 	var whereClauses []string
-	var args []interface{}
+	var args []any
 	argIdx := 1
 
 	whereClauses = append(whereClauses, "deleted_at IS NULL")
@@ -298,7 +298,7 @@ func (r *authorRepository) RemoveNovelAuthor(ctx context.Context, novelID, autho
 // UpdateStatistics cập nhật thống kê
 func (r *authorRepository) UpdateStatistics(ctx context.Context, id uuid.UUID, stats domain.AuthorStatistics) error {
 	var setClauses []string
-	var args []interface{}
+	var args []any
 	argIdx := 2
 
 	args = append(args, id)

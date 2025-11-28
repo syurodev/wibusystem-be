@@ -55,7 +55,7 @@ type PerformanceMetric struct {
 	Error         string        `json:"error,omitempty"`
 
 	// Additional metadata
-	Metadata      map[string]interface{} `json:"metadata,omitempty"`
+	Metadata      map[string]any `json:"metadata,omitempty"`
 
 	Timestamp     time.Time     `json:"timestamp"`
 }
@@ -170,7 +170,7 @@ func (pl *PerformanceLogger) LogCacheOperation(ctx context.Context, operation st
 		Duration:      duration,
 		CacheHit:      &hit,
 		Success:       err == nil,
-		Metadata: map[string]interface{}{
+		Metadata: map[string]any{
 			"key": key,
 		},
 	}
@@ -189,7 +189,7 @@ func (pl *PerformanceLogger) LogOAuth2Operation(ctx context.Context, operation s
 		Operation:     operation,
 		Duration:      duration,
 		Success:       success,
-		Metadata: map[string]interface{}{
+		Metadata: map[string]any{
 			"grant_type": grantType,
 		},
 	}
@@ -222,9 +222,9 @@ func (pl *PerformanceLogger) NewTimer(operation string, opType OperationType) *P
 }
 
 // WithMetadata adds metadata to the timer
-func (pt *PerformanceTimer) WithMetadata(key string, value interface{}) *PerformanceTimer {
+func (pt *PerformanceTimer) WithMetadata(key string, value any) *PerformanceTimer {
 	if pt.metric.Metadata == nil {
-		pt.metric.Metadata = make(map[string]interface{})
+		pt.metric.Metadata = make(map[string]any)
 	}
 	pt.metric.Metadata[key] = value
 	return pt

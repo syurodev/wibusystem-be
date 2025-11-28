@@ -194,7 +194,7 @@ func (r *novelRepository) Delete(ctx context.Context, id uuid.UUID) error {
 func (r *novelRepository) List(ctx context.Context, filter domain.NovelFilter) ([]*domain.Novel, int64, error) {
 	// Build WHERE clause động
 	var whereClauses []string
-	var args []interface{}
+	var args []any
 	argIdx := 1
 
 	whereClauses = append(whereClauses, "n.deleted_at IS NULL")
@@ -316,7 +316,7 @@ func (r *novelRepository) List(ctx context.Context, filter domain.NovelFilter) (
 // UpdateStatistics cập nhật thống kê của novel
 func (r *novelRepository) UpdateStatistics(ctx context.Context, id uuid.UUID, stats domain.NovelStatistics) error {
 	var setClauses []string
-	var args []interface{}
+	var args []any
 	argIdx := 2
 
 	args = append(args, id) // $1 là id
