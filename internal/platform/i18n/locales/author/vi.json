@@ -1,0 +1,17 @@
+{
+  "author.created_success": "Tác giả đã được tạo thành công.",
+  "author.updated_success": "Tác giả đã được cập nhật thành công.",
+  "author.deleted_success": "Tác giả đã được xóa thành công.",
+  "author.get_success": "Lấy thông tin tác giả thành công.",
+  "author.list_success": "Lấy danh sách tác giả thành công.",
+  "author.create_failed": "Không thể tạo tác giả. Vui lòng thử lại.",
+  "author.update_failed": "Không thể cập nhật tác giả. Vui lòng thử lại.",
+  "author.delete_failed": "Không thể xóa tác giả. Vui lòng thử lại.",
+  "author.get_failed": "Không thể lấy thông tin tác giả.",
+  "author.list_failed": "Không thể tải danh sách tác giả.",
+  "author.not_found": "Không tìm thấy tác giả.",
+  "author.invalid_id": "ID tác giả không hợp lệ.",
+  "author.invalid_input": "Dữ liệu đầu vào không hợp lệ.",
+  "author.slug_already_exists": "Tên tác giả đã tồn tại.",
+  "author.in_use": "Không thể xóa tác giả đang có truyện."
+}

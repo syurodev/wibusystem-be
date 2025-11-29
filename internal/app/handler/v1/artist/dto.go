@@ -22,6 +22,7 @@ type UpdateArtistRequest struct {
 type ArtistResponse struct {
 	ID             string  `json:"id"`
 	Name           string  `json:"name"`
+	Slug           string  `json:"slug"`
 	Description    *string `json:"description,omitempty"` // Biography
 	NovelCount     int     `json:"novel_count"`
 	Specialization *string `json:"specialization,omitempty"`

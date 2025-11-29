@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 	"system/internal/domain"
+	"system/internal/pkg/db"
 
 	"github.com/gofrs/uuid/v5"
 	"github.com/jackc/pgx/v5"
@@ -111,8 +112,9 @@ func (r *novelRepository) Create(ctx context.Context, novel *domain.Novel) error
 		INSERT INTO catalog.novels (
 			id, title, slug, synopsis, cover_image_url, thumbnail_url,
 			status, original_language, original_title, metadata,
+			owner_id, owner_type,
 			created_at, updated_at
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW())
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW(), NOW())
 	`
 
 	// Đảm bảo metadata không null
@@ -125,7 +127,8 @@ func (r *novelRepository) Create(ctx context.Context, novel *domain.Novel) error
 		novel.Synopsis = json.RawMessage("{}")
 	}
 
-	_, err := r.pool.Exec(ctx, query,
+	db := db.GetDB(ctx, r.pool)
+	_, err := db.Exec(ctx, query,
 		novel.ID,
 		novel.Title,
 		novel.Slug,
@@ -136,6 +139,8 @@ func (r *novelRepository) Create(ctx context.Context, novel *domain.Novel) error
 		novel.OriginalLanguage,
 		novel.OriginalTitle,
 		novel.Metadata,
+		novel.OwnerID,
+		novel.OwnerType,
 	)
 
 	return err

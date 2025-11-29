@@ -3,7 +3,9 @@ package repository
 import (
 	"context"
 	"fmt"
+	"strings"
 	"system/internal/domain"
+	"system/internal/pkg/db"
 
 	"github.com/gofrs/uuid/v5"
 	"github.com/jackc/pgx/v5"
@@ -336,7 +338,43 @@ func (r *genreRepository) AddNovelGenre(ctx context.Context, novelID, genreID, c
 		SET display_order = EXCLUDED.display_order
 	`
 
-	_, err := r.pool.Exec(ctx, query, novelID, genreID, displayOrder, createdBy)
+	db := db.GetDB(ctx, r.pool)
+	_, err := db.Exec(ctx, query, novelID, genreID, displayOrder, createdBy)
+	return err
+}
+
+// AddNovelGenres thêm nhiều genres cho novel (Batch Insert)
+func (r *genreRepository) AddNovelGenres(ctx context.Context, novelID uuid.UUID, genreIDs []uuid.UUID, createdBy uuid.UUID) error {
+	if len(genreIDs) == 0 {
+		return nil
+	}
+
+	// Build batch insert query
+	query := "INSERT INTO catalog.novel_genres (id, novel_id, genre_id, display_order, created_by, created_at) VALUES "
+	var args []any
+	var values []string
+
+	for i, genreID := range genreIDs {
+		// $1, $2, $3, $4, $5, $6...
+		// novelID is constant, createdBy is constant
+		// genreID varies, displayOrder varies (i)
+		
+		// Param indices:
+		// novelID: $1
+		// createdBy: $2
+		// genreID: $3 + i
+		
+		// Actually simpler to just append all args
+		base := i * 4
+		values = append(values, fmt.Sprintf("(gen_random_uuid(), $%d, $%d, $%d, $%d, NOW())", base+1, base+2, base+3, base+4))
+		args = append(args, novelID, genreID, i, createdBy)
+	}
+
+	query += strings.Join(values, ",")
+	query += " ON CONFLICT (novel_id, genre_id) DO UPDATE SET display_order = EXCLUDED.display_order"
+
+	db := db.GetDB(ctx, r.pool)
+	_, err := db.Exec(ctx, query, args...)
 	return err
 }
 

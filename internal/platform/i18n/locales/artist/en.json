@@ -1,0 +1,17 @@
+{
+  "artist.created_success": "Artist created successfully.",
+  "artist.updated_success": "Artist updated successfully.",
+  "artist.deleted_success": "Artist deleted successfully.",
+  "artist.get_success": "Artist retrieved successfully.",
+  "artist.list_success": "Artists list retrieved successfully.",
+  "artist.create_failed": "Failed to create artist. Please try again.",
+  "artist.update_failed": "Failed to update artist. Please try again.",
+  "artist.delete_failed": "Failed to delete artist. Please try again.",
+  "artist.get_failed": "Failed to retrieve artist information.",
+  "artist.list_failed": "Failed to load artists list.",
+  "artist.not_found": "Artist not found.",
+  "artist.invalid_id": "Invalid artist ID.",
+  "artist.invalid_input": "Invalid input data.",
+  "artist.slug_already_exists": "Artist name already exists.",
+  "artist.in_use": "Cannot delete artist with existing novels."
+}

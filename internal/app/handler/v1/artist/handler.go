@@ -9,9 +9,11 @@ import (
 	"github.com/gofrs/uuid/v5"
 	"github.com/jackc/pgx/v5"
 
+	"system/internal/app/middleware"
 	"system/internal/domain"
 	"system/internal/pkg/service"
 	pkgerrors "system/pkg/errors"
+	"system/pkg/util/i18nkeys"
 	"system/pkg/util/response"
 	"system/pkg/util/timeutil"
 )
@@ -40,29 +42,42 @@ func NewHandler(artistService *service.ArtistService) *Handler {
 func (h *Handler) CreateArtist(c *gin.Context) {
 	var req CreateArtistRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Error(c, http.StatusBadRequest, "VALIDATION_FAILED", "validation.failed", err.Error())
+		response.Error(c, http.StatusBadRequest, "VALIDATION_FAILED", i18nkeys.ValidationFailed, err.Error())
+		return
+	}
+
+	// Get user ID from token
+	userIDStr, exists := middleware.GetUserID(c)
+	if !exists {
+		response.Error(c, http.StatusUnauthorized, "UNAUTHORIZED", i18nkeys.AuthUnauthorized, nil)
+		return
+	}
+
+	createdBy, err := uuid.FromString(userIDStr)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "INVALID_USER_ID", i18nkeys.AuthInvalidUserID, nil)
 		return
 	}
 
 	// Create artist
-	artist, err := h.artistService.CreateArtist(c.Request.Context(), req.Name, req.Biography, req.AvatarURL, req.SocialLinks, req.Specialization)
+	artist, err := h.artistService.CreateArtist(c.Request.Context(), req.Name, req.Biography, req.AvatarURL, req.SocialLinks, req.Specialization, createdBy)
 	if err != nil {
 		if errors.Is(err, pkgerrors.ErrInvalidInput) {
-			response.Error(c, http.StatusBadRequest, "INVALID_INPUT", "artist.invalid_input", nil)
+			response.Error(c, http.StatusBadRequest, "INVALID_INPUT", i18nkeys.ArtistInvalidInput, nil)
 			return
 		}
 		if errors.Is(err, pkgerrors.ErrSlugAlreadyExists) {
-			response.Error(c, http.StatusConflict, "SLUG_EXISTS", "artist.slug_already_exists", nil)
+			response.Error(c, http.StatusConflict, "SLUG_EXISTS", i18nkeys.ArtistSlugAlreadyExists, nil)
 			return
 		}
-		response.Error(c, http.StatusInternalServerError, "CREATE_FAILED", "artist.create_failed", nil)
+		response.Error(c, http.StatusInternalServerError, "CREATE_FAILED", i18nkeys.ArtistCreateFailed, nil)
 		return
 	}
 
 	// Map to response
 	resp := mapToArtistDetailResponse(artist)
 
-	response.Success(c, http.StatusCreated, "artist.created_success", resp, nil)
+	response.Success(c, http.StatusCreated, i18nkeys.ArtistCreatedSuccess, resp, nil)
 }
 
 // UpdateArtist cập nhật artist
@@ -299,6 +314,7 @@ func mapToArtistResponse(artist *domain.Artist) ArtistResponse {
 	resp := ArtistResponse{
 		ID:             artist.ID.String(),
 		Name:           artist.Name,
+		Slug:           artist.Slug,
 		NovelCount:     artist.NovelCount,
 		Specialization: artist.Specialization,
 		CreatedAt:      artist.CreatedAt.Format(timeutil.ISO8601Layout),

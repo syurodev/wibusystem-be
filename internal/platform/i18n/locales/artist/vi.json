@@ -1,0 +1,17 @@
+{
+  "artist.created_success": "Hoạ sĩ đã được tạo thành công.",
+  "artist.updated_success": "Hoạ sĩ đã được cập nhật thành công.",
+  "artist.deleted_success": "Hoạ sĩ đã được xóa thành công.",
+  "artist.get_success": "Lấy thông tin hoạ sĩ thành công.",
+  "artist.list_success": "Lấy danh sách hoạ sĩ thành công.",
+  "artist.create_failed": "Không thể tạo hoạ sĩ. Vui lòng thử lại.",
+  "artist.update_failed": "Không thể cập nhật hoạ sĩ. Vui lòng thử lại.",
+  "artist.delete_failed": "Không thể xóa hoạ sĩ. Vui lòng thử lại.",
+  "artist.get_failed": "Không thể lấy thông tin hoạ sĩ.",
+  "artist.list_failed": "Không thể tải danh sách hoạ sĩ.",
+  "artist.not_found": "Không tìm thấy hoạ sĩ.",
+  "artist.invalid_id": "ID hoạ sĩ không hợp lệ.",
+  "artist.invalid_input": "Dữ liệu đầu vào không hợp lệ.",
+  "artist.slug_already_exists": "Tên hoạ sĩ đã tồn tại.",
+  "artist.in_use": "Không thể xóa hoạ sĩ đang có truyện."
+}

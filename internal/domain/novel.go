@@ -25,6 +25,10 @@ type Novel struct {
 	ID    uuid.UUID
 	Title string
 	Slug  string // SEO-friendly URL
+	
+	// Owner information
+	OwnerID   uuid.UUID
+	OwnerType string // "user" or "group"
 
 	// Synopsis lưu trữ dạng JSONB cho nội dung phong phú
 	// Ví dụ: {"blocks": [{"type": "paragraph", "content": "..."}], "language": "vi"}

@@ -1,9 +1,7 @@
-package chapter
+package volume_chapter
 
 // CreateChapterRequest represents the request to create a new chapter
 type CreateChapterRequest struct {
-	NovelID       string  `json:"novel_id" binding:"required,uuid"`
-	VolumeID      *string `json:"volume_id,omitempty" binding:"omitempty,uuid"`
 	ChapterNumber int     `json:"chapter_number" binding:"required,min=1"`
 	Title         string  `json:"title" binding:"required,min=1,max=500"`
 	Content       string  `json:"content" binding:"required"` // Will be converted to JSONB

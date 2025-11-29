@@ -9,23 +9,54 @@ import (
 	"github.com/gosimple/slug"
 
 	"system/internal/domain"
+	"system/internal/pkg/db"
 	pkgerrors "system/pkg/errors"
+	"system/pkg/util/slugutil"
 )
 
 // NovelService cung cấp business logic cho novels
 type NovelService struct {
-	novelRepo domain.NovelRepository
+	novelRepo  domain.NovelRepository
+	volumeRepo domain.VolumeRepository
+	genreRepo  domain.GenreRepository
+	authorRepo domain.AuthorRepository
+	artistRepo domain.ArtistRepository
+	txManager  db.TransactionManager
 }
 
 // NewNovelService tạo một instance mới của NovelService
-func NewNovelService(novelRepo domain.NovelRepository) *NovelService {
+func NewNovelService(
+	novelRepo domain.NovelRepository,
+	volumeRepo domain.VolumeRepository,
+	genreRepo domain.GenreRepository,
+	authorRepo domain.AuthorRepository,
+	artistRepo domain.ArtistRepository,
+	txManager db.TransactionManager,
+) *NovelService {
 	return &NovelService{
-		novelRepo: novelRepo,
+		novelRepo:  novelRepo,
+		volumeRepo: volumeRepo,
+		genreRepo:  genreRepo,
+		authorRepo: authorRepo,
+		artistRepo: artistRepo,
+		txManager:  txManager,
 	}
 }
 
 // CreateNovel tạo novel mới
-func (s *NovelService) CreateNovel(ctx context.Context, title, synopsis string, coverImageURL, thumbnailURL *string, status, originalLanguage, originalTitle *string, metadataJSON *string) (*domain.Novel, error) {
+func (s *NovelService) CreateNovel(
+	ctx context.Context,
+	title, synopsis string,
+	coverImageURL, thumbnailURL *string,
+	status, originalLanguage, originalTitle *string,
+	metadataJSON *string,
+	isOneshot bool,
+	ownerID uuid.UUID,
+	ownerType string,
+	genreIDs []uuid.UUID,
+	authorIDs []uuid.UUID,
+	artistIDs []uuid.UUID,
+) (*domain.Novel, error) {
 	// Validate input
 	if title == "" {
 		return nil, pkgerrors.ErrInvalidInput
@@ -36,13 +67,10 @@ func (s *NovelService) CreateNovel(ctx context.Context, title, synopsis string, 
 		return nil, pkgerrors.ErrInvalidInput
 	}
 
-	// Generate slug from title
-	novelSlug := slug.Make(title)
-
-	// Check if slug already exists
-	existing, err := s.novelRepo.GetBySlug(ctx, novelSlug)
-	if err == nil && existing != nil {
-		return nil, pkgerrors.ErrSlugAlreadyExists
+	// Generate unique slug from title with random suffix
+	novelSlug, err := slugutil.GenerateUniqueSlug(title)
+	if err != nil {
+		return nil, err
 	}
 
 	// Prepare synopsis JSON
@@ -66,10 +94,10 @@ func (s *NovelService) CreateNovel(ctx context.Context, title, synopsis string, 
 		metadata = json.RawMessage("{}")
 	}
 
-	// Create novel
-	id, err := uuid.NewV4()
+	// Generate ID (UUID v7)
+	id, err := uuid.NewV7()
 	if err != nil {
-		return nil, err
+		return nil, pkgerrors.ErrInternalServer
 	}
 
 	novel := &domain.Novel{
@@ -83,13 +111,27 @@ func (s *NovelService) CreateNovel(ctx context.Context, title, synopsis string, 
 		OriginalLanguage: originalLanguage,
 		OriginalTitle:    originalTitle,
 		Metadata:         metadata,
+		OwnerID:          ownerID,
+		OwnerType:        ownerType,
 	}
 
 	if err := s.novelRepo.Create(ctx, novel); err != nil {
 		return nil, err
 	}
 
-	// Retrieve the created novel to get timestamps
+	// Link Genres
+	for i, genreID := range genreIDs {
+		// Validate genre existence (optional, but good practice)
+		if _, err := s.genreRepo.GetByID(ctx, genreID); err != nil {
+			// Log error or ignore? For now, we ignore invalid IDs to proceed
+			continue
+		}
+		if err := s.genreRepo.AddNovelGenre(ctx, id, genreID, ownerID, i); err != nil {
+			// Log error
+			fmt.Printf("Failed to add genre %s: %v\n", genreID, err)
+		}
+	}
+
 	return s.novelRepo.GetByID(ctx, id)
 }
 

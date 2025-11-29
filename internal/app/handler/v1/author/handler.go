@@ -10,9 +10,11 @@ import (
 	"github.com/jackc/pgx/v5"
 	"go.uber.org/zap"
 
+	"system/internal/app/middleware"
 	"system/internal/domain"
 	"system/internal/pkg/service"
 	pkgerrors "system/pkg/errors"
+	"system/pkg/util/i18nkeys"
 	"system/pkg/util/response"
 	"system/pkg/util/timeutil"
 )
@@ -43,29 +45,70 @@ func NewHandler(authorService *service.AuthorService, logger *zap.Logger) *Handl
 func (h *Handler) CreateAuthor(c *gin.Context) {
 	var req CreateAuthorRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Error(c, http.StatusBadRequest, "VALIDATION_FAILED", "validation.failed", err.Error())
+		h.logger.Error("Failed to bind JSON",
+			zap.Error(err),
+			zap.String("method", c.Request.Method),
+			zap.String("path", c.Request.URL.Path),
+		)
+		response.Error(c, http.StatusBadRequest, "VALIDATION_FAILED", i18nkeys.ValidationFailed, err.Error())
 		return
 	}
 
-	// Create author
-	author, err := h.authorService.CreateAuthor(c.Request.Context(), req.Name, req.Biography, req.AvatarURL, req.SocialLinks)
+	// Get user ID from token
+	userIDStr, exists := middleware.GetUserID(c)
+	if !exists {
+		h.logger.Error("Failed to get user ID from token")
+		response.Error(c, http.StatusUnauthorized, "UNAUTHORIZED", i18nkeys.AuthUnauthorized, nil)
+		return
+	}
+
+	userID, err := uuid.FromString(userIDStr)
 	if err != nil {
+		h.logger.Error("Invalid user ID format", zap.Error(err), zap.String("user_id", userIDStr))
+		response.Error(c, http.StatusBadRequest, "INVALID_USER_ID", i18nkeys.AuthInvalidUserID, nil)
+		return
+	}
+
+	h.logger.Debug("Creating author",
+		zap.String("name", req.Name),
+		zap.String("biography", req.Biography),
+		zap.Any("avatar_url", req.AvatarURL),
+		zap.Any("social_links", req.SocialLinks),
+		zap.String("created_by", userID.String()),
+	)
+
+	// Create author
+	author, err := h.authorService.CreateAuthor(c.Request.Context(), req.Name, req.Biography, req.AvatarURL, req.SocialLinks, userID)
+	if err != nil {
+		h.logger.Error("Failed to create author",
+			zap.Error(err),
+			zap.String("name", req.Name),
+			zap.String("biography", req.Biography),
+			zap.Any("avatar_url", req.AvatarURL),
+			zap.Any("social_links", req.SocialLinks),
+		)
 		if errors.Is(err, pkgerrors.ErrInvalidInput) {
-			response.Error(c, http.StatusBadRequest, "INVALID_INPUT", "author.invalid_input", nil)
+			response.Error(c, http.StatusBadRequest, "INVALID_INPUT", i18nkeys.AuthorInvalidInput, nil)
 			return
 		}
 		if errors.Is(err, pkgerrors.ErrSlugAlreadyExists) {
-			response.Error(c, http.StatusConflict, "SLUG_EXISTS", "author.slug_already_exists", nil)
+			response.Error(c, http.StatusConflict, "SLUG_EXISTS", i18nkeys.AuthorSlugAlreadyExists, nil)
 			return
 		}
-		response.Error(c, http.StatusInternalServerError, "CREATE_FAILED", "author.create_failed", nil)
+		response.Error(c, http.StatusInternalServerError, "CREATE_FAILED", i18nkeys.AuthorCreateFailed, nil)
 		return
 	}
+
+	h.logger.Info("Author created successfully",
+		zap.String("author_id", author.ID.String()),
+		zap.String("name", author.Name),
+		zap.String("slug", author.Slug),
+	)
 
 	// Map to response
 	resp := mapToAuthorDetailResponse(author)
 
-	response.Success(c, http.StatusCreated, "author.created_success", resp, nil)
+	response.Success(c, http.StatusCreated, i18nkeys.AuthorCreatedSuccess, resp, nil)
 }
 
 // UpdateAuthor cập nhật author
@@ -86,13 +129,13 @@ func (h *Handler) UpdateAuthor(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := uuid.FromString(idStr)
 	if err != nil {
-		response.Error(c, http.StatusBadRequest, "INVALID_ID", "author.invalid_id", nil)
+		response.Error(c, http.StatusBadRequest, "INVALID_ID", i18nkeys.AuthorInvalidID, nil)
 		return
 	}
 
 	var req UpdateAuthorRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Error(c, http.StatusBadRequest, "VALIDATION_FAILED", "validation.failed", err.Error())
+		response.Error(c, http.StatusBadRequest, "VALIDATION_FAILED", i18nkeys.ValidationFailed, err.Error())
 		return
 	}
 
@@ -100,25 +143,25 @@ func (h *Handler) UpdateAuthor(c *gin.Context) {
 	author, err := h.authorService.UpdateAuthor(c.Request.Context(), id, req.Name, req.Biography, req.AvatarURL, req.SocialLinks)
 	if err != nil {
 		if errors.Is(err, pkgerrors.ErrAuthorNotFound) {
-			response.Error(c, http.StatusNotFound, "AUTHOR_NOT_FOUND", "author.not_found", nil)
+			response.Error(c, http.StatusNotFound, "AUTHOR_NOT_FOUND", i18nkeys.AuthorNotFound, nil)
 			return
 		}
 		if errors.Is(err, pkgerrors.ErrInvalidInput) {
-			response.Error(c, http.StatusBadRequest, "INVALID_INPUT", "author.invalid_input", nil)
+			response.Error(c, http.StatusBadRequest, "INVALID_INPUT", i18nkeys.AuthorInvalidInput, nil)
 			return
 		}
 		if errors.Is(err, pkgerrors.ErrSlugAlreadyExists) {
-			response.Error(c, http.StatusConflict, "SLUG_EXISTS", "author.slug_already_exists", nil)
+			response.Error(c, http.StatusConflict, "SLUG_EXISTS", i18nkeys.AuthorSlugAlreadyExists, nil)
 			return
 		}
-		response.Error(c, http.StatusInternalServerError, "UPDATE_FAILED", "author.update_failed", nil)
+		response.Error(c, http.StatusInternalServerError, "UPDATE_FAILED", i18nkeys.AuthorUpdateFailed, nil)
 		return
 	}
 
 	// Map to response
 	resp := mapToAuthorDetailResponse(author)
 
-	response.Success(c, http.StatusOK, "author.updated_success", resp, nil)
+	response.Success(c, http.StatusOK, i18nkeys.AuthorUpdatedSuccess, resp, nil)
 }
 
 // DeleteAuthor xóa author
@@ -137,7 +180,7 @@ func (h *Handler) DeleteAuthor(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := uuid.FromString(idStr)
 	if err != nil {
-		response.Error(c, http.StatusBadRequest, "INVALID_ID", "author.invalid_id", nil)
+		response.Error(c, http.StatusBadRequest, "INVALID_ID", i18nkeys.AuthorInvalidID, nil)
 		return
 	}
 
@@ -145,18 +188,18 @@ func (h *Handler) DeleteAuthor(c *gin.Context) {
 	err = h.authorService.DeleteAuthor(c.Request.Context(), id)
 	if err != nil {
 		if errors.Is(err, pkgerrors.ErrAuthorNotFound) {
-			response.Error(c, http.StatusNotFound, "AUTHOR_NOT_FOUND", "author.not_found", nil)
+			response.Error(c, http.StatusNotFound, "AUTHOR_NOT_FOUND", i18nkeys.AuthorNotFound, nil)
 			return
 		}
 		if errors.Is(err, pkgerrors.ErrAuthorInUse) {
-			response.Error(c, http.StatusConflict, "AUTHOR_IN_USE", "author.in_use", nil)
+			response.Error(c, http.StatusConflict, "AUTHOR_IN_USE", i18nkeys.AuthorInUse, nil)
 			return
 		}
-		response.Error(c, http.StatusInternalServerError, "DELETE_FAILED", "author.delete_failed", nil)
+		response.Error(c, http.StatusInternalServerError, "DELETE_FAILED", i18nkeys.AuthorDeleteFailed, nil)
 		return
 	}
 
-	response.Success(c, http.StatusOK, "author.deleted_success", nil, nil)
+	response.Success(c, http.StatusOK, i18nkeys.AuthorDeletedSuccess, nil, nil)
 }
 
 // GetAuthor lấy thông tin chi tiết author
@@ -174,7 +217,7 @@ func (h *Handler) GetAuthor(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := uuid.FromString(idStr)
 	if err != nil {
-		response.Error(c, http.StatusBadRequest, "INVALID_ID", "author.invalid_id", nil)
+		response.Error(c, http.StatusBadRequest, "INVALID_ID", i18nkeys.AuthorInvalidID, nil)
 		return
 	}
 
@@ -182,17 +225,17 @@ func (h *Handler) GetAuthor(c *gin.Context) {
 	author, err := h.authorService.GetAuthorByID(c.Request.Context(), id)
 	if err != nil {
 		if errors.Is(err, pkgerrors.ErrAuthorNotFound) || errors.Is(err, pgx.ErrNoRows) {
-			response.Error(c, http.StatusNotFound, "AUTHOR_NOT_FOUND", "author.not_found", nil)
+			response.Error(c, http.StatusNotFound, "AUTHOR_NOT_FOUND", i18nkeys.AuthorNotFound, nil)
 			return
 		}
-		response.Error(c, http.StatusInternalServerError, "GET_FAILED", "author.get_failed", nil)
+		response.Error(c, http.StatusInternalServerError, "GET_FAILED", i18nkeys.AuthorGetFailed, nil)
 		return
 	}
 
 	// Map to response
 	resp := mapToAuthorDetailResponse(author)
 
-	response.Success(c, http.StatusOK, "author.get_success", resp, nil)
+	response.Success(c, http.StatusOK, i18nkeys.AuthorGetSuccess, resp, nil)
 }
 
 // ListAuthors lấy danh sách authors
@@ -212,7 +255,7 @@ func (h *Handler) GetAuthor(c *gin.Context) {
 func (h *Handler) ListAuthors(c *gin.Context) {
 	var req ListAuthorsRequest
 	if err := c.ShouldBindQuery(&req); err != nil {
-		response.Error(c, http.StatusBadRequest, "VALIDATION_FAILED", "validation.failed", err.Error())
+		response.Error(c, http.StatusBadRequest, "VALIDATION_FAILED", i18nkeys.ValidationFailed, err.Error())
 		return
 	}
 
@@ -244,7 +287,7 @@ func (h *Handler) ListAuthors(c *gin.Context) {
 			zap.String("sort_order", req.SortOrder),
 			zap.Any("is_verified", req.IsVerified),
 		)
-		response.Error(c, http.StatusInternalServerError, "LIST_FAILED", "author.list_failed", nil)
+		response.Error(c, http.StatusInternalServerError, "LIST_FAILED", i18nkeys.AuthorListFailed, nil)
 		return
 	}
 
@@ -263,7 +306,7 @@ func (h *Handler) ListAuthors(c *gin.Context) {
 		TotalPages: totalPages,
 	}
 
-	response.Success(c, http.StatusOK, "author.list_success", authorResponses, meta)
+	response.Success(c, http.StatusOK, i18nkeys.AuthorListSuccess, authorResponses, meta)
 }
 
 // Helper function to map domain model to detail response
@@ -309,6 +352,7 @@ func mapToAuthorResponse(author *domain.Author) AuthorResponse {
 	resp := AuthorResponse{
 		ID:         author.ID.String(),
 		Name:       author.Name,
+		Slug:       author.Slug,
 		NovelCount: author.NovelCount,
 		TotalViews: author.TotalViews,
 		CreatedAt:  author.CreatedAt.Format(timeutil.ISO8601Layout),

@@ -1,4 +1,4 @@
-package chapter
+package volume_chapter
 
 import (
 	"encoding/json"
@@ -37,30 +37,29 @@ func NewHandler(chapterService *service.ChapterService) *Handler {
 // @Failure 400 {object} response.StandardResponse
 // @Failure 409 {object} response.StandardResponse
 // @Failure 500 {object} response.StandardResponse
-// @Router /api/v1/chapters [post]
+// @Router /api/v1/novels/{id}/volumes/{volume_id}/chapters [post]
 func (h *Handler) CreateChapter(c *gin.Context) {
-	var req CreateChapterRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Error(c, http.StatusBadRequest, "VALIDATION_FAILED", "validation.failed", err.Error())
-		return
-	}
-
-	// Parse novel ID
-	novelID, err := uuid.FromString(req.NovelID)
+	// Get novel ID from path
+	novelIDStr := c.Param("id")
+	novelID, err := uuid.FromString(novelIDStr)
 	if err != nil {
 		response.Error(c, http.StatusBadRequest, "INVALID_NOVEL_ID", "novel.invalid_id", nil)
 		return
 	}
 
-	// Parse optional volume ID
-	var volumeID *uuid.UUID
-	if req.VolumeID != nil {
-		vid, err := uuid.FromString(*req.VolumeID)
-		if err != nil {
-			response.Error(c, http.StatusBadRequest, "INVALID_VOLUME_ID", "volume.invalid_id", nil)
-			return
-		}
-		volumeID = &vid
+	// Get volume ID from path
+	volumeIDStr := c.Param("volume_id")
+	volumeIDVal, err := uuid.FromString(volumeIDStr)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "INVALID_VOLUME_ID", "volume.invalid_id", nil)
+		return
+	}
+	volumeID := &volumeIDVal
+
+	var req CreateChapterRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, "VALIDATION_FAILED", "validation.failed", err.Error())
+		return
 	}
 
 	// Parse optional scheduled time

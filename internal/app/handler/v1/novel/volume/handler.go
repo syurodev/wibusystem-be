@@ -1,4 +1,4 @@
-package volume
+package novel_volume
 
 import (
 	"errors"

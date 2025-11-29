@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 	"system/internal/domain"
+	"system/internal/pkg/db"
 
 	"github.com/gofrs/uuid/v5"
 	"github.com/jackc/pgx/v5"
@@ -27,7 +28,7 @@ func (r *authorRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.A
 	query := `
 		SELECT id, user_id, name, slug, biography, avatar_url, social_links,
 		       novel_count, total_chapters, total_views, follower_count,
-		       is_verified, created_at, updated_at, deleted_at
+		       is_verified, created_by, updated_by, created_at, updated_at, deleted_at, deleted_by
 		FROM catalog.authors
 		WHERE id = $1 AND deleted_at IS NULL
 	`
@@ -50,7 +51,7 @@ func (r *authorRepository) GetBySlug(ctx context.Context, slug string) (*domain.
 	query := `
 		SELECT id, user_id, name, slug, biography, avatar_url, social_links,
 		       novel_count, total_chapters, total_views, follower_count,
-		       is_verified, created_at, updated_at, deleted_at
+		       is_verified, created_by, updated_by, created_at, updated_at, deleted_at, deleted_by
 		FROM catalog.authors
 		WHERE slug = $1 AND deleted_at IS NULL
 	`
@@ -73,7 +74,7 @@ func (r *authorRepository) GetByUserID(ctx context.Context, userID uuid.UUID) (*
 	query := `
 		SELECT id, user_id, name, slug, biography, avatar_url, social_links,
 		       novel_count, total_chapters, total_views, follower_count,
-		       is_verified, created_at, updated_at, deleted_at
+		       is_verified, created_by, updated_by, created_at, updated_at, deleted_at, deleted_by
 		FROM catalog.authors
 		WHERE user_id = $1 AND deleted_at IS NULL
 	`
@@ -136,7 +137,7 @@ func (r *authorRepository) List(ctx context.Context, filter domain.AuthorFilter)
 	query := fmt.Sprintf(`
 		SELECT id, user_id, name, slug, biography, avatar_url, social_links,
 		       novel_count, total_chapters, total_views, follower_count,
-		       is_verified, created_at, updated_at, deleted_at
+		       is_verified, created_by, updated_by, created_at, updated_at, deleted_at, deleted_by
 		FROM catalog.authors
 		WHERE %s
 		ORDER BY %s
@@ -162,8 +163,8 @@ func (r *authorRepository) List(ctx context.Context, filter domain.AuthorFilter)
 func (r *authorRepository) Create(ctx context.Context, author *domain.Author) error {
 	query := `
 		INSERT INTO catalog.authors (
-			id, user_id, name, slug, biography, avatar_url, social_links, is_verified
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+			id, user_id, name, slug, biography, avatar_url, social_links, is_verified, created_by
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 	`
 
 	// Ensure social_links is not null
@@ -180,6 +181,7 @@ func (r *authorRepository) Create(ctx context.Context, author *domain.Author) er
 		author.AvatarURL,
 		author.SocialLinks,
 		author.IsVerified,
+		author.CreatedBy,
 	)
 
 	return err
@@ -195,7 +197,8 @@ func (r *authorRepository) Update(ctx context.Context, author *domain.Author) er
 		    biography = $5,
 		    avatar_url = $6,
 		    social_links = $7,
-		    is_verified = $8
+		    is_verified = $8,
+		    updated_by = $9
 		WHERE id = $1 AND deleted_at IS NULL
 	`
 
@@ -208,6 +211,7 @@ func (r *authorRepository) Update(ctx context.Context, author *domain.Author) er
 		author.AvatarURL,
 		author.SocialLinks,
 		author.IsVerified,
+		author.UpdatedBy,
 	)
 
 	return err
@@ -230,7 +234,7 @@ func (r *authorRepository) GetNovelAuthors(ctx context.Context, novelID uuid.UUI
 	query := `
 		SELECT a.id, a.user_id, a.name, a.slug, a.biography, a.avatar_url, a.social_links,
 		       a.novel_count, a.total_chapters, a.total_views, a.follower_count,
-		       a.is_verified, a.created_at, a.updated_at, a.deleted_at,
+		       a.is_verified, a.created_by, a.updated_by, a.created_at, a.updated_at, a.deleted_at, a.deleted_by,
 		       na.role, na.display_order
 		FROM catalog.authors a
 		INNER JOIN catalog.novel_authors na ON a.id = na.author_id
@@ -254,7 +258,7 @@ func (r *authorRepository) GetNovelAuthors(ctx context.Context, novelID uuid.UUI
 			&author.ID, &author.UserID, &author.Name, &author.Slug,
 			&author.Biography, &author.AvatarURL, &author.SocialLinks,
 			&author.NovelCount, &author.TotalChapters, &author.TotalViews, &author.FollowerCount,
-			&author.IsVerified, &author.CreatedAt, &author.UpdatedAt, &author.DeletedAt,
+			&author.IsVerified, &author.CreatedBy, &author.UpdatedBy, &author.CreatedAt, &author.UpdatedAt, &author.DeletedAt, &author.DeletedBy,
 			&role, &displayOrder,
 		)
 		if err != nil {
@@ -280,7 +284,33 @@ func (r *authorRepository) AddNovelAuthor(ctx context.Context, novelID, authorID
 		SET role = EXCLUDED.role, display_order = EXCLUDED.display_order
 	`
 
-	_, err := r.pool.Exec(ctx, query, novelID, authorID, role, displayOrder)
+	db := db.GetDB(ctx, r.pool)
+	_, err := db.Exec(ctx, query, novelID, authorID, role, displayOrder)
+	return err
+}
+
+// AddNovelAuthors thêm nhiều authors cho novel (Batch Insert)
+func (r *authorRepository) AddNovelAuthors(ctx context.Context, novelID uuid.UUID, authorIDs []uuid.UUID, role string) error {
+	if len(authorIDs) == 0 {
+		return nil
+	}
+
+	query := "INSERT INTO catalog.novel_authors (novel_id, author_id, role, display_order) VALUES "
+	var args []any
+	var values []string
+
+	for i, authorID := range authorIDs {
+		// $1, $2, $3, $4
+		base := i * 4
+		values = append(values, fmt.Sprintf("($%d, $%d, $%d, $%d)", base+1, base+2, base+3, base+4))
+		args = append(args, novelID, authorID, role, i)
+	}
+
+	query += strings.Join(values, ",")
+	query += " ON CONFLICT (novel_id, author_id) DO UPDATE SET role = EXCLUDED.role, display_order = EXCLUDED.display_order"
+
+	db := db.GetDB(ctx, r.pool)
+	_, err := db.Exec(ctx, query, args...)
 	return err
 }
 

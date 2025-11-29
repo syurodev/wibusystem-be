@@ -1,4 +1,4 @@
-package chapter
+package volume_chapter
 
 import (
 	"github.com/gin-gonic/gin"

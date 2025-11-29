@@ -12,16 +12,17 @@ import (
 	"system/internal/app/handler/v1/artist"
 	"system/internal/app/handler/v1/auth"
 	"system/internal/app/handler/v1/author"
-	"system/internal/app/handler/v1/chapter"
 	"system/internal/app/handler/v1/genre"
 	"system/internal/app/handler/v1/novel"
+	novel_volume "system/internal/app/handler/v1/novel/volume"
+	volume_chapter "system/internal/app/handler/v1/novel/volume/chapter"
 	oauth2_handler "system/internal/app/handler/v1/oauth2"
 	"system/internal/app/handler/v1/oauth2_admin"
 	"system/internal/app/handler/v1/user"
-	"system/internal/app/handler/v1/volume"
 	"system/internal/app/middleware"
 	"system/internal/oauth2"
 	fosite_storage "system/internal/oauth2/storage"
+	txdb "system/internal/pkg/db"
 	"system/internal/pkg/repository"
 	"system/internal/pkg/service"
 	"system/internal/platform/database"
@@ -148,6 +149,7 @@ func NewRouter(cfg *configs.Config, i18nInstance *i18n.I18n, zapLogger *zap.Logg
 	volumeHistoryRepo := repository.NewVolumeHistoryRepository(db.Pool)
 	chapterRepo := repository.NewChapterRepository(db.Pool)
 	chapterHistoryRepo := repository.NewChapterHistoryRepository(db.Pool)
+	txManager := txdb.NewTransactionManager(db.Pool)
 	webauthnCredentialRepo := repository.NewWebAuthnCredentialRepository(db.Pool)
 	webauthnSessionRepo := repository.NewWebAuthnSessionRepository(db.Pool)
 
@@ -182,7 +184,7 @@ func NewRouter(cfg *configs.Config, i18nInstance *i18n.I18n, zapLogger *zap.Logg
 	genreService := service.NewGenreService(genreRepo)
 	authorService := service.NewAuthorService(authorRepo)
 	artistService := service.NewArtistService(artistRepo)
-	novelService := service.NewNovelService(novelRepo)
+	novelService := service.NewNovelService(novelRepo, volumeRepo, genreRepo, authorRepo, artistRepo, txManager)
 	volumeService := service.NewVolumeService(volumeRepo, volumeHistoryRepo)
 	chapterService := service.NewChapterService(chapterRepo, chapterHistoryRepo)
 
@@ -214,9 +216,9 @@ func NewRouter(cfg *configs.Config, i18nInstance *i18n.I18n, zapLogger *zap.Logg
 	authorHandler := author.NewHandler(authorService, zapLogger)
 	artistHandler := artist.NewHandler(artistService)
 	novelHandler := novel.NewHandler(novelService)
-	volumeHandler := volume.NewHandler(volumeService)
+	volumeHandler := novel_volume.NewHandler(volumeService)
 
-	chapterHandler := chapter.NewHandler(chapterService)
+	chapterHandler := volume_chapter.NewHandler(chapterService)
 	userHandler := user.NewHandler(userRepo)
 
 	// --- Đăng ký Routes ---
@@ -233,14 +235,11 @@ func NewRouter(cfg *configs.Config, i18nInstance *i18n.I18n, zapLogger *zap.Logg
 		// Author routes
 		authorGroup := apiV1.Group("/authors")
 		{
-			authorHandler.RegisterRoutes(authorGroup)
+			authorHandler.RegisterRoutes(authorGroup, middleware.RequireAuth(oauth2Provider, zapLogger))
 		}
 
 		// Artist routes
-		artistGroup := apiV1.Group("/artists")
-		{
-			artistHandler.RegisterRoutes(artistGroup)
-		}
+		artistHandler.RegisterRoutes(apiV1, middleware.RequireAuth(oauth2Provider, zapLogger))
 
 		// Novel routes
 		novelGroup := apiV1.Group("/novels")
@@ -254,6 +253,13 @@ func NewRouter(cfg *configs.Config, i18nInstance *i18n.I18n, zapLogger *zap.Logg
 			novelChaptersGroup := novelGroup.Group("/:id/chapters")
 			{
 				chapterHandler.RegisterNovelChaptersRoutes(novelChaptersGroup)
+			}
+			
+			// Nested: Chapters by volume (standard RESTful endpoint)
+			// POST /api/v1/novels/:id/volumes/:volume_id/chapters
+			novelVolumeChaptersGroup := novelGroup.Group("/:id/volumes/:volume_id/chapters")
+			{
+				novelVolumeChaptersGroup.POST("", chapterHandler.CreateChapter)
 			}
 		}
 

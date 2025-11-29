@@ -5,15 +5,20 @@ import (
 )
 
 // RegisterRoutes đăng ký các routes cho artist
-func (h *Handler) RegisterRoutes(router *gin.RouterGroup) {
-	// Public routes (no auth required for reading)
-	router.GET("", h.ListArtists)   // GET /api/v1/artists
-	router.GET("/:id", h.GetArtist) // GET /api/v1/artists/:id
+func (h *Handler) RegisterRoutes(router *gin.RouterGroup, requireAuth gin.HandlerFunc) {
+	artists := router.Group("/artists")
+	{
+		// Public routes - không cần auth
+		artists.GET("", h.ListArtists)
+		artists.GET("/:id", h.GetArtist)
 
-	// Protected routes (require authentication)
-	// Note: Auth middleware should be applied at router group level or here
-	// For now, assuming auth middleware is applied globally or at parent level
-	router.POST("", h.CreateArtist)       // POST /api/v1/artists
-	router.PUT("/:id", h.UpdateArtist)    // PUT /api/v1/artists/:id
-	router.DELETE("/:id", h.DeleteArtist) // DELETE /api/v1/artists/:id
+		// Protected routes - cần auth
+		protected := artists.Group("")
+		protected.Use(requireAuth)
+		{
+			protected.POST("", h.CreateArtist)
+			protected.PUT("/:id", h.UpdateArtist)
+			protected.DELETE("/:id", h.DeleteArtist)
+		}
+	}
 }

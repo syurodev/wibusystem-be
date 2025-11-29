@@ -7,9 +7,15 @@ type CreateNovelRequest struct {
 	CoverImageURL    *string `json:"cover_image_url,omitempty" binding:"omitempty,url"`
 	ThumbnailURL     *string `json:"thumbnail_url,omitempty" binding:"omitempty,url"`
 	Status           string  `json:"status" binding:"required,oneof=draft ongoing completed hiatus dropped"`
+	IsOneshot        bool    `json:"is_oneshot"`
 	OriginalLanguage *string `json:"original_language,omitempty" binding:"omitempty,len=2"` // ISO 639-1
 	OriginalTitle    *string `json:"original_title,omitempty" binding:"omitempty,max=500"`
-	Metadata         *string `json:"metadata,omitempty"` // JSON string
+	OwnerID          string   `json:"owner_id" binding:"required,uuid"`
+	OwnerType        string   `json:"owner_type" binding:"required,oneof=user group"`
+	GenreIDs         []string `json:"genre_ids" binding:"omitempty,dive,uuid"`
+	AuthorIDs        []string `json:"author_ids" binding:"omitempty,dive,uuid"`
+	ArtistIDs        []string `json:"artist_ids" binding:"omitempty,dive,uuid"`
+	Metadata         *string  `json:"metadata,omitempty"` // JSON string
 }
 
 // UpdateNovelRequest là DTO cho việc cập nhật novel

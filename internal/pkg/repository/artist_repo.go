@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 	"system/internal/domain"
+	"system/internal/pkg/db"
 
 	"github.com/gofrs/uuid/v5"
 	"github.com/jackc/pgx/v5"
@@ -27,7 +28,7 @@ func (r *artistRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.A
 	query := `
 		SELECT id, user_id, name, slug, biography, avatar_url, social_links,
 		       specialization, novel_count, artwork_count, follower_count,
-		       is_verified, created_at, updated_at, deleted_at
+		       is_verified, created_by, updated_by, created_at, updated_at, deleted_at, deleted_by
 		FROM catalog.artists
 		WHERE id = $1 AND deleted_at IS NULL
 	`
@@ -50,7 +51,7 @@ func (r *artistRepository) GetBySlug(ctx context.Context, slug string) (*domain.
 	query := `
 		SELECT id, user_id, name, slug, biography, avatar_url, social_links,
 		       specialization, novel_count, artwork_count, follower_count,
-		       is_verified, created_at, updated_at, deleted_at
+		       is_verified, created_by, updated_by, created_at, updated_at, deleted_at, deleted_by
 		FROM catalog.artists
 		WHERE slug = $1 AND deleted_at IS NULL
 	`
@@ -73,7 +74,7 @@ func (r *artistRepository) GetByUserID(ctx context.Context, userID uuid.UUID) (*
 	query := `
 		SELECT id, user_id, name, slug, biography, avatar_url, social_links,
 		       specialization, novel_count, artwork_count, follower_count,
-		       is_verified, created_at, updated_at, deleted_at
+		       is_verified, created_by, updated_by, created_at, updated_at, deleted_at, deleted_by
 		FROM catalog.artists
 		WHERE user_id = $1 AND deleted_at IS NULL
 	`
@@ -142,7 +143,7 @@ func (r *artistRepository) List(ctx context.Context, filter domain.ArtistFilter)
 	query := fmt.Sprintf(`
 		SELECT id, user_id, name, slug, biography, avatar_url, social_links,
 		       specialization, novel_count, artwork_count, follower_count,
-		       is_verified, created_at, updated_at, deleted_at
+		       is_verified, created_by, updated_by, created_at, updated_at, deleted_at, deleted_by
 		FROM catalog.artists
 		WHERE %s
 		ORDER BY %s
@@ -169,8 +170,8 @@ func (r *artistRepository) Create(ctx context.Context, artist *domain.Artist) er
 	query := `
 		INSERT INTO catalog.artists (
 			id, user_id, name, slug, biography, avatar_url, social_links,
-			specialization, is_verified
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+			specialization, is_verified, created_by
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 	`
 
 	// Ensure social_links is not null
@@ -188,6 +189,7 @@ func (r *artistRepository) Create(ctx context.Context, artist *domain.Artist) er
 		artist.SocialLinks,
 		artist.Specialization,
 		artist.IsVerified,
+		artist.CreatedBy,
 	)
 
 	return err
@@ -204,7 +206,8 @@ func (r *artistRepository) Update(ctx context.Context, artist *domain.Artist) er
 		    avatar_url = $6,
 		    social_links = $7,
 		    specialization = $8,
-		    is_verified = $9
+		    is_verified = $9,
+		    updated_by = $10
 		WHERE id = $1 AND deleted_at IS NULL
 	`
 
@@ -218,6 +221,7 @@ func (r *artistRepository) Update(ctx context.Context, artist *domain.Artist) er
 		artist.SocialLinks,
 		artist.Specialization,
 		artist.IsVerified,
+		artist.UpdatedBy,
 	)
 
 	return err
@@ -240,7 +244,7 @@ func (r *artistRepository) GetNovelArtists(ctx context.Context, novelID uuid.UUI
 	query := `
 		SELECT a.id, a.user_id, a.name, a.slug, a.biography, a.avatar_url, a.social_links,
 		       a.specialization, a.novel_count, a.artwork_count, a.follower_count,
-		       a.is_verified, a.created_at, a.updated_at, a.deleted_at,
+		       a.is_verified, a.created_by, a.updated_by, a.created_at, a.updated_at, a.deleted_at, a.deleted_by,
 		       na.role, na.display_order
 		FROM catalog.artists a
 		INNER JOIN catalog.novel_artists na ON a.id = na.artist_id
@@ -264,7 +268,7 @@ func (r *artistRepository) GetNovelArtists(ctx context.Context, novelID uuid.UUI
 			&artist.ID, &artist.UserID, &artist.Name, &artist.Slug,
 			&artist.Biography, &artist.AvatarURL, &artist.SocialLinks,
 			&artist.Specialization, &artist.NovelCount, &artist.ArtworkCount, &artist.FollowerCount,
-			&artist.IsVerified, &artist.CreatedAt, &artist.UpdatedAt, &artist.DeletedAt,
+			&artist.IsVerified, &artist.CreatedBy, &artist.UpdatedBy, &artist.CreatedAt, &artist.UpdatedAt, &artist.DeletedAt, &artist.DeletedBy,
 			&role, &displayOrder,
 		)
 		if err != nil {
@@ -290,7 +294,33 @@ func (r *artistRepository) AddNovelArtist(ctx context.Context, novelID, artistID
 		SET display_order = EXCLUDED.display_order
 	`
 
-	_, err := r.pool.Exec(ctx, query, novelID, artistID, role, displayOrder)
+	db := db.GetDB(ctx, r.pool)
+	_, err := db.Exec(ctx, query, novelID, artistID, role, displayOrder)
+	return err
+}
+
+// AddNovelArtists thêm nhiều artists cho novel (Batch Insert)
+func (r *artistRepository) AddNovelArtists(ctx context.Context, novelID uuid.UUID, artistIDs []uuid.UUID, role string) error {
+	if len(artistIDs) == 0 {
+		return nil
+	}
+
+	query := "INSERT INTO catalog.novel_artists (novel_id, artist_id, role, display_order) VALUES "
+	var args []any
+	var values []string
+
+	for i, artistID := range artistIDs {
+		// $1, $2, $3, $4
+		base := i * 4
+		values = append(values, fmt.Sprintf("($%d, $%d, $%d, $%d)", base+1, base+2, base+3, base+4))
+		args = append(args, novelID, artistID, role, i)
+	}
+
+	query += strings.Join(values, ",")
+	query += " ON CONFLICT (novel_id, artist_id, role) DO UPDATE SET display_order = EXCLUDED.display_order"
+
+	db := db.GetDB(ctx, r.pool)
+	_, err := db.Exec(ctx, query, args...)
 	return err
 }
 

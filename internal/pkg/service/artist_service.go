@@ -4,12 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/gofrs/uuid/v5"
 	"github.com/gosimple/slug"
 
 	"system/internal/domain"
 	pkgerrors "system/pkg/errors"
+	"system/pkg/util/slugutil"
 )
 
 // ArtistService cung cấp business logic cho artists
@@ -25,19 +27,16 @@ func NewArtistService(artistRepo domain.ArtistRepository) *ArtistService {
 }
 
 // CreateArtist tạo artist mới
-func (s *ArtistService) CreateArtist(ctx context.Context, name, biography string, avatarURL *string, socialLinksJSON *string, specialization *string) (*domain.Artist, error) {
+func (s *ArtistService) CreateArtist(ctx context.Context, name, biography string, avatarURL *string, socialLinksJSON *string, specialization *string, createdBy uuid.UUID) (*domain.Artist, error) {
 	// Validate input
 	if name == "" {
 		return nil, pkgerrors.ErrInvalidInput
 	}
 
-	// Generate slug from name
-	artistSlug := slug.Make(name)
-
-	// Check if slug already exists
-	existing, err := s.artistRepo.GetBySlug(ctx, artistSlug)
-	if err == nil && existing != nil {
-		return nil, pkgerrors.ErrSlugAlreadyExists
+	// Generate unique slug from name with random suffix
+	artistSlug, err := slugutil.GenerateUniqueSlug(name)
+	if err != nil {
+		return nil, err
 	}
 
 	// Prepare biography JSON
@@ -75,9 +74,15 @@ func (s *ArtistService) CreateArtist(ctx context.Context, name, biography string
 		SocialLinks:    socialLinks,
 		Specialization: specialization,
 		IsVerified:     false,
+		CreatedBy:      createdBy,
 	}
 
 	if err := s.artistRepo.Create(ctx, artist); err != nil {
+		// Check for duplicate key error (slug constraint)
+		if strings.Contains(err.Error(), "artists_slug_key") ||
+		   strings.Contains(err.Error(), "duplicate key") {
+			return nil, pkgerrors.ErrSlugAlreadyExists
+		}
 		return nil, err
 	}
 

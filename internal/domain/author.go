@@ -35,9 +35,12 @@ type Author struct {
 	IsVerified bool
 
 	// Audit
+	CreatedBy uuid.UUID
+	UpdatedBy *uuid.UUID
 	CreatedAt time.Time
 	UpdatedAt time.Time
 	DeletedAt *time.Time
+	DeletedBy *uuid.UUID
 }
 
 // AuthorRepository định nghĩa interface cho việc truy cập dữ liệu author

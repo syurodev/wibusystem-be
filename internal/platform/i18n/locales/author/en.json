@@ -1,0 +1,17 @@
+{
+  "author.created_success": "Author created successfully.",
+  "author.updated_success": "Author updated successfully.",
+  "author.deleted_success": "Author deleted successfully.",
+  "author.get_success": "Author retrieved successfully.",
+  "author.list_success": "Authors list retrieved successfully.",
+  "author.create_failed": "Failed to create author. Please try again.",
+  "author.update_failed": "Failed to update author. Please try again.",
+  "author.delete_failed": "Failed to delete author. Please try again.",
+  "author.get_failed": "Failed to retrieve author information.",
+  "author.list_failed": "Failed to load authors list.",
+  "author.not_found": "Author not found.",
+  "author.invalid_id": "Invalid author ID.",
+  "author.invalid_input": "Invalid input data.",
+  "author.slug_already_exists": "Author name already exists.",
+  "author.in_use": "Cannot delete author with existing novels."
+}

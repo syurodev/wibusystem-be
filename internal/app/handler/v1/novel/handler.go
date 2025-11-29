@@ -45,6 +45,44 @@ func (h *Handler) CreateNovel(c *gin.Context) {
 	}
 
 	// Create novel
+	// Parse IDs
+	ownerID, err := uuid.FromString(req.OwnerID)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "INVALID_OWNER_ID", "novel.invalid_owner_id", nil)
+		return
+	}
+
+	var genreIDs []uuid.UUID
+	for _, idStr := range req.GenreIDs {
+		id, err := uuid.FromString(idStr)
+		if err != nil {
+			response.Error(c, http.StatusBadRequest, "INVALID_GENRE_ID", "novel.invalid_genre_id", nil)
+			return
+		}
+		genreIDs = append(genreIDs, id)
+	}
+
+	var authorIDs []uuid.UUID
+	for _, idStr := range req.AuthorIDs {
+		id, err := uuid.FromString(idStr)
+		if err != nil {
+			response.Error(c, http.StatusBadRequest, "INVALID_AUTHOR_ID", "novel.invalid_author_id", nil)
+			return
+		}
+		authorIDs = append(authorIDs, id)
+	}
+
+	var artistIDs []uuid.UUID
+	for _, idStr := range req.ArtistIDs {
+		id, err := uuid.FromString(idStr)
+		if err != nil {
+			response.Error(c, http.StatusBadRequest, "INVALID_ARTIST_ID", "novel.invalid_artist_id", nil)
+			return
+		}
+		artistIDs = append(artistIDs, id)
+	}
+
+	// Create novel
 	novel, err := h.novelService.CreateNovel(
 		c.Request.Context(),
 		req.Title,
@@ -55,6 +93,12 @@ func (h *Handler) CreateNovel(c *gin.Context) {
 		req.OriginalLanguage,
 		req.OriginalTitle,
 		req.Metadata,
+		req.IsOneshot,
+		ownerID,
+		req.OwnerType,
+		genreIDs,
+		authorIDs,
+		artistIDs,
 	)
 	if err != nil {
 		if errors.Is(err, pkgerrors.ErrInvalidInput) {

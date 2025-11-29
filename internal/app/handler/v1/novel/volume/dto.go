@@ -1,4 +1,4 @@
-package volume
+package novel_volume
 
 // CreateVolumeRequest represents the request to create a new volume
 type CreateVolumeRequest struct {

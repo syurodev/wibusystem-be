@@ -4,12 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/gofrs/uuid/v5"
 	"github.com/gosimple/slug"
 
 	"system/internal/domain"
 	pkgerrors "system/pkg/errors"
+	"system/pkg/util/slugutil"
 )
 
 // AuthorService cung cấp business logic cho authors
@@ -25,19 +27,16 @@ func NewAuthorService(authorRepo domain.AuthorRepository) *AuthorService {
 }
 
 // CreateAuthor tạo author mới
-func (s *AuthorService) CreateAuthor(ctx context.Context, name, biography string, avatarURL *string, socialLinksJSON *string) (*domain.Author, error) {
+func (s *AuthorService) CreateAuthor(ctx context.Context, name, biography string, avatarURL *string, socialLinksJSON *string, createdBy uuid.UUID) (*domain.Author, error) {
 	// Validate input
 	if name == "" {
 		return nil, pkgerrors.ErrInvalidInput
 	}
 
-	// Generate slug from name
-	authorSlug := slug.Make(name)
-
-	// Check if slug already exists
-	existing, err := s.authorRepo.GetBySlug(ctx, authorSlug)
-	if err == nil && existing != nil {
-		return nil, pkgerrors.ErrSlugAlreadyExists
+	// Generate unique slug from name with random suffix
+	authorSlug, err := slugutil.GenerateUniqueSlug(name)
+	if err != nil {
+		return nil, err
 	}
 
 	// Prepare biography JSON
@@ -74,9 +73,15 @@ func (s *AuthorService) CreateAuthor(ctx context.Context, name, biography string
 		AvatarURL:   avatarURL,
 		SocialLinks: socialLinks,
 		IsVerified:  false,
+		CreatedBy:   createdBy,
 	}
 
 	if err := s.authorRepo.Create(ctx, author); err != nil {
+		// Check for duplicate key error (slug constraint)
+		if strings.Contains(err.Error(), "authors_slug_key") || 
+		   strings.Contains(err.Error(), "duplicate key") {
+			return nil, pkgerrors.ErrSlugAlreadyExists
+		}
 		return nil, err
 	}
 
