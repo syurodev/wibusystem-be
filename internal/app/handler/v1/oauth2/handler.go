@@ -35,6 +35,10 @@ type OAuth2Service interface {
 	RevokeUserTokens(ctx context.Context, userID uuid.UUID) error
 	GetClientInfo(ctx context.Context, clientID uuid.UUID) (*domain.OAuth2Client, error)
 	GetUserByEmail(ctx context.Context, email string) (*domain.User, error)
+	GetGlobalPermissions(ctx context.Context, userID uuid.UUID) ([]string, error)
+	GetTenantPermissions(ctx context.Context, userID, tenantID uuid.UUID) ([]string, error)
+	GetGlobalRoles(ctx context.Context, userID uuid.UUID) ([]string, error)
+	GetTenantRoles(ctx context.Context, userID, tenantID uuid.UUID) ([]string, error)
 }
 
 // Handler là struct chứa các dependencies cho OAuth2 handlers.
@@ -162,6 +166,16 @@ func (h *Handler) UserInfo(c *gin.Context) {
 
 	// Xây dựng claims dựa trên scope và trả về theo chuẩn OIDC (không bọc success/data)
 	claims := buildUserInfoClaims(user, scopes)
+
+	// Inject extra claims from session (roles, permissions) if internal scope is present
+	if session, ok := ar.GetSession().(*openid.DefaultSession); ok {
+		if session.Claims != nil && session.Claims.Extra != nil {
+			for k, v := range session.Claims.Extra {
+				claims[k] = v
+			}
+		}
+	}
+
 	c.JSON(http.StatusOK, claims)
 }
 
@@ -209,7 +223,7 @@ func (h *Handler) Discovery(c *gin.Context) {
 		"subject_types_supported":               []string{"public"},
 		"id_token_signing_alg_values_supported": []string{"RS256"},
 		"scopes_supported": []string{
-			"openid", "profile", "email", "offline_access",
+			"openid", "profile", "email", "offline_access", "internal",
 		},
 		"token_endpoint_auth_methods_supported": []string{
 			"client_secret_basic",
@@ -536,8 +550,33 @@ func (h *Handler) redirectToConsent(c *gin.Context, ar fosite.AuthorizeRequester
 }
 
 // finalizeAuthorization hoàn tất quá trình authorization và tạo response
+// finalizeAuthorization hoàn tất quá trình authorization và tạo response
 func (h *Handler) finalizeAuthorization(c *gin.Context, ar fosite.AuthorizeRequester, userID string) {
 	ctx := c.Request.Context()
+
+	// Parse userID
+	userUUID, err := uuid.FromString(userID)
+	if err != nil {
+		zap.L().Error("oauth2 authorize: invalid user id", zap.Error(err))
+		writeOAuth2Error(c, fosite.ErrServerError.WithDebug("Invalid user ID"))
+		return
+	}
+
+	// Lấy thông tin client để check IsInternal
+	clientID := ar.GetClient().GetID()
+	clientUUID, err := uuid.FromString(clientID)
+	if err != nil {
+		zap.L().Error("oauth2 authorize: invalid client id", zap.Error(err))
+		writeOAuth2Error(c, fosite.ErrServerError.WithDebug("Invalid client ID"))
+		return
+	}
+
+	client, err := h.oauth2Service.GetClientInfo(ctx, clientUUID)
+	if err != nil {
+		zap.L().Error("oauth2 authorize: failed to get client info", zap.Error(err))
+		writeOAuth2Error(c, fosite.ErrServerError.WithDebug("Failed to get client info"))
+		return
+	}
 
 	// Tạo session với user info
 	now := time.Now().UTC()
@@ -547,6 +586,7 @@ func (h *Handler) finalizeAuthorization(c *gin.Context, ar fosite.AuthorizeReque
 			Subject:     userID,
 			AuthTime:    now,
 			RequestedAt: ar.GetRequestedAt(),
+			Extra:       make(map[string]any),
 		},
 		Headers: &jwt.Headers{},
 		ExpiresAt: map[fosite.TokenType]time.Time{
@@ -561,7 +601,43 @@ func (h *Handler) finalizeAuthorization(c *gin.Context, ar fosite.AuthorizeReque
 	ar.SetSession(session)
 
 	// V1: chấp thuận toàn bộ scopes đã request (đã kiểm tra consent trước đó)
+	// Check scope "internal" logic
 	for _, scope := range ar.GetRequestedScopes() {
+		if scope == string(domain.ScopeInternal) {
+			// Chỉ cấp scope internal nếu client là internal
+			if !client.IsInternal {
+				h.logger.Warn("Client requested internal scope but is not internal",
+					zap.String("client_id", clientID),
+				)
+				continue // Skip granting this scope
+			}
+
+			// Inject roles & permissions
+			// 1. Global Permissions
+			perms, err := h.oauth2Service.GetGlobalPermissions(ctx, userUUID)
+			if err == nil && len(perms) > 0 {
+				session.Claims.Extra["permissions"] = perms
+			}
+
+			// 2. Global Roles
+			roles, err := h.oauth2Service.GetGlobalRoles(ctx, userUUID)
+			if err == nil && len(roles) > 0 {
+				session.Claims.Extra["roles"] = roles
+			}
+
+			// 3. Tenant Permissions & Roles (if client is tenant-specific)
+			if client.TenantID != nil {
+				tenantPerms, err := h.oauth2Service.GetTenantPermissions(ctx, userUUID, *client.TenantID)
+				if err == nil && len(tenantPerms) > 0 {
+					session.Claims.Extra["tenant_permissions"] = tenantPerms
+				}
+
+				tenantRoles, err := h.oauth2Service.GetTenantRoles(ctx, userUUID, *client.TenantID)
+				if err == nil && len(tenantRoles) > 0 {
+					session.Claims.Extra["tenant_roles"] = tenantRoles
+				}
+			}
+		}
 		ar.GrantScope(scope)
 	}
 

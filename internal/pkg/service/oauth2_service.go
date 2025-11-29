@@ -170,3 +170,23 @@ func (s *OAuth2Service) GetClientInfo(ctx context.Context, clientID uuid.UUID) (
 func (s *OAuth2Service) GetUserByEmail(ctx context.Context, email string) (*domain.User, error) {
 	return s.userRepo.GetByEmail(ctx, email)
 }
+
+// GetGlobalPermissions lấy danh sách global permissions của user.
+func (s *OAuth2Service) GetGlobalPermissions(ctx context.Context, userID uuid.UUID) ([]string, error) {
+	return s.userRepo.GetGlobalPermissions(ctx, userID)
+}
+
+// GetTenantPermissions lấy danh sách permissions của user trong tenant.
+func (s *OAuth2Service) GetTenantPermissions(ctx context.Context, userID, tenantID uuid.UUID) ([]string, error) {
+	return s.userRepo.GetTenantPermissions(ctx, userID, tenantID)
+}
+
+// GetGlobalRoles lấy danh sách global roles của user.
+func (s *OAuth2Service) GetGlobalRoles(ctx context.Context, userID uuid.UUID) ([]string, error) {
+	return s.userRepo.GetGlobalRoles(ctx, userID)
+}
+
+// GetTenantRoles lấy danh sách roles của user trong tenant.
+func (s *OAuth2Service) GetTenantRoles(ctx context.Context, userID, tenantID uuid.UUID) ([]string, error) {
+	return s.userRepo.GetTenantRoles(ctx, userID, tenantID)
+}

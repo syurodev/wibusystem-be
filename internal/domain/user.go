@@ -48,4 +48,16 @@ type UserRepository interface {
 
 	// UpdateLastLogin cập nhật thời gian đăng nhập cuối
 	UpdateLastLogin(ctx context.Context, userID uuid.UUID) error
+
+	// GetGlobalPermissions lấy danh sách global permissions của user
+	GetGlobalPermissions(ctx context.Context, userID uuid.UUID) ([]string, error)
+
+	// GetTenantPermissions lấy danh sách permissions của user trong tenant
+	GetTenantPermissions(ctx context.Context, userID, tenantID uuid.UUID) ([]string, error)
+
+	// GetGlobalRoles lấy danh sách global roles của user
+	GetGlobalRoles(ctx context.Context, userID uuid.UUID) ([]string, error)
+
+	// GetTenantRoles lấy danh sách roles của user trong tenant
+	GetTenantRoles(ctx context.Context, userID, tenantID uuid.UUID) ([]string, error)
 }

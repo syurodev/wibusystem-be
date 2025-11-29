@@ -16,4 +16,7 @@ const (
 	ScopeProfile Scope = "profile"
 	// ScopeEmail yêu cầu quyền truy cập vào địa chỉ email của người dùng.
 	ScopeEmail Scope = "email"
+
+	// ScopeInternal yêu cầu quyền truy cập vào roles và permissions (chỉ dành cho internal clients).
+	ScopeInternal Scope = "internal"
 )

@@ -140,3 +140,101 @@ func (r *userRepository) UpdateLastLogin(ctx context.Context, userID uuid.UUID) 
 	_, err := r.pool.Exec(ctx, query, userID)
 	return err
 }
+
+// GetGlobalPermissions lấy danh sách global permissions của user
+func (r *userRepository) GetGlobalPermissions(ctx context.Context, userID uuid.UUID) ([]string, error) {
+	query := `SELECT permission_name FROM identify.get_user_global_permissions($1)`
+
+	rows, err := r.pool.Query(ctx, query, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var permissions []string
+	for rows.Next() {
+		var p string
+		if err := rows.Scan(&p); err != nil {
+			return nil, err
+		}
+		permissions = append(permissions, p)
+	}
+
+	return permissions, rows.Err()
+}
+
+// GetTenantPermissions lấy danh sách permissions của user trong tenant
+func (r *userRepository) GetTenantPermissions(ctx context.Context, userID, tenantID uuid.UUID) ([]string, error) {
+	query := `SELECT permission_name FROM identify.get_user_tenant_permissions($1, $2)`
+
+	rows, err := r.pool.Query(ctx, query, userID, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var permissions []string
+	for rows.Next() {
+		var p string
+		if err := rows.Scan(&p); err != nil {
+			return nil, err
+		}
+		permissions = append(permissions, p)
+	}
+
+	return permissions, rows.Err()
+}
+
+// GetGlobalRoles lấy danh sách global roles của user
+func (r *userRepository) GetGlobalRoles(ctx context.Context, userID uuid.UUID) ([]string, error) {
+	query := `
+		SELECT r.name
+		FROM identify.user_global_roles ugr
+		JOIN identify.roles r ON ugr.role_id = r.id
+		WHERE ugr.user_id = $1
+	`
+
+	rows, err := r.pool.Query(ctx, query, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var roles []string
+	for rows.Next() {
+		var role string
+		if err := rows.Scan(&role); err != nil {
+			return nil, err
+		}
+		roles = append(roles, role)
+	}
+
+	return roles, rows.Err()
+}
+
+// GetTenantRoles lấy danh sách roles của user trong tenant
+func (r *userRepository) GetTenantRoles(ctx context.Context, userID, tenantID uuid.UUID) ([]string, error) {
+	query := `
+		SELECT r.name
+		FROM identify.user_tenant_roles utr
+		JOIN identify.roles r ON utr.role_id = r.id
+		WHERE utr.user_id = $1 AND utr.tenant_id = $2
+	`
+
+	rows, err := r.pool.Query(ctx, query, userID, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var roles []string
+	for rows.Next() {
+		var role string
+		if err := rows.Scan(&role); err != nil {
+			return nil, err
+		}
+		roles = append(roles, role)
+	}
+
+	return roles, rows.Err()
+}
