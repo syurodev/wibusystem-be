@@ -1,0 +1,21 @@
+{
+  "genre.created_success": "Genre created successfully.",
+  "genre.updated_success": "Genre updated successfully.",
+  "genre.deleted_success": "Genre deleted successfully.",
+  "genre.get_success": "Get genre details successfully.",
+  "genre.list_success": "Get genre list successfully.",
+  "genre.create_failed": "Failed to create genre. Please try again.",
+  "genre.update_failed": "Failed to update genre. Please try again.",
+  "genre.delete_failed": "Failed to delete genre. Please try again.",
+  "genre.get_failed": "Failed to get genre details.",
+  "genre.list_failed": "Failed to load genre list.",
+  "genre.not_found": "Genre not found.",
+  "genre.invalid_id": "Invalid genre ID.",
+  "genre.invalid_input": "Invalid input data.",
+  "genre.slug_already_exists": "Genre already exists.",
+  "genre.parent_not_found": "Parent genre not found.",
+  "genre.invalid_parent_id": "Invalid parent genre ID.",
+  "genre.in_use": "Cannot delete genre that is in use.",
+  "genre.circular_reference": "Circular reference: Parent genre cannot be a child of the current genre.",
+  "genre.has_children": "Cannot delete genre that has children."
+}

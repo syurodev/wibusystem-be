@@ -10,6 +10,7 @@ func (h *Handler) RegisterRoutes(router *gin.RouterGroup, requireAuth gin.Handle
 	{
 		// Public routes - không cần auth
 		artists.GET("", h.ListArtists)
+		artists.GET("/selection", h.ListSelection) // New selection endpoint
 		artists.GET("/:id", h.GetArtist)
 
 		// Protected routes - cần auth

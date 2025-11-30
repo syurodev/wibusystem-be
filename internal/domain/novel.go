@@ -29,6 +29,11 @@ type Novel struct {
 	// Owner information
 	OwnerID   uuid.UUID
 	OwnerType string // "user" or "group"
+	
+	// Owner details (loaded from JOIN with users/tenants table)
+	OwnerDisplayName *string `db:"owner_display_name"` // From users.full_name or tenants.name
+	OwnerUsername    *string `db:"owner_username"`     // From users.email (username) or tenants.slug
+	OwnerAvatarURL   *string `db:"owner_avatar_url"`   // From users.avatar_url or tenants.avatar_url
 
 	// Synopsis lưu trữ dạng JSONB cho nội dung phong phú
 	// Ví dụ: {"blocks": [{"type": "paragraph", "content": "..."}], "language": "vi"}
@@ -62,15 +67,18 @@ type Novel struct {
 	CompletedAt      *time.Time
 
 	// Audit fields
+	CreatedBy uuid.UUID
+	UpdatedBy *uuid.UUID
+	DeletedBy *uuid.UUID
 	CreatedAt time.Time
 	UpdatedAt time.Time
 	DeletedAt *time.Time
 
 	// Relationships (loaded separately via JOINs)
-	Authors     []*NovelAuthor     // Authors of this novel
-	Artists     []*NovelArtist     // Artists of this novel
-	Translators []*NovelTranslator // Translators of this novel
-	Genres      []*Genre           // Genres of this novel
+	Authors     []*NovelAuthor     `db:"-"` // Authors of this novel
+	Artists     []*NovelArtist     `db:"-"` // Artists of this novel
+	Translators []*NovelTranslator `db:"-"` // Translators of this novel
+	Genres      []*Genre           `db:"-"` // Genres of this novel
 }
 
 // NovelRepository định nghĩa interface cho việc truy cập dữ liệu novel
@@ -102,14 +110,15 @@ type NovelRepository interface {
 
 // NovelFilter định nghĩa các filter cho việc query novel
 type NovelFilter struct {
-	Status           *NovelStatus
-	GenreIDs         []uuid.UUID // Filter by genre IDs
-	AuthorID         *uuid.UUID  // Filter by author ID (via novel_authors)
-	TranslatorID     *uuid.UUID  // Filter by translator ID (via novel_translators)
-	OriginalLanguage *string     // Filter by original language
-	SearchQuery      *string     // Full-text search trong title và synopsis
-	SortBy           string      // "created_at", "rating", "views", "last_chapter"
-	SortOrder        string      // "asc", "desc"
+	OwnerID          *uuid.UUID    // Filter by owner ID (user or tenant)
+	Statuses         []NovelStatus // Filter by multiple statuses
+	GenreIDs         []uuid.UUID   // Filter by genre IDs
+	AuthorID         *uuid.UUID    // Filter by author ID (via novel_authors)
+	TranslatorID     *uuid.UUID    // Filter by translator ID (via novel_translators)
+	OriginalLanguage *string       // Filter by original language
+	SearchQuery      *string       // Full-text search trong title và original_title
+	SortBy           string        // "created_at", "rating", "views", "last_chapter"
+	SortOrder        string        // "asc", "desc"
 	Limit            int
 	Offset           int
 	IncludeStats     bool // Include statistics trong kết quả

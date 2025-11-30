@@ -13,6 +13,7 @@ import (
 	"system/internal/domain"
 	"system/internal/pkg/service"
 	pkgerrors "system/pkg/errors"
+	"system/pkg/util/i18nkeys"
 	"system/pkg/util/response"
 	"system/pkg/util/timeutil"
 )
@@ -43,20 +44,20 @@ func NewHandler(genreService *service.GenreService, logger *zap.Logger) *Handler
 func (h *Handler) CreateGenre(c *gin.Context) {
 	var req CreateGenreRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Error(c, http.StatusBadRequest, "VALIDATION_FAILED", "validation.failed", err.Error())
+		response.Error(c, http.StatusBadRequest, "VALIDATION_FAILED", i18nkeys.ValidationFailed, err.Error())
 		return
 	}
 
 	// Get user ID from context
 	userIDStr, exists := middleware.GetUserID(c)
 	if !exists {
-		response.Error(c, http.StatusUnauthorized, "UNAUTHORIZED", "auth.unauthorized", nil)
+		response.Error(c, http.StatusUnauthorized, "UNAUTHORIZED", i18nkeys.AuthUnauthorized, nil)
 		return
 	}
 
 	userID, err := uuid.FromString(userIDStr)
 	if err != nil {
-		response.Error(c, http.StatusBadRequest, "INVALID_USER_ID", "auth.invalid_user_id", nil)
+		response.Error(c, http.StatusBadRequest, "INVALID_USER_ID", i18nkeys.AuthInvalidUserID, nil)
 		return
 	}
 
@@ -65,7 +66,7 @@ func (h *Handler) CreateGenre(c *gin.Context) {
 	if req.ParentID != nil && *req.ParentID != "" {
 		pid, err := uuid.FromString(*req.ParentID)
 		if err != nil {
-			response.Error(c, http.StatusBadRequest, "INVALID_PARENT_ID", "genre.invalid_parent_id", nil)
+			response.Error(c, http.StatusBadRequest, "INVALID_PARENT_ID", i18nkeys.GenreInvalidParentID, nil)
 			return
 		}
 		parentID = &pid
@@ -75,25 +76,25 @@ func (h *Handler) CreateGenre(c *gin.Context) {
 	genre, err := h.genreService.CreateGenre(c.Request.Context(), req.Name, req.Description, parentID, userID)
 	if err != nil {
 		if errors.Is(err, pkgerrors.ErrInvalidInput) {
-			response.Error(c, http.StatusBadRequest, "INVALID_INPUT", "genre.invalid_input", nil)
+			response.Error(c, http.StatusBadRequest, "INVALID_INPUT", i18nkeys.GenreInvalidInput, nil)
 			return
 		}
 		if errors.Is(err, pkgerrors.ErrSlugAlreadyExists) {
-			response.Error(c, http.StatusConflict, "SLUG_EXISTS", "genre.slug_already_exists", nil)
+			response.Error(c, http.StatusConflict, "SLUG_EXISTS", i18nkeys.GenreSlugAlreadyExists, nil)
 			return
 		}
 		if errors.Is(err, pkgerrors.ErrParentGenreNotFound) {
-			response.Error(c, http.StatusBadRequest, "PARENT_NOT_FOUND", "genre.parent_not_found", nil)
+			response.Error(c, http.StatusBadRequest, "PARENT_NOT_FOUND", i18nkeys.GenreParentNotFound, nil)
 			return
 		}
-		response.Error(c, http.StatusInternalServerError, "CREATE_FAILED", "genre.create_failed", nil)
+		response.Error(c, http.StatusInternalServerError, "CREATE_FAILED", i18nkeys.GenreCreateFailed, nil)
 		return
 	}
 
 	// Map to response
 	resp := mapToGenreDetailResponse(genre, "stable")
 
-	response.Success(c, http.StatusCreated, "genre.created_success", resp, nil)
+	response.Success(c, http.StatusCreated, i18nkeys.GenreCreatedSuccess, resp, nil)
 }
 
 // UpdateGenre cập nhật genre
@@ -114,26 +115,26 @@ func (h *Handler) UpdateGenre(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := uuid.FromString(idStr)
 	if err != nil {
-		response.Error(c, http.StatusBadRequest, "INVALID_ID", "genre.invalid_id", nil)
+		response.Error(c, http.StatusBadRequest, "INVALID_ID", i18nkeys.GenreInvalidID, nil)
 		return
 	}
 
 	var req UpdateGenreRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Error(c, http.StatusBadRequest, "VALIDATION_FAILED", "validation.failed", err.Error())
+		response.Error(c, http.StatusBadRequest, "VALIDATION_FAILED", i18nkeys.ValidationFailed, err.Error())
 		return
 	}
 
 	// Get user ID from context
 	userIDStr, exists := middleware.GetUserID(c)
 	if !exists {
-		response.Error(c, http.StatusUnauthorized, "UNAUTHORIZED", "auth.unauthorized", nil)
+		response.Error(c, http.StatusUnauthorized, "UNAUTHORIZED", i18nkeys.AuthUnauthorized, nil)
 		return
 	}
 
 	userID, err := uuid.FromString(userIDStr)
 	if err != nil {
-		response.Error(c, http.StatusBadRequest, "INVALID_USER_ID", "auth.invalid_user_id", nil)
+		response.Error(c, http.StatusBadRequest, "INVALID_USER_ID", i18nkeys.AuthInvalidUserID, nil)
 		return
 	}
 
@@ -142,7 +143,7 @@ func (h *Handler) UpdateGenre(c *gin.Context) {
 	if req.ParentID != nil && *req.ParentID != "" {
 		pid, err := uuid.FromString(*req.ParentID)
 		if err != nil {
-			response.Error(c, http.StatusBadRequest, "INVALID_PARENT_ID", "genre.invalid_parent_id", nil)
+			response.Error(c, http.StatusBadRequest, "INVALID_PARENT_ID", i18nkeys.GenreInvalidParentID, nil)
 			return
 		}
 		parentID = &pid
@@ -152,33 +153,33 @@ func (h *Handler) UpdateGenre(c *gin.Context) {
 	genre, err := h.genreService.UpdateGenre(c.Request.Context(), id, req.Name, req.Description, parentID, req.DisplayOrder, req.IsActive, userID)
 	if err != nil {
 		if errors.Is(err, pkgerrors.ErrGenreNotFound) {
-			response.Error(c, http.StatusNotFound, "GENRE_NOT_FOUND", "genre.not_found", nil)
+			response.Error(c, http.StatusNotFound, "GENRE_NOT_FOUND", i18nkeys.GenreNotFound, nil)
 			return
 		}
 		if errors.Is(err, pkgerrors.ErrInvalidInput) {
-			response.Error(c, http.StatusBadRequest, "INVALID_INPUT", "genre.invalid_input", nil)
+			response.Error(c, http.StatusBadRequest, "INVALID_INPUT", i18nkeys.GenreInvalidInput, nil)
 			return
 		}
 		if errors.Is(err, pkgerrors.ErrSlugAlreadyExists) {
-			response.Error(c, http.StatusConflict, "SLUG_EXISTS", "genre.slug_already_exists", nil)
+			response.Error(c, http.StatusConflict, "SLUG_EXISTS", i18nkeys.GenreSlugAlreadyExists, nil)
 			return
 		}
 		if errors.Is(err, pkgerrors.ErrCircularParentReference) {
-			response.Error(c, http.StatusBadRequest, "CIRCULAR_REFERENCE", "genre.circular_reference", nil)
+			response.Error(c, http.StatusBadRequest, "CIRCULAR_REFERENCE", i18nkeys.GenreCircularReference, nil)
 			return
 		}
 		if errors.Is(err, pkgerrors.ErrParentGenreNotFound) {
-			response.Error(c, http.StatusBadRequest, "PARENT_NOT_FOUND", "genre.parent_not_found", nil)
+			response.Error(c, http.StatusBadRequest, "PARENT_NOT_FOUND", i18nkeys.GenreParentNotFound, nil)
 			return
 		}
-		response.Error(c, http.StatusInternalServerError, "UPDATE_FAILED", "genre.update_failed", nil)
+		response.Error(c, http.StatusInternalServerError, "UPDATE_FAILED", i18nkeys.GenreUpdateFailed, nil)
 		return
 	}
 
 	// Map to response
 	resp := mapToGenreDetailResponse(genre, "stable")
 
-	response.Success(c, http.StatusOK, "genre.updated_success", resp, nil)
+	response.Success(c, http.StatusOK, i18nkeys.GenreUpdatedSuccess, resp, nil)
 }
 
 // DeleteGenre xóa genre
@@ -197,20 +198,20 @@ func (h *Handler) DeleteGenre(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := uuid.FromString(idStr)
 	if err != nil {
-		response.Error(c, http.StatusBadRequest, "INVALID_ID", "genre.invalid_id", nil)
+		response.Error(c, http.StatusBadRequest, "INVALID_ID", i18nkeys.GenreInvalidID, nil)
 		return
 	}
 
 	// Get user ID from context
 	userIDStr, exists := middleware.GetUserID(c)
 	if !exists {
-		response.Error(c, http.StatusUnauthorized, "UNAUTHORIZED", "auth.unauthorized", nil)
+		response.Error(c, http.StatusUnauthorized, "UNAUTHORIZED", i18nkeys.AuthUnauthorized, nil)
 		return
 	}
 
 	userID, err := uuid.FromString(userIDStr)
 	if err != nil {
-		response.Error(c, http.StatusBadRequest, "INVALID_USER_ID", "auth.invalid_user_id", nil)
+		response.Error(c, http.StatusBadRequest, "INVALID_USER_ID", i18nkeys.AuthInvalidUserID, nil)
 		return
 	}
 
@@ -218,22 +219,22 @@ func (h *Handler) DeleteGenre(c *gin.Context) {
 	err = h.genreService.DeleteGenre(c.Request.Context(), id, userID)
 	if err != nil {
 		if errors.Is(err, pkgerrors.ErrGenreNotFound) {
-			response.Error(c, http.StatusNotFound, "GENRE_NOT_FOUND", "genre.not_found", nil)
+			response.Error(c, http.StatusNotFound, "GENRE_NOT_FOUND", i18nkeys.GenreNotFound, nil)
 			return
 		}
 		if errors.Is(err, pkgerrors.ErrGenreInUse) {
-			response.Error(c, http.StatusConflict, "GENRE_IN_USE", "genre.in_use", nil)
+			response.Error(c, http.StatusConflict, "GENRE_IN_USE", i18nkeys.GenreInUse, nil)
 			return
 		}
 		if errors.Is(err, pkgerrors.ErrGenreHasChildren) {
-			response.Error(c, http.StatusConflict, "GENRE_HAS_CHILDREN", "genre.has_children", nil)
+			response.Error(c, http.StatusConflict, "GENRE_HAS_CHILDREN", i18nkeys.GenreHasChildren, nil)
 			return
 		}
-		response.Error(c, http.StatusInternalServerError, "DELETE_FAILED", "genre.delete_failed", nil)
+		response.Error(c, http.StatusInternalServerError, "DELETE_FAILED", i18nkeys.GenreDeleteFailed, nil)
 		return
 	}
 
-	response.Success(c, http.StatusOK, "genre.deleted_success", nil, nil)
+	response.Success(c, http.StatusOK, i18nkeys.GenreDeletedSuccess, nil, nil)
 }
 
 // GetGenre lấy thông tin chi tiết genre
@@ -251,7 +252,7 @@ func (h *Handler) GetGenre(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := uuid.FromString(idStr)
 	if err != nil {
-		response.Error(c, http.StatusBadRequest, "INVALID_ID", "genre.invalid_id", nil)
+		response.Error(c, http.StatusBadRequest, "INVALID_ID", i18nkeys.GenreInvalidID, nil)
 		return
 	}
 
@@ -259,10 +260,10 @@ func (h *Handler) GetGenre(c *gin.Context) {
 	genre, err := h.genreService.GetGenreByID(c.Request.Context(), id)
 	if err != nil {
 		if errors.Is(err, pkgerrors.ErrGenreNotFound) || errors.Is(err, pgx.ErrNoRows) {
-			response.Error(c, http.StatusNotFound, "GENRE_NOT_FOUND", "genre.not_found", nil)
+			response.Error(c, http.StatusNotFound, "GENRE_NOT_FOUND", i18nkeys.GenreNotFound, nil)
 			return
 		}
-		response.Error(c, http.StatusInternalServerError, "GET_FAILED", "genre.get_failed", nil)
+		response.Error(c, http.StatusInternalServerError, "GET_FAILED", i18nkeys.GenreGetFailed, nil)
 		return
 	}
 
@@ -277,7 +278,7 @@ func (h *Handler) GetGenre(c *gin.Context) {
 	// Map to response
 	resp := mapToGenreDetailResponse(genre, trend)
 
-	response.Success(c, http.StatusOK, "genre.get_success", resp, nil)
+	response.Success(c, http.StatusOK, i18nkeys.GenreGetSuccess, resp, nil)
 }
 
 // ListGenres lấy danh sách genres
@@ -297,7 +298,7 @@ func (h *Handler) GetGenre(c *gin.Context) {
 func (h *Handler) ListGenres(c *gin.Context) {
 	var req ListGenresRequest
 	if err := c.ShouldBindQuery(&req); err != nil {
-		response.Error(c, http.StatusBadRequest, "VALIDATION_FAILED", "validation.failed", err.Error())
+		response.Error(c, http.StatusBadRequest, "VALIDATION_FAILED", i18nkeys.ValidationFailed, err.Error())
 		return
 	}
 
@@ -321,7 +322,7 @@ func (h *Handler) ListGenres(c *gin.Context) {
 	)
 	if err != nil {
 		h.logger.Error("Failed to list genres", zap.Error(err))
-		response.Error(c, http.StatusInternalServerError, "LIST_FAILED", "genre.list_failed", nil)
+		response.Error(c, http.StatusInternalServerError, "LIST_FAILED", i18nkeys.GenreListFailed, nil)
 		return
 	}
 
@@ -379,3 +380,70 @@ func mapToGenreDetailResponse(genre *domain.Genre, trend string) GenreDetailResp
 
 	return resp
 }
+
+// ListSelection lấy danh sách genres rút gọn (selection)
+// @Summary List genres for selection (ID and Name only)
+// @Tags Genres
+// @Produce json
+// @Param page query int false "Page number" default(1)
+// @Param limit query int false "Items per page" default(20)
+// @Param search query string false "Search by name"
+// @Success 200 {object} response.StandardResponse{data=[]SelectionResponse}
+// @Failure 400 {object} response.StandardResponse
+// @Failure 500 {object} response.StandardResponse
+// @Router /api/v1/genres/selection [get]
+func (h *Handler) ListSelection(c *gin.Context) {
+	var req ListGenresRequest
+	if err := c.ShouldBindQuery(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, "VALIDATION_FAILED", "validation.failed", err.Error())
+		return
+	}
+
+	// Set defaults
+	if req.Page < 1 {
+		req.Page = 1
+	}
+	if req.Limit < 1 {
+		req.Limit = 20
+	}
+
+	// Get genres selection
+	genres, totalCount, err := h.genreService.ListSelection(
+		c.Request.Context(),
+		req.Page,
+		req.Limit,
+		req.Search,
+	)
+	if err != nil {
+		h.logger.Error("Failed to list genres selection", zap.Error(err))
+		response.Error(c, http.StatusInternalServerError, "LIST_FAILED", "genre.list_failed", nil)
+		return
+	}
+
+	// Map to response format
+	type SelectionResponse struct {
+		ID   string `json:"id"`
+		Name string `json:"name"`
+	}
+
+	selectionResponses := make([]SelectionResponse, len(genres))
+	for i, g := range genres {
+		selectionResponses[i] = SelectionResponse{
+			ID:   g.ID.String(),
+			Name: g.Name,
+		}
+	}
+
+	// Calculate pagination meta
+	totalPages := (totalCount + req.Limit - 1) / req.Limit
+	meta := &response.PaginationMeta{
+		Page:       req.Page,
+		Limit:      req.Limit,
+		TotalItems: totalCount,
+		TotalPages: totalPages,
+	}
+
+	response.Success(c, http.StatusOK, "genre.list_success", selectionResponses, meta)
+}
+
+

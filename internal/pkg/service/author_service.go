@@ -222,3 +222,10 @@ func (s *AuthorService) ListAuthors(ctx context.Context, page, limit int, search
 
 	return authors, int(total), nil
 }
+
+// ListSelection lấy danh sách authors rút gọn
+func (s *AuthorService) ListSelection(ctx context.Context, page, limit int, search string) ([]*domain.Author, int64, error) {
+	offset := (page - 1) * limit
+	return s.authorRepo.ListSelection(ctx, offset, limit, search)
+}
+

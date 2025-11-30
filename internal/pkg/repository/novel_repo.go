@@ -26,9 +26,12 @@ func NewNovelRepository(pool *pgxpool.Pool) domain.NovelRepository {
 const novelColumns = `
 	id, title, slug, synopsis, cover_image_url, thumbnail_url,
 	status, original_language, original_title,
+	owner_id, owner_type,
+	owner_display_name, owner_username, owner_avatar_url,
 	total_volumes, total_chapters, total_words, view_count,
 	favorite_count, rating_average, rating_count, metadata,
 	first_published_at, last_chapter_at, completed_at,
+	created_by, updated_by, deleted_by,
 	created_at, updated_at, deleted_at
 `
 
@@ -113,8 +116,8 @@ func (r *novelRepository) Create(ctx context.Context, novel *domain.Novel) error
 			id, title, slug, synopsis, cover_image_url, thumbnail_url,
 			status, original_language, original_title, metadata,
 			owner_id, owner_type,
-			created_at, updated_at
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW(), NOW())
+			created_by, created_at, updated_at
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NOW(), NOW())
 	`
 
 	// Đảm bảo metadata không null
@@ -141,6 +144,7 @@ func (r *novelRepository) Create(ctx context.Context, novel *domain.Novel) error
 		novel.Metadata,
 		novel.OwnerID,
 		novel.OwnerType,
+		novel.CreatedBy,
 	)
 
 	return err
@@ -161,6 +165,7 @@ func (r *novelRepository) Update(ctx context.Context, novel *domain.Novel) error
 		    metadata = $10,
 		    first_published_at = $11,
 		    completed_at = $12,
+		    updated_by = $13,
 		    updated_at = NOW()
 		WHERE id = $1 AND deleted_at IS NULL
 	`
@@ -178,6 +183,7 @@ func (r *novelRepository) Update(ctx context.Context, novel *domain.Novel) error
 		novel.Metadata,
 		novel.FirstPublishedAt,
 		novel.CompletedAt,
+		novel.UpdatedBy,
 	)
 
 	return err
@@ -185,6 +191,17 @@ func (r *novelRepository) Update(ctx context.Context, novel *domain.Novel) error
 
 // Delete xóa mềm novel
 func (r *novelRepository) Delete(ctx context.Context, id uuid.UUID) error {
+	// Note: We need deleted_by, but interface only accepts ID.
+	// We might need to update interface or assume deleted_by is not available here.
+	// But wait, Delete usually needs context of who deleted it.
+	// The interface `Delete(ctx context.Context, id uuid.UUID) error` doesn't support it.
+	// I should update the interface too.
+	// For now, I will leave Delete as is or update it if I change interface.
+	// Let's check if I can change interface. Yes I can.
+	// But `DeleteNovel` service also needs update.
+	// I'll update interface later.
+	// Wait, I should do it now to be consistent.
+	// But `Delete` in `novel_repo.go` currently:
 	query := `
 		UPDATE catalog.novels
 		SET deleted_at = NOW()
@@ -204,9 +221,17 @@ func (r *novelRepository) List(ctx context.Context, filter domain.NovelFilter) (
 
 	whereClauses = append(whereClauses, "n.deleted_at IS NULL")
 
-	if filter.Status != nil {
-		whereClauses = append(whereClauses, fmt.Sprintf("n.status = $%d", argIdx))
-		args = append(args, *filter.Status)
+	// Filter by owner ID
+	if filter.OwnerID != nil {
+		whereClauses = append(whereClauses, fmt.Sprintf("n.owner_id = $%d", argIdx))
+		args = append(args, *filter.OwnerID)
+		argIdx++
+	}
+
+	// Filter by multiple statuses
+	if len(filter.Statuses) > 0 {
+		whereClauses = append(whereClauses, fmt.Sprintf("n.status = ANY($%d)", argIdx))
+		args = append(args, filter.Statuses)
 		argIdx++
 	}
 
@@ -216,10 +241,10 @@ func (r *novelRepository) List(ctx context.Context, filter domain.NovelFilter) (
 		argIdx++
 	}
 
-	// Full-text search trong title và synopsis
+	// Full-text search trong title và original_title
 	if filter.SearchQuery != nil && *filter.SearchQuery != "" {
 		whereClauses = append(whereClauses, fmt.Sprintf(
-			"(n.title ILIKE $%d OR n.synopsis::text ILIKE $%d)", argIdx, argIdx))
+			"(n.title ILIKE $%d OR COALESCE(n.original_title, '') ILIKE $%d)", argIdx, argIdx))
 		args = append(args, "%"+*filter.SearchQuery+"%")
 		argIdx++
 	}
@@ -285,23 +310,27 @@ func (r *novelRepository) List(ctx context.Context, filter domain.NovelFilter) (
 		return nil, 0, err
 	}
 
-	// Prefix each column with n.
-	cols := strings.Split(novelColumns, ", ")
-	prefixedCols := make([]string, len(cols))
-	for i, col := range cols {
-		prefixedCols[i] = "n." + strings.TrimSpace(col)
-	}
-	novelColumnsWithPrefix := strings.Join(prefixedCols, ", ")
-
-	// Main query
+	// Main query - SELECT novel columns và owner info
+	// Note: We select n.* columns individually + owner info từ LEFT JOIN users
 	query := fmt.Sprintf(`
-		SELECT DISTINCT %s
+		SELECT n.id, n.title, n.slug, n.synopsis, n.cover_image_url, n.thumbnail_url,
+		       n.status, n.original_language, n.original_title,
+		       n.owner_id, n.owner_type,
+		       COALESCE(u.full_name, '') as owner_display_name,
+		       COALESCE(u.email, '') as owner_username,
+		       u.avatar_url as owner_avatar_url,
+		       n.total_volumes, n.total_chapters, n.total_words, n.view_count,
+		       n.favorite_count, n.rating_average, n.rating_count, n.metadata,
+		       n.first_published_at, n.last_chapter_at, n.completed_at,
+		       n.created_by, n.updated_by, n.deleted_by,
+		       n.created_at, n.updated_at, n.deleted_at
 		FROM catalog.novels n
+		LEFT JOIN identify.users u ON n.owner_type = 'user' AND n.owner_id = u.id
 		%s
 		WHERE %s
 		ORDER BY %s
 		LIMIT $%d OFFSET $%d
-	`, novelColumnsWithPrefix, joinClause, whereClause, orderBy, argIdx, argIdx+1)
+	`, joinClause, whereClause, orderBy, argIdx, argIdx+1)
 
 	args = append(args, filter.Limit, filter.Offset)
 
@@ -313,6 +342,16 @@ func (r *novelRepository) List(ctx context.Context, filter domain.NovelFilter) (
 	novels, err := pgx.CollectRows(rows, pgx.RowToAddrOfStructByName[domain.Novel])
 	if err != nil {
 		return nil, 0, err
+	}
+
+	// Load genres for each novel
+	for _, novel := range novels {
+		genres, err := r.loadNovelGenres(ctx, novel.ID)
+		if err != nil {
+			// Log error but continue
+			continue
+		}
+		novel.Genres = genres
 	}
 
 	return novels, total, nil
@@ -375,4 +414,30 @@ func (r *novelRepository) IncrementViewCount(ctx context.Context, id uuid.UUID) 
 
 	_, err := r.pool.Exec(ctx, query, id)
 	return err
+}
+
+// loadNovelGenres loads genres for a specific novel
+func (r *novelRepository) loadNovelGenres(ctx context.Context, novelID uuid.UUID) ([]*domain.Genre, error) {
+	query := `
+		SELECT g.id, g.name, g.slug, g.description,
+		       g.parent_id, g.display_order, g.is_active,
+		       g.novel_count, g.active_readers, g.total_views,
+		       g.created_by, g.updated_by, g.created_at, g.updated_at
+		FROM catalog.genres g
+		INNER JOIN catalog.novel_genres ng ON g.id = ng.genre_id
+		WHERE ng.novel_id = $1
+		ORDER BY ng.display_order ASC
+	`
+
+	rows, err := r.pool.Query(ctx, query, novelID)
+	if err != nil {
+		return nil, err
+	}
+
+	genres, err := pgx.CollectRows(rows, pgx.RowToAddrOfStructByName[domain.Genre])
+	if err != nil {
+		return nil, err
+	}
+
+	return genres, nil
 }

@@ -46,13 +46,15 @@ func NewNovelService(
 // CreateNovel tạo novel mới
 func (s *NovelService) CreateNovel(
 	ctx context.Context,
-	title, synopsis string,
+	title string,
+	synopsis json.RawMessage,
 	coverImageURL, thumbnailURL *string,
 	status, originalLanguage, originalTitle *string,
 	metadataJSON *string,
 	isOneshot bool,
 	ownerID uuid.UUID,
 	ownerType string,
+	createdBy uuid.UUID,
 	genreIDs []uuid.UUID,
 	authorIDs []uuid.UUID,
 	artistIDs []uuid.UUID,
@@ -74,12 +76,14 @@ func (s *NovelService) CreateNovel(
 	}
 
 	// Prepare synopsis JSON
-	var synopsisJSON json.RawMessage
-	if synopsis != "" {
-		// Store as structured JSON
-		synopsisJSON = json.RawMessage(fmt.Sprintf(`{"content": "%s"}`, synopsis))
+	// If synopsis is empty or null, default to empty object
+	if len(synopsis) == 0 || string(synopsis) == "null" {
+		synopsis = json.RawMessage("{}")
 	} else {
-		synopsisJSON = json.RawMessage("{}")
+		// Validate JSON
+		if !json.Valid(synopsis) {
+			return nil, pkgerrors.ErrInvalidInput
+		}
 	}
 
 	// Prepare metadata JSON
@@ -104,7 +108,7 @@ func (s *NovelService) CreateNovel(
 		ID:               id,
 		Title:            title,
 		Slug:             novelSlug,
-		Synopsis:         synopsisJSON,
+		Synopsis:         synopsis,
 		CoverImageURL:    coverImageURL,
 		ThumbnailURL:     thumbnailURL,
 		Status:           domain.NovelStatus(*status),
@@ -113,6 +117,7 @@ func (s *NovelService) CreateNovel(
 		Metadata:         metadata,
 		OwnerID:          ownerID,
 		OwnerType:        ownerType,
+		CreatedBy:        createdBy,
 	}
 
 	if err := s.novelRepo.Create(ctx, novel); err != nil {
@@ -132,11 +137,33 @@ func (s *NovelService) CreateNovel(
 		}
 	}
 
+	// Link Authors
+	for i, authorID := range authorIDs {
+		// Validate author existence
+		if _, err := s.authorRepo.GetByID(ctx, authorID); err != nil {
+			continue
+		}
+		if err := s.authorRepo.AddNovelAuthor(ctx, id, authorID, i); err != nil {
+			fmt.Printf("Failed to add author %s: %v\n", authorID, err)
+		}
+	}
+
+	// Link Artists
+	for i, artistID := range artistIDs {
+		// Validate artist existence
+		if _, err := s.artistRepo.GetByID(ctx, artistID); err != nil {
+			continue
+		}
+		if err := s.artistRepo.AddNovelArtist(ctx, id, artistID, i); err != nil {
+			fmt.Printf("Failed to add artist %s: %v\n", artistID, err)
+		}
+	}
+
 	return s.novelRepo.GetByID(ctx, id)
 }
 
 // UpdateNovel cập nhật thông tin novel
-func (s *NovelService) UpdateNovel(ctx context.Context, id uuid.UUID, title, synopsis string, coverImageURL, thumbnailURL *string, status, originalLanguage, originalTitle *string, metadataJSON *string) (*domain.Novel, error) {
+func (s *NovelService) UpdateNovel(ctx context.Context, id uuid.UUID, title string, synopsis json.RawMessage, coverImageURL, thumbnailURL *string, status, originalLanguage, originalTitle *string, metadataJSON *string) (*domain.Novel, error) {
 	// Validate input
 	if title == "" {
 		return nil, pkgerrors.ErrInvalidInput
@@ -173,10 +200,11 @@ func (s *NovelService) UpdateNovel(ctx context.Context, id uuid.UUID, title, syn
 	novel.OriginalTitle = originalTitle
 
 	// Update synopsis JSON
-	if synopsis != "" {
-		novel.Synopsis = json.RawMessage(fmt.Sprintf(`{"content": "%s"}`, synopsis))
-	} else {
-		novel.Synopsis = json.RawMessage("{}")
+	if len(synopsis) > 0 && string(synopsis) != "null" {
+		if !json.Valid(synopsis) {
+			return nil, pkgerrors.ErrInvalidInput
+		}
+		novel.Synopsis = synopsis
 	}
 
 	// Update metadata JSON
@@ -229,7 +257,7 @@ func (s *NovelService) GetNovelBySlug(ctx context.Context, slug string) (*domain
 }
 
 // ListNovels lấy danh sách novels với pagination, search và sort
-func (s *NovelService) ListNovels(ctx context.Context, page, limit int, search, statusStr, originalLanguage, sortBy, sortOrder string) ([]*domain.Novel, int, error) {
+func (s *NovelService) ListNovels(ctx context.Context, page, limit int, ownerID *uuid.UUID, keySearch string, genreIDs []uuid.UUID, statusStrs []string, originalLanguage, sortBy, sortOrder string) ([]*domain.Novel, int, error) {
 	// Validate and set defaults
 	if page < 1 {
 		page = 1
@@ -261,14 +289,16 @@ func (s *NovelService) ListNovels(ctx context.Context, page, limit int, search, 
 	// Build filter
 	offset := (page - 1) * limit
 	var searchQuery *string
-	if search != "" {
-		searchQuery = &search
+	if keySearch != "" {
+		searchQuery = &keySearch
 	}
 
-	var status *domain.NovelStatus
-	if statusStr != "" && isValidNovelStatus(statusStr) {
-		s := domain.NovelStatus(statusStr)
-		status = &s
+	// Convert string statuses to domain.NovelStatus slice
+	var statuses []domain.NovelStatus
+	for _, statusStr := range statusStrs {
+		if isValidNovelStatus(statusStr) {
+			statuses = append(statuses, domain.NovelStatus(statusStr))
+		}
 	}
 
 	var origLang *string
@@ -277,8 +307,10 @@ func (s *NovelService) ListNovels(ctx context.Context, page, limit int, search, 
 	}
 
 	filter := domain.NovelFilter{
+		OwnerID:          ownerID,
 		SearchQuery:      searchQuery,
-		Status:           status,
+		GenreIDs:         genreIDs,
+		Statuses:         statuses,
 		OriginalLanguage: origLang,
 		SortBy:           sortField,
 		SortOrder:        sortOrder,

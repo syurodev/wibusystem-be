@@ -19,6 +19,40 @@ services:
     networks:
       - wibusystem_backend
 
+  clickhouse:
+    image: clickhouse:lts-jammy
+    container_name: clickhouse
+    restart: unless-stopped
+    ports:
+      - "8123:8123"
+      - "9000:9000" # Native TCP Port
+    ulimits: # Cực kỳ quan trọng để tối ưu hiệu năng ClickHouse
+      nofile:
+        soft: 262144
+        hard: 262144
+    environment:
+      - CLICKHOUSE_DB=clickhouse_dev
+      - CLICKHOUSE_USER=clickhouse_dev
+      - CLICKHOUSE_PASSWORD=clickhouse_dev
+      - CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT=1
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--no-verbose",
+          "--tries=1",
+          "--spider",
+          "http://localhost:8123/ping",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - wibusystem_backend
+
   # Redis for caching and message queue
   redis:
     image: redis:8.2.1-alpine
@@ -86,6 +120,8 @@ volumes:
   grafana_data:
     driver: local
   loki_data:
+    driver: local
+  clickhouse_data:
     driver: local
 
 networks:

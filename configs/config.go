@@ -152,7 +152,7 @@ func LoadConfig(envPath string) (*Config, error) {
 	// CORS CONFIG
 	cfg.CORS.AllowOrigins = getEnvAsSlice("CORS_ALLOW_ORIGINS", nil)
 	cfg.CORS.AllowMethods = getEnvAsSlice("CORS_ALLOW_METHODS", []string{"GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"})
-	cfg.CORS.AllowHeaders = getEnvAsSlice("CORS_ALLOW_HEADERS", []string{"Origin", "Content-Type", "Authorization", "Accept-Language"})
+	cfg.CORS.AllowHeaders = getEnvAsSlice("CORS_ALLOW_HEADERS", []string{"Origin", "Content-Type", "Authorization", "Accept-Language", "x-locale-key"})
 	cfg.CORS.ExposeHeaders = getEnvAsSlice("CORS_EXPOSE_HEADERS", []string{"Content-Length"})
 	cfg.CORS.AllowCredentials = getEnvAsBool("CORS_ALLOW_CREDENTIALS", true)
 	cfg.CORS.MaxAge = getEnvAsInt("CORS_MAX_AGE", 43200)

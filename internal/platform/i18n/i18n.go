@@ -38,7 +38,7 @@ func InitI18n(log *zap.Logger) error {
 		log:    log,
 	}
 
-	domains := []string{"common", "oauth2", "auth"}
+	domains := []string{"common", "oauth2", "auth", "genre", "author", "artist"}
 	languages := []string{"en", "vi"}
 
 	for _, domain := range domains {
@@ -92,7 +92,12 @@ const LocalizerContextKey = "localizer"
 // GinI18n là một middleware của Gin để inject localizer vào context.
 func GinI18n(i *I18n) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		lang := c.GetHeader("Accept-Language")
+		// Ưu tiên lấy từ header x-locale-key
+		lang := c.GetHeader("x-locale-key")
+		if lang == "" {
+			lang = c.GetHeader("Accept-Language")
+		}
+		
 		localizer := i.GetLocalizerFromAcceptLanguage(lang)
 		c.Set(LocalizerContextKey, &Localizer{localizer})
 		c.Next()

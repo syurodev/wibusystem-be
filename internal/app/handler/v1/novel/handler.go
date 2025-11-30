@@ -3,12 +3,14 @@ package novel
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gofrs/uuid/v5"
 	"github.com/jackc/pgx/v5"
 
+	"system/internal/app/middleware"
 	"system/internal/domain"
 	"system/internal/pkg/service"
 	pkgerrors "system/pkg/errors"
@@ -38,6 +40,18 @@ func NewHandler(novelService *service.NovelService) *Handler {
 // @Failure 500 {object} response.StandardResponse
 // @Router /api/v1/novels [post]
 func (h *Handler) CreateNovel(c *gin.Context) {
+	userIDStr, exists := middleware.GetUserID(c)
+	if !exists {
+		response.Error(c, http.StatusUnauthorized, "UNAUTHORIZED", "auth.unauthorized", nil)
+		return
+	}
+
+	userID, err := uuid.FromString(userIDStr)
+	if err != nil {
+		response.Error(c, http.StatusUnauthorized, "INVALID_USER_ID", "auth.invalid_user_id", nil)
+		return
+	}
+
 	var req CreateNovelRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, http.StatusBadRequest, "VALIDATION_FAILED", "validation.failed", err.Error())
@@ -96,11 +110,13 @@ func (h *Handler) CreateNovel(c *gin.Context) {
 		req.IsOneshot,
 		ownerID,
 		req.OwnerType,
+		userID,
 		genreIDs,
 		authorIDs,
 		artistIDs,
 	)
 	if err != nil {
+		fmt.Printf("❌ [Handler] CreateNovel Error: %v\n", err)
 		if errors.Is(err, pkgerrors.ErrInvalidInput) {
 			response.Error(c, http.StatusBadRequest, "INVALID_INPUT", "novel.invalid_input", nil)
 			return
@@ -288,13 +304,37 @@ func (h *Handler) ListNovels(c *gin.Context) {
 		req.Limit = 20
 	}
 
+	// Parse owner UUID nếu có
+	var ownerID *uuid.UUID
+	if req.Owner != "" {
+		id, err := uuid.FromString(req.Owner)
+		if err != nil {
+			response.Error(c, http.StatusBadRequest, "INVALID_OWNER_ID", "novel.invalid_owner_id", nil)
+			return
+		}
+		ownerID = &id
+	}
+
+	// Parse genre IDs
+	var genreIDs []uuid.UUID
+	for _, idStr := range req.GenreIDs {
+		id, err := uuid.FromString(idStr)
+		if err != nil {
+			response.Error(c, http.StatusBadRequest, "INVALID_GENRE_ID", "novel.invalid_genre_id", nil)
+			return
+		}
+		genreIDs = append(genreIDs, id)
+	}
+
 	// Get novels with pagination, search and filters
 	novels, totalCount, err := h.novelService.ListNovels(
 		c.Request.Context(),
 		req.Page,
 		req.Limit,
-		req.Search,
-		req.Status,
+		ownerID,
+		req.KeySearch,
+		genreIDs,
+		req.Statuses,
 		req.OriginalLanguage,
 		req.SortBy,
 		req.SortOrder,
@@ -410,26 +450,81 @@ func mapToNovelDetailResponse(novel *domain.Novel) NovelDetailResponse {
 
 // Helper function to map domain model to list response
 func mapToNovelResponse(novel *domain.Novel) NovelResponse {
-	resp := NovelResponse{
-		ID:            novel.ID.String(),
-		Title:         novel.Title,
-		Slug:          novel.Slug,
-		CoverImageURL: novel.CoverImageURL,
-		ThumbnailURL:  novel.ThumbnailURL,
-		Status:        string(novel.Status),
-		TotalChapters: novel.TotalChapters,
-		ViewCount:     novel.ViewCount,
-		FavoriteCount: novel.FavoriteCount,
-		RatingAverage: novel.RatingAverage,
-		RatingCount:   novel.RatingCount,
-		CreatedAt:     novel.CreatedAt.Format(timeutil.ISO8601Layout),
-		UpdatedAt:     novel.UpdatedAt.Format(timeutil.ISO8601Layout),
+	// Map owner info (đã được load từ JOIN query)
+	ownerDisplayName := "Unknown Owner"
+	if novel.OwnerDisplayName != nil && *novel.OwnerDisplayName != "" {
+		ownerDisplayName = *novel.OwnerDisplayName
 	}
 
-	// Format last chapter date
+	ownerUsername := "unknown"
+	if novel.OwnerUsername != nil && *novel.OwnerUsername != "" {
+		ownerUsername = *novel.OwnerUsername
+	}
+
+	owner := OwnerInfo{
+		ID:          novel.OwnerID.String(),
+		DisplayName: ownerDisplayName,
+		Username:    ownerUsername,
+		AvatarURL:   novel.OwnerAvatarURL,
+	}
+
+	// Map genres (đã được load từ repository)
+	genres := make([]GenreInfo, 0)
+	if novel.Genres != nil && len(novel.Genres) > 0 {
+		for _, genre := range novel.Genres {
+			genres = append(genres, GenreInfo{
+				ID:   genre.ID.String(),
+				Name: genre.Name,
+			})
+		}
+	}
+
+	// Map latest chapter nếu có
+	var latestChapter *LatestChapterInfo
 	if novel.LastChapterAt != nil {
-		lastChapter := novel.LastChapterAt.Format(timeutil.ISO8601Layout)
-		resp.LastChapterAt = &lastChapter
+		// TODO: Load actual latest chapter data from DB
+		// For now, just include timestamp
+		latestChapter = &LatestChapterInfo{
+			ID:          "",
+			Title:       "Latest Chapter",
+			PublishedAt: novel.LastChapterAt.Format(timeutil.ISO8601Layout),
+		}
+	}
+
+	// Convert rating from 0-5 to 0-10 scale
+	rating := novel.RatingAverage * 2
+
+	resp := NovelResponse{
+		// Required fields
+		ID:               novel.ID.String(),
+		Title:            novel.Title,
+		OriginalTitle:    novel.OriginalTitle,
+		Slug:             novel.Slug,
+		OriginalLanguage: novel.OriginalLanguage,
+
+		// Content fields
+		Description: make([]map[string]any, 0), // Empty for list view
+		CoverURL:    novel.CoverImageURL,
+
+		// Type và status
+		Type:   "novel", // Hard-coded for novel
+		Status: string(novel.Status),
+
+		// Relations
+		Genres: genres,
+		Owner:  owner,
+
+		// Stats
+		Rating:    rating,
+		Views:     novel.ViewCount,
+		Favorites: novel.FavoriteCount,
+
+		// Optional fields
+		LatestChapter: latestChapter,
+
+		// Timestamps
+		CreatedAt: novel.CreatedAt.Format(timeutil.ISO8601Layout),
+		UpdatedAt: novel.UpdatedAt.Format(timeutil.ISO8601Layout),
 	}
 
 	return resp

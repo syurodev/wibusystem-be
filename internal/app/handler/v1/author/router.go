@@ -8,6 +8,7 @@ import (
 func (h *Handler) RegisterRoutes(router *gin.RouterGroup, requireAuth gin.HandlerFunc) {
 	// Public routes (no auth required for reading)
 	router.GET("", h.ListAuthors)   // GET /api/v1/authors
+	router.GET("/selection", h.ListSelection) // GET /api/v1/authors/selection
 	router.GET("/:id", h.GetAuthor) // GET /api/v1/authors/:id
 
 	// Protected routes (require authentication)

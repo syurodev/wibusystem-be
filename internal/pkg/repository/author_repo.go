@@ -159,6 +159,68 @@ func (r *authorRepository) List(ctx context.Context, filter domain.AuthorFilter)
 	return authors, total, nil
 }
 
+// ListSelection lấy danh sách authors rút gọn (chỉ ID và Name)
+func (r *authorRepository) ListSelection(ctx context.Context, offset, limit int, search string) ([]*domain.Author, int64, error) {
+	// Build WHERE clause
+	var whereClauses []string
+	var args []any
+	argIdx := 1
+
+	whereClauses = append(whereClauses, "deleted_at IS NULL")
+	// whereClauses = append(whereClauses, "is_verified = true") // Optional: only verified authors?
+
+	// Search by name
+	if search != "" {
+		whereClauses = append(whereClauses, fmt.Sprintf("name ILIKE $%d", argIdx))
+		args = append(args, "%"+search+"%")
+		argIdx++
+	}
+
+	whereClause := " WHERE " + fmt.Sprintf("%s", whereClauses[0])
+	for i := 1; i < len(whereClauses); i++ {
+		whereClause += " AND " + whereClauses[i]
+	}
+
+	// Query to get total count
+	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM catalog.authors%s", whereClause)
+	var totalCount int64
+	if err := r.pool.QueryRow(ctx, countQuery, args...).Scan(&totalCount); err != nil {
+		return nil, 0, err
+	}
+
+	// Query to get authors with pagination (only ID and Name)
+	query := fmt.Sprintf(`
+		SELECT id, name
+		FROM catalog.authors
+		%s
+		ORDER BY name ASC
+		LIMIT $%d OFFSET $%d
+	`, whereClause, argIdx, argIdx+1)
+
+	args = append(args, limit, offset)
+
+	rows, err := r.pool.Query(ctx, query, args...)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+
+	var authors []*domain.Author
+	for rows.Next() {
+		var author domain.Author
+		if err := rows.Scan(&author.ID, &author.Name); err != nil {
+			return nil, 0, err
+		}
+		authors = append(authors, &author)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, 0, err
+	}
+
+	return authors, totalCount, nil
+}
+
 // Create tạo author mới
 func (r *authorRepository) Create(ctx context.Context, author *domain.Author) error {
 	query := `
@@ -276,16 +338,16 @@ func (r *authorRepository) GetNovelAuthors(ctx context.Context, novelID uuid.UUI
 }
 
 // AddNovelAuthor thêm author cho novel
-func (r *authorRepository) AddNovelAuthor(ctx context.Context, novelID, authorID uuid.UUID, role string, displayOrder int) error {
+func (r *authorRepository) AddNovelAuthor(ctx context.Context, novelID, authorID uuid.UUID, displayOrder int) error {
 	query := `
-		INSERT INTO catalog.novel_authors (novel_id, author_id, role, display_order)
-		VALUES ($1, $2, $3, $4)
+		INSERT INTO catalog.novel_authors (novel_id, author_id, display_order)
+		VALUES ($1, $2, $3)
 		ON CONFLICT (novel_id, author_id) DO UPDATE
-		SET role = EXCLUDED.role, display_order = EXCLUDED.display_order
+		SET display_order = EXCLUDED.display_order
 	`
 
 	db := db.GetDB(ctx, r.pool)
-	_, err := db.Exec(ctx, query, novelID, authorID, role, displayOrder)
+	_, err := db.Exec(ctx, query, novelID, authorID, displayOrder)
 	return err
 }
 

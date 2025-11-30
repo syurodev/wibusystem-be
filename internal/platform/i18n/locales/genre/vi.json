@@ -1,0 +1,21 @@
+{
+  "genre.created_success": "Thể loại đã được tạo thành công.",
+  "genre.updated_success": "Thể loại đã được cập nhật thành công.",
+  "genre.deleted_success": "Thể loại đã được xóa thành công.",
+  "genre.get_success": "Lấy thông tin thể loại thành công.",
+  "genre.list_success": "Lấy danh sách thể loại thành công.",
+  "genre.create_failed": "Không thể tạo thể loại. Vui lòng thử lại.",
+  "genre.update_failed": "Không thể cập nhật thể loại. Vui lòng thử lại.",
+  "genre.delete_failed": "Không thể xóa thể loại. Vui lòng thử lại.",
+  "genre.get_failed": "Không thể lấy thông tin thể loại.",
+  "genre.list_failed": "Không thể tải danh sách thể loại.",
+  "genre.not_found": "Không tìm thấy thể loại.",
+  "genre.invalid_id": "ID thể loại không hợp lệ.",
+  "genre.invalid_input": "Dữ liệu đầu vào không hợp lệ.",
+  "genre.slug_already_exists": "Thể loại đã tồn tại.",
+  "genre.parent_not_found": "Không tìm thấy thể loại cha.",
+  "genre.invalid_parent_id": "ID thể loại cha không hợp lệ.",
+  "genre.in_use": "Không thể xóa thể loại đang có truyện.",
+  "genre.circular_reference": "Tham chiếu vòng: Thể loại cha không thể là con của thể loại hiện tại.",
+  "genre.has_children": "Không thể xóa thể loại đang có thể loại con."
+}

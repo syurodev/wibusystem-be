@@ -53,6 +53,9 @@ type ArtistRepository interface {
 	// List lấy danh sách artists với filter
 	List(ctx context.Context, filter ArtistFilter) ([]*Artist, int64, error)
 
+	// ListSelection lấy danh sách artists rút gọn (chỉ ID và Name)
+	ListSelection(ctx context.Context, offset, limit int, search string) ([]*Artist, int64, error)
+
 	// Create tạo artist mới
 	Create(ctx context.Context, artist *Artist) error
 
@@ -66,7 +69,7 @@ type ArtistRepository interface {
 	GetNovelArtists(ctx context.Context, novelID uuid.UUID) ([]*NovelArtist, error)
 
 	// AddNovelArtist thêm artist cho novel
-	AddNovelArtist(ctx context.Context, novelID, artistID uuid.UUID, role string, displayOrder int) error
+	AddNovelArtist(ctx context.Context, novelID, artistID uuid.UUID, displayOrder int) error
 
 	// RemoveNovelArtist xóa artist khỏi novel
 	RemoveNovelArtist(ctx context.Context, novelID, artistID uuid.UUID, role string) error

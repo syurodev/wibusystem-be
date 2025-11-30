@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/gofrs/uuid/v5"
-	"github.com/jackc/pgx/v5"
 	"github.com/gosimple/slug"
+	"github.com/jackc/pgx/v5"
 
 	"system/internal/domain"
 	pkgerrors "system/pkg/errors"
@@ -260,6 +260,12 @@ func (s *GenreService) ListGenres(ctx context.Context, page, limit int, search, 
 	}
 
 	return genresWithTrend, totalCount, nil
+}
+
+// ListSelection lấy danh sách genres rút gọn
+func (s *GenreService) ListSelection(ctx context.Context, page, limit int, search string) ([]*domain.Genre, int, error) {
+	offset := (page - 1) * limit
+	return s.genreRepo.ListSelection(ctx, offset, limit, search)
 }
 
 // GetAllGenres lấy tất cả genres (không phân trang)

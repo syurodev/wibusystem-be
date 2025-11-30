@@ -244,7 +244,7 @@ func NewRouter(cfg *configs.Config, i18nInstance *i18n.I18n, zapLogger *zap.Logg
 		// Novel routes
 		novelGroup := apiV1.Group("/novels")
 		{
-			novelHandler.RegisterRoutes(novelGroup)
+			novelHandler.RegisterRoutes(novelGroup, middleware.RequireAuth(oauth2Provider, zapLogger))
 
 			// Nested: Volumes by novel (use :id to match existing routes)
 			novelGroup.GET("/:id/volumes", volumeHandler.ListVolumesByNovel)

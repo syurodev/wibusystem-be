@@ -181,6 +181,68 @@ func (r *genreRepository) List(ctx context.Context, offset, limit int, search, s
 	return genres, totalCount, nil
 }
 
+// ListSelection lấy danh sách genres rút gọn (chỉ ID và Name)
+func (r *genreRepository) ListSelection(ctx context.Context, offset, limit int, search string) ([]*domain.Genre, int, error) {
+	// Build WHERE clause
+	var whereClauses []string
+	var args []any
+	argIdx := 1
+
+	whereClauses = append(whereClauses, "deleted_at IS NULL")
+	whereClauses = append(whereClauses, "is_active = true") // Only active genres for selection
+
+	// Search by name
+	if search != "" {
+		whereClauses = append(whereClauses, fmt.Sprintf("name ILIKE $%d", argIdx))
+		args = append(args, "%"+search+"%")
+		argIdx++
+	}
+
+	whereClause := " WHERE " + fmt.Sprintf("%s", whereClauses[0])
+	for i := 1; i < len(whereClauses); i++ {
+		whereClause += " AND " + whereClauses[i]
+	}
+
+	// Query to get total count
+	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM catalog.genres%s", whereClause)
+	var totalCount int
+	if err := r.pool.QueryRow(ctx, countQuery, args...).Scan(&totalCount); err != nil {
+		return nil, 0, err
+	}
+
+	// Query to get genres with pagination (only ID and Name)
+	query := fmt.Sprintf(`
+		SELECT id, name
+		FROM catalog.genres
+		%s
+		ORDER BY name ASC
+		LIMIT $%d OFFSET $%d
+	`, whereClause, argIdx, argIdx+1)
+
+	args = append(args, limit, offset)
+
+	rows, err := r.pool.Query(ctx, query, args...)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+
+	var genres []*domain.Genre
+	for rows.Next() {
+		var genre domain.Genre
+		if err := rows.Scan(&genre.ID, &genre.Name); err != nil {
+			return nil, 0, err
+		}
+		genres = append(genres, &genre)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, 0, err
+	}
+
+	return genres, totalCount, nil
+}
+
 // GetByParentID lấy các genre con theo parent ID
 func (r *genreRepository) GetByParentID(ctx context.Context, parentID uuid.UUID) ([]*domain.Genre, error) {
 	query := fmt.Sprintf(`

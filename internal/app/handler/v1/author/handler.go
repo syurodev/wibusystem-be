@@ -370,3 +370,70 @@ func mapToAuthorResponse(author *domain.Author) AuthorResponse {
 
 	return resp
 }
+
+// ListSelection lấy danh sách authors rút gọn (selection)
+// @Summary List authors for selection (ID and Name only)
+// @Tags Authors
+// @Produce json
+// @Param page query int false "Page number" default(1)
+// @Param limit query int false "Items per page" default(20)
+// @Param search query string false "Search by name"
+// @Success 200 {object} response.StandardResponse{data=[]SelectionResponse}
+// @Failure 400 {object} response.StandardResponse
+// @Failure 500 {object} response.StandardResponse
+// @Router /api/v1/authors/selection [get]
+func (h *Handler) ListSelection(c *gin.Context) {
+	var req ListAuthorsRequest
+	if err := c.ShouldBindQuery(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, "VALIDATION_FAILED", i18nkeys.ValidationFailed, err.Error())
+		return
+	}
+
+	// Set defaults
+	if req.Page < 1 {
+		req.Page = 1
+	}
+	if req.Limit < 1 {
+		req.Limit = 20
+	}
+
+	// Get authors selection
+	authors, totalCount, err := h.authorService.ListSelection(
+		c.Request.Context(),
+		req.Page,
+		req.Limit,
+		req.Search,
+	)
+	if err != nil {
+		h.logger.Error("Failed to list authors selection", zap.Error(err))
+		response.Error(c, http.StatusInternalServerError, "LIST_FAILED", i18nkeys.AuthorListFailed, nil)
+		return
+	}
+
+	// Map to response format
+	type SelectionResponse struct {
+		ID   string `json:"id"`
+		Name string `json:"name"`
+	}
+
+	selectionResponses := make([]SelectionResponse, len(authors))
+	for i, a := range authors {
+		selectionResponses[i] = SelectionResponse{
+			ID:   a.ID.String(),
+			Name: a.Name,
+		}
+	}
+
+	// Calculate pagination meta
+	totalPages := (totalCount + int64(req.Limit) - 1) / int64(req.Limit)
+	meta := &response.PaginationMeta{
+		Page:       req.Page,
+		Limit:      req.Limit,
+		TotalItems: int(totalCount),
+		TotalPages: int(totalPages),
+	}
+
+	response.Success(c, http.StatusOK, i18nkeys.AuthorListSuccess, selectionResponses, meta)
+}
+
+

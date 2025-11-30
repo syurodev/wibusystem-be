@@ -165,6 +165,68 @@ func (r *artistRepository) List(ctx context.Context, filter domain.ArtistFilter)
 	return artists, total, nil
 }
 
+// ListSelection lấy danh sách artists rút gọn (chỉ ID và Name)
+func (r *artistRepository) ListSelection(ctx context.Context, offset, limit int, search string) ([]*domain.Artist, int64, error) {
+	// Build WHERE clause
+	var whereClauses []string
+	var args []any
+	argIdx := 1
+
+	whereClauses = append(whereClauses, "deleted_at IS NULL")
+	// whereClauses = append(whereClauses, "is_verified = true") // Optional
+
+	// Search by name
+	if search != "" {
+		whereClauses = append(whereClauses, fmt.Sprintf("name ILIKE $%d", argIdx))
+		args = append(args, "%"+search+"%")
+		argIdx++
+	}
+
+	whereClause := " WHERE " + fmt.Sprintf("%s", whereClauses[0])
+	for i := 1; i < len(whereClauses); i++ {
+		whereClause += " AND " + whereClauses[i]
+	}
+
+	// Query to get total count
+	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM catalog.artists%s", whereClause)
+	var totalCount int64
+	if err := r.pool.QueryRow(ctx, countQuery, args...).Scan(&totalCount); err != nil {
+		return nil, 0, err
+	}
+
+	// Query to get artists with pagination (only ID and Name)
+	query := fmt.Sprintf(`
+		SELECT id, name
+		FROM catalog.artists
+		%s
+		ORDER BY name ASC
+		LIMIT $%d OFFSET $%d
+	`, whereClause, argIdx, argIdx+1)
+
+	args = append(args, limit, offset)
+
+	rows, err := r.pool.Query(ctx, query, args...)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+
+	var artists []*domain.Artist
+	for rows.Next() {
+		var artist domain.Artist
+		if err := rows.Scan(&artist.ID, &artist.Name); err != nil {
+			return nil, 0, err
+		}
+		artists = append(artists, &artist)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, 0, err
+	}
+
+	return artists, totalCount, nil
+}
+
 // Create tạo artist mới
 func (r *artistRepository) Create(ctx context.Context, artist *domain.Artist) error {
 	query := `
@@ -286,16 +348,16 @@ func (r *artistRepository) GetNovelArtists(ctx context.Context, novelID uuid.UUI
 }
 
 // AddNovelArtist thêm artist cho novel
-func (r *artistRepository) AddNovelArtist(ctx context.Context, novelID, artistID uuid.UUID, role string, displayOrder int) error {
+func (r *artistRepository) AddNovelArtist(ctx context.Context, novelID, artistID uuid.UUID, displayOrder int) error {
 	query := `
-		INSERT INTO catalog.novel_artists (novel_id, artist_id, role, display_order)
-		VALUES ($1, $2, $3, $4)
-		ON CONFLICT (novel_id, artist_id, role) DO UPDATE
+		INSERT INTO catalog.novel_artists (novel_id, artist_id, display_order)
+		VALUES ($1, $2, $3)
+		ON CONFLICT (novel_id, artist_id) DO UPDATE
 		SET display_order = EXCLUDED.display_order
 	`
 
 	db := db.GetDB(ctx, r.pool)
-	_, err := db.Exec(ctx, query, novelID, artistID, role, displayOrder)
+	_, err := db.Exec(ctx, query, novelID, artistID, displayOrder)
 	return err
 }
 

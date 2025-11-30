@@ -57,6 +57,9 @@ type AuthorRepository interface {
 	// List lấy danh sách authors với filter
 	List(ctx context.Context, filter AuthorFilter) ([]*Author, int64, error)
 
+	// ListSelection lấy danh sách authors rút gọn (chỉ ID và Name)
+	ListSelection(ctx context.Context, offset, limit int, search string) ([]*Author, int64, error)
+
 	// Create tạo author mới
 	Create(ctx context.Context, author *Author) error
 
@@ -70,7 +73,7 @@ type AuthorRepository interface {
 	GetNovelAuthors(ctx context.Context, novelID uuid.UUID) ([]*NovelAuthor, error)
 
 	// AddNovelAuthor thêm author cho novel
-	AddNovelAuthor(ctx context.Context, novelID, authorID uuid.UUID, role string, displayOrder int) error
+	AddNovelAuthor(ctx context.Context, novelID, authorID uuid.UUID, displayOrder int) error
 
 	// RemoveNovelAuthor xóa author khỏi novel
 	RemoveNovelAuthor(ctx context.Context, novelID, authorID uuid.UUID) error

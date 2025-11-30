@@ -224,3 +224,9 @@ func (s *ArtistService) ListArtists(ctx context.Context, page, limit int, search
 
 	return artists, int(total), nil
 }
+
+// ListSelection lấy danh sách artists rút gọn
+func (s *ArtistService) ListSelection(ctx context.Context, page, limit int, search string) ([]*domain.Artist, int64, error) {
+	offset := (page - 1) * limit
+	return s.artistRepo.ListSelection(ctx, offset, limit, search)
+}
