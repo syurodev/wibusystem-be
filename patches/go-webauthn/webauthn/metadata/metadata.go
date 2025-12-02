@@ -318,9 +318,9 @@ type Statement struct {
 	// TRANSACTION_CONFIRMATION_DISPLAY constants in the FIDO Registry of Predefined Values.
 	TcDisplay []string
 
-	// TcDisplayContentType is the supported MIME content type [RFC2049] for the transaction confirmation display, such
+	// TcDisplayMediaType is the supported MIME content type [RFC2049] for the transaction confirmation display, such
 	// as text/plain or image/png.
-	TcDisplayContentType string
+	TcDisplayMediaType string
 
 	// TcDisplayPNGCharacteristics is a list of alternative DisplayPNGCharacteristicsDescriptor. Each of these entries
 	// is one alternative of supported image characteristics for displaying a PNG image.
@@ -429,7 +429,7 @@ type StatementJSON struct {
 	CryptoStrength                       uint16                                `json:"cryptoStrength"`
 	AttachmentHint                       []string                              `json:"attachmentHint"`
 	TcDisplay                            []string                              `json:"tcDisplay"`
-	TcDisplayContentType                 string                                `json:"tcDisplayContentType"`
+	TcDisplayMediaType                 string                                `json:"tcDisplayMediaType"`
 	TcDisplayPNGCharacteristics          []DisplayPNGCharacteristicsDescriptor `json:"tcDisplayPNGCharacteristics"`
 	AttestationRootCertificates          []string                              `json:"attestationRootCertificates"`
 	EcdaaTrustAnchors                    []EcdaaTrustAnchor                    `json:"ecdaaTrustAnchors"`
@@ -530,7 +530,7 @@ func (j StatementJSON) Parse() (statement Statement, err error) {
 		CryptoStrength:                       j.CryptoStrength,
 		AttachmentHint:                       j.AttachmentHint,
 		TcDisplay:                            j.TcDisplay,
-		TcDisplayContentType:                 j.TcDisplayContentType,
+		TcDisplayMediaType:                 j.TcDisplayMediaType,
 		TcDisplayPNGCharacteristics:          j.TcDisplayPNGCharacteristics,
 		AttestationRootCertificates:          certificates,
 		EcdaaTrustAnchors:                    j.EcdaaTrustAnchors,

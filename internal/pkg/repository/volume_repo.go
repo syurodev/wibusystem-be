@@ -201,3 +201,25 @@ func (r *volumeRepository) Unpublish(ctx context.Context, id uuid.UUID) error {
 	_, err := r.pool.Exec(ctx, query, id)
 	return err
 }
+
+// UpdateStatistics cập nhật chapter_count và word_count của volume dựa trên chapters
+func (r *volumeRepository) UpdateStatistics(ctx context.Context, volumeID uuid.UUID) error {
+	query := `
+		UPDATE catalog.novel_volumes v
+		SET 
+			chapter_count = COALESCE((
+				SELECT COUNT(*)
+				FROM catalog.novel_chapters c
+				WHERE c.volume_id = v.id AND c.deleted_at IS NULL
+			), 0),
+			word_count = COALESCE((
+				SELECT SUM(word_count)
+				FROM catalog.novel_chapters c
+				WHERE c.volume_id = v.id AND c.deleted_at IS NULL
+			), 0)
+		WHERE v.id = $1 AND v.deleted_at IS NULL
+	`
+
+	_, err := r.pool.Exec(ctx, query, volumeID)
+	return err
+}

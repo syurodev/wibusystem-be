@@ -68,6 +68,9 @@ type VolumeRepository interface {
 
 	// Unpublish ẩn volume
 	Unpublish(ctx context.Context, id uuid.UUID) error
+
+	// UpdateStatistics cập nhật chapter_count và word_count dựa trên chapters
+	UpdateStatistics(ctx context.Context, volumeID uuid.UUID) error
 }
 
 // VolumeWithChapters chứa volume và danh sách chapter của nó

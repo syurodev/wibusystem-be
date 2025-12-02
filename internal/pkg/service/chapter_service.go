@@ -46,6 +46,8 @@ func (s *ChapterService) CreateChapter(
 	chapterNumber int,
 	title string,
 	content json.RawMessage,
+	wordCount int,
+	characterCount int,
 	authorNotes json.RawMessage,
 	isFree bool,
 	price *float64,
@@ -127,8 +129,15 @@ func (s *ChapterService) CreateChapter(
 	// For accurate word count with PlateJS JSON, we would need to traverse the nodes
 	// For now, we'll just count based on the raw JSON string length as a rough proxy or 0
 	// TODO: Implement proper word counting for PlateJS content
-	wordCount := 0
-	characterCount := 0
+	// Use the word count and character count provided from frontend
+	if wordCount == 0 {
+		// Fallback if frontend doesn't provide wordCount
+		wordCount = 0
+	}
+	if characterCount == 0 {
+		// Fallback if frontend doesn't provide characterCount
+		characterCount = 0
+	}
 
 	chapter := &domain.Chapter{
 		ID:             id,
@@ -155,6 +164,13 @@ func (s *ChapterService) CreateChapter(
 		return nil, err
 	}
 
+	// Update volume statistics (chapter_count và word_count)
+	if err := s.volumeRepo.UpdateStatistics(ctx, volumeID); err != nil {
+		// Log error but don't fail the creation
+		// TODO: Add proper logging
+		_ = err
+	}
+
 	// Retrieve the created chapter to get timestamps
 	return s.chapterRepo.GetByID(ctx, id)
 }
@@ -167,6 +183,8 @@ func (s *ChapterService) UpdateChapter(
 	chapterNumber int,
 	title string,
 	content json.RawMessage,
+	wordCount int,
+	characterCount int,
 	authorNotes json.RawMessage,
 	isFree bool,
 	price *float64,
@@ -248,8 +266,15 @@ func (s *ChapterService) UpdateChapter(
 
 	// Calculate word count (simplified)
 	// TODO: Implement proper word counting for PlateJS content
-	wordCount := oldChapter.WordCount
-	characterCount := oldChapter.CharacterCount
+	// Use the word count and character count provided from frontend
+	if wordCount > 0 {
+		// Use the provided values from frontend
+		// wordCount and characterCount already assigned from params
+	} else {
+		// If frontend doesn't provide, keep old values
+		wordCount = oldChapter.WordCount
+		characterCount = oldChapter.CharacterCount
+	}
 
 	// Determine VolumeID
 	newVolumeID := oldChapter.VolumeID
@@ -290,6 +315,27 @@ func (s *ChapterService) UpdateChapter(
 		return nil, err
 	}
 
+	// Update volume statistics if volume changed or word count changed
+	if newVolumeID != nil {
+		if err := s.volumeRepo.UpdateStatistics(ctx, *newVolumeID); err != nil {
+			// Log error but don't fail the update
+			_ = err
+		}
+		// If volume changed, also update the old volume
+		if oldChapter.VolumeID != nil && *oldChapter.VolumeID != *newVolumeID {
+			if err := s.volumeRepo.UpdateStatistics(ctx, *oldChapter.VolumeID); err != nil {
+				_ = err
+			}
+		}
+	} else if oldChapter.WordCount != newChapter.WordCount {
+		// Even if volume didn't change, update stats if word count changed
+		if oldChapter.VolumeID != nil {
+			if err := s.volumeRepo.UpdateStatistics(ctx, *oldChapter.VolumeID); err != nil {
+				_ = err
+			}
+		}
+	}
+
 	// Log history if history repository is available
 	if s.historyRepo != nil {
 		// Get volume and novel IDs for history
@@ -313,7 +359,7 @@ func (s *ChapterService) UpdateChapter(
 // DeleteChapter deletes a chapter (soft delete)
 func (s *ChapterService) DeleteChapter(ctx context.Context, id uuid.UUID) error {
 	// Check if chapter exists
-	_, err := s.chapterRepo.GetByID(ctx, id)
+	chapter, err := s.chapterRepo.GetByID(ctx, id)
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return pkgerrors.ErrChapterNotFound
@@ -321,7 +367,20 @@ func (s *ChapterService) DeleteChapter(ctx context.Context, id uuid.UUID) error 
 		return err
 	}
 
-	return s.chapterRepo.Delete(ctx, id)
+	// Delete the chapter
+	if err := s.chapterRepo.Delete(ctx, id); err != nil {
+		return err
+	}
+
+	// Update volume statistics after deletion
+	if chapter.VolumeID != nil {
+		if err := s.volumeRepo.UpdateStatistics(ctx, *chapter.VolumeID); err != nil {
+			// Log error but don't fail the deletion
+			_ = err
+		}
+	}
+
+	return nil
 }
 
 // GetChapterByID retrieves a chapter by ID

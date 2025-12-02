@@ -81,6 +81,8 @@ func (h *Handler) CreateChapter(c *gin.Context) {
 		req.ChapterNumber,
 		req.Title,
 		req.Content,
+		req.WordCount,
+		req.CharacterCount,
 		req.AuthorNotes,
 		req.IsFree,
 		req.Price,
@@ -158,8 +160,17 @@ func (h *Handler) UpdateChapter(c *gin.Context) {
 		volumeID = &vid
 	}
 
-	// TODO: Get actual user ID from authentication context
-	systemUserID := uuid.Must(uuid.FromString("00000000-0000-0000-0000-000000000000"))
+	// Get user ID from authentication context
+	userIDStr, exists := middleware.GetUserID(c)
+	if !exists {
+		response.Error(c, http.StatusUnauthorized, "UNAUTHORIZED", "auth.unauthorized", nil)
+		return
+	}
+	userID, err := uuid.FromString(userIDStr)
+	if err != nil {
+		response.Error(c, http.StatusUnauthorized, "INVALID_USER_ID", "auth.invalid_user_id", nil)
+		return
+	}
 	
 	// Update chapter
 	chapter, err := h.chapterService.UpdateChapter(
@@ -169,6 +180,8 @@ func (h *Handler) UpdateChapter(c *gin.Context) {
 		req.ChapterNumber,
 		req.Title,
 		req.Content,
+		req.WordCount,
+		req.CharacterCount,
 		req.AuthorNotes,
 		req.IsFree,
 		req.Price,
@@ -176,7 +189,7 @@ func (h *Handler) UpdateChapter(c *gin.Context) {
 		req.Status,
 		req.DisplayOrder,
 		req.ScheduledAt,
-		systemUserID,
+		userID,
 		nil, // requestContext
 	)
 	if err != nil {
