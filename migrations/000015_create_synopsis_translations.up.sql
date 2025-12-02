@@ -33,8 +33,8 @@ CREATE TABLE catalog.novel_synopsis_translations (
     -- Translation content
     synopsis JSONB NOT NULL,
 
-    -- Team assignment (optional - can be contributed by individuals)
-    team_id UUID REFERENCES catalog.translation_teams(id) ON DELETE SET NULL,
+    -- Organization assignment (optional - can be contributed by individuals)
+    organization_id UUID REFERENCES identify.organizations(id) ON DELETE SET NULL,
 
     -- Status
     status catalog.translation_status NOT NULL DEFAULT 'draft',
@@ -72,7 +72,7 @@ CREATE TABLE catalog.novel_synopsis_translations (
 -- Indexes for novel_synopsis_translations
 CREATE INDEX idx_synopsis_translations_novel_id ON catalog.novel_synopsis_translations(novel_id) WHERE deleted_at IS NULL;
 CREATE INDEX idx_synopsis_translations_language ON catalog.novel_synopsis_translations(language) WHERE deleted_at IS NULL;
-CREATE INDEX idx_synopsis_translations_team_id ON catalog.novel_synopsis_translations(team_id) WHERE deleted_at IS NULL;
+CREATE INDEX idx_synopsis_translations_organization_id ON catalog.novel_synopsis_translations(organization_id) WHERE deleted_at IS NULL;
 CREATE INDEX idx_synopsis_translations_status ON catalog.novel_synopsis_translations(status) WHERE deleted_at IS NULL;
 CREATE INDEX idx_synopsis_translations_published ON catalog.novel_synopsis_translations(novel_id, language, published_at DESC) WHERE status = 'published' AND deleted_at IS NULL;
 CREATE INDEX idx_synopsis_translations_content ON catalog.novel_synopsis_translations USING GIN(synopsis) WHERE deleted_at IS NULL;
@@ -80,7 +80,7 @@ CREATE INDEX idx_synopsis_translations_content ON catalog.novel_synopsis_transla
 -- Comments
 COMMENT ON TABLE catalog.novel_synopsis_translations IS 'Translated synopsis for novels';
 COMMENT ON COLUMN catalog.novel_synopsis_translations.synopsis IS 'Translated synopsis content in JSONB format';
-COMMENT ON COLUMN catalog.novel_synopsis_translations.team_id IS 'Optional team responsible for this translation';
+COMMENT ON COLUMN catalog.novel_synopsis_translations.organization_id IS 'Optional organization responsible for this translation';
 COMMENT ON COLUMN catalog.novel_synopsis_translations.quality_score IS 'Aggregate quality score from community (0-5 scale)';
 COMMENT ON COLUMN catalog.novel_synopsis_translations.reviewer_rating IS 'Quality rating from official reviewers (0-5 scale)';
 

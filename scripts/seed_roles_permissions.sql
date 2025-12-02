@@ -92,61 +92,61 @@ ON CONFLICT (name) DO UPDATE SET
 
 INSERT INTO identify.permissions (name, scope, description, resource, action) VALUES
     -- Tenant Management
-    ('tenant:manage_member', 'tenant', 'Manage tenant members', 'tenant', 'manage_member'),
-    ('tenant:assign_permission', 'tenant', 'Assign permissions in tenant', 'tenant', 'assign_permission'),
-    ('tenant:update_info', 'tenant', 'Update tenant information', 'tenant', 'update_info'),
-    ('tenant:view_stats', 'tenant', 'View tenant statistics', 'tenant', 'view_stats'),
-    ('tenant:billing_manage', 'tenant', 'Manage tenant billing', 'tenant', 'billing_manage'),
+    ('tenant:manage_member', 'organization', 'Manage tenant members', 'organization', 'manage_member'),
+    ('tenant:assign_permission', 'organization', 'Assign permissions in tenant', 'organization', 'assign_permission'),
+    ('tenant:update_info', 'organization', 'Update tenant information', 'organization', 'update_info'),
+    ('tenant:view_stats', 'organization', 'View tenant statistics', 'organization', 'view_stats'),
+    ('tenant:billing_manage', 'organization', 'Manage tenant billing', 'organization', 'billing_manage'),
 
     -- Content Management (Anime)
-    ('content:create_anime', 'tenant', 'Create anime content', 'content', 'create_anime'),
-    ('content:update_anime', 'tenant', 'Update anime content', 'content', 'update_anime'),
-    ('content:delete_anime', 'tenant', 'Delete anime content', 'content', 'delete_anime'),
+    ('content:create_anime', 'organization', 'Create anime content', 'content', 'create_anime'),
+    ('content:update_anime', 'organization', 'Update anime content', 'content', 'update_anime'),
+    ('content:delete_anime', 'organization', 'Delete anime content', 'content', 'delete_anime'),
 
     -- Content Management (Manga)
-    ('content:create_manga', 'tenant', 'Create manga content', 'content', 'create_manga'),
-    ('content:update_manga', 'tenant', 'Update manga content', 'content', 'update_manga'),
-    ('content:delete_manga', 'tenant', 'Delete manga content', 'content', 'delete_manga'),
+    ('content:create_manga', 'organization', 'Create manga content', 'content', 'create_manga'),
+    ('content:update_manga', 'organization', 'Update manga content', 'content', 'update_manga'),
+    ('content:delete_manga', 'organization', 'Delete manga content', 'content', 'delete_manga'),
 
     -- Content Management (Novel)
-    ('content:create_novel', 'tenant', 'Create novel content', 'content', 'create_novel'),
-    ('content:update_novel', 'tenant', 'Update novel content', 'content', 'update_novel'),
-    ('content:delete_novel', 'tenant', 'Delete novel content', 'content', 'delete_novel'),
+    ('content:create_novel', 'organization', 'Create novel content', 'content', 'create_novel'),
+    ('content:update_novel', 'organization', 'Update novel content', 'content', 'update_novel'),
+    ('content:delete_novel', 'organization', 'Delete novel content', 'content', 'delete_novel'),
 
     -- Anime Management
-    ('anime:episode_create', 'tenant', 'Create anime episodes', 'anime', 'episode_create'),
-    ('anime:episode_update', 'tenant', 'Update anime episodes', 'anime', 'episode_update'),
-    ('anime:episode_delete', 'tenant', 'Delete anime episodes', 'anime', 'episode_delete'),
-    ('anime:season_create', 'tenant', 'Create anime seasons', 'anime', 'season_create'),
-    ('anime:season_update', 'tenant', 'Update anime seasons', 'anime', 'season_update'),
-    ('anime:season_delete', 'tenant', 'Delete anime seasons', 'anime', 'season_delete'),
+    ('anime:episode_create', 'organization', 'Create anime episodes', 'anime', 'episode_create'),
+    ('anime:episode_update', 'organization', 'Update anime episodes', 'anime', 'episode_update'),
+    ('anime:episode_delete', 'organization', 'Delete anime episodes', 'anime', 'episode_delete'),
+    ('anime:season_create', 'organization', 'Create anime seasons', 'anime', 'season_create'),
+    ('anime:season_update', 'organization', 'Update anime seasons', 'anime', 'season_update'),
+    ('anime:season_delete', 'organization', 'Delete anime seasons', 'anime', 'season_delete'),
 
     -- Manga Management
-    ('manga:chapter_create', 'tenant', 'Create manga chapters', 'manga', 'chapter_create'),
-    ('manga:chapter_update', 'tenant', 'Update manga chapters', 'manga', 'chapter_update'),
-    ('manga:chapter_delete', 'tenant', 'Delete manga chapters', 'manga', 'chapter_delete'),
-    ('manga:volume_create', 'tenant', 'Create manga volumes', 'manga', 'volume_create'),
-    ('manga:volume_update', 'tenant', 'Update manga volumes', 'manga', 'volume_update'),
-    ('manga:volume_delete', 'tenant', 'Delete manga volumes', 'manga', 'volume_delete'),
+    ('manga:chapter_create', 'organization', 'Create manga chapters', 'manga', 'chapter_create'),
+    ('manga:chapter_update', 'organization', 'Update manga chapters', 'manga', 'chapter_update'),
+    ('manga:chapter_delete', 'organization', 'Delete manga chapters', 'manga', 'chapter_delete'),
+    ('manga:volume_create', 'organization', 'Create manga volumes', 'manga', 'volume_create'),
+    ('manga:volume_update', 'organization', 'Update manga volumes', 'manga', 'volume_update'),
+    ('manga:volume_delete', 'organization', 'Delete manga volumes', 'manga', 'volume_delete'),
 
     -- Novel Management
-    ('novel:chapter_create', 'tenant', 'Create novel chapters', 'novel', 'chapter_create'),
-    ('novel:chapter_update', 'tenant', 'Update novel chapters', 'novel', 'chapter_update'),
-    ('novel:chapter_delete', 'tenant', 'Delete novel chapters', 'novel', 'chapter_delete'),
-    ('novel:volume_create', 'tenant', 'Create novel volumes', 'novel', 'volume_create'),
-    ('novel:volume_update', 'tenant', 'Update novel volumes', 'novel', 'volume_update'),
-    ('novel:volume_delete', 'tenant', 'Delete novel volumes', 'novel', 'volume_delete'),
+    ('novel:chapter_create', 'organization', 'Create novel chapters', 'novel', 'chapter_create'),
+    ('novel:chapter_update', 'organization', 'Update novel chapters', 'novel', 'chapter_update'),
+    ('novel:chapter_delete', 'organization', 'Delete novel chapters', 'novel', 'chapter_delete'),
+    ('novel:volume_create', 'organization', 'Create novel volumes', 'novel', 'volume_create'),
+    ('novel:volume_update', 'organization', 'Update novel volumes', 'novel', 'volume_update'),
+    ('novel:volume_delete', 'organization', 'Delete novel volumes', 'novel', 'volume_delete'),
 
     -- Master Data Management in Tenant
-    ('character:manage', 'tenant', 'Manage characters in tenant', 'character', 'manage'),
-    ('creator:manage', 'tenant', 'Manage creators in tenant', 'creator', 'manage'),
-    ('genre:manage', 'tenant', 'Manage genres in tenant', 'genre', 'manage'),
-    ('relation:manage', 'tenant', 'Manage relations in tenant', 'relation', 'manage'),
+    ('character:manage', 'organization', 'Manage characters in tenant', 'character', 'manage'),
+    ('creator:manage', 'organization', 'Manage creators in tenant', 'creator', 'manage'),
+    ('genre:manage', 'organization', 'Manage genres in tenant', 'genre', 'manage'),
+    ('relation:manage', 'organization', 'Manage relations in tenant', 'relation', 'manage'),
 
     -- Content Publishing
-    ('content:publish', 'tenant', 'Publish content', 'content', 'publish'),
-    ('content:unpublish', 'tenant', 'Unpublish content', 'content', 'unpublish'),
-    ('analytics:view', 'tenant', 'View analytics', 'analytics', 'view')
+    ('content:publish', 'organization', 'Publish content', 'content', 'publish'),
+    ('content:unpublish', 'organization', 'Unpublish content', 'content', 'unpublish'),
+    ('analytics:view', 'organization', 'View analytics', 'analytics', 'view')
 ON CONFLICT (name) DO UPDATE SET
     description = EXCLUDED.description,
     resource = EXCLUDED.resource,
@@ -287,14 +287,14 @@ SELECT
     '✅ Permissions Seeded' as status,
     COUNT(*) as total,
     COUNT(*) FILTER (WHERE scope = 'global') as global_count,
-    COUNT(*) FILTER (WHERE scope = 'tenant') as tenant_count
+    COUNT(*) FILTER (WHERE scope = 'organization') as tenant_count
 FROM identify.permissions;
 
 SELECT
     '✅ Roles Seeded' as status,
     COUNT(*) as total,
     COUNT(*) FILTER (WHERE scope = 'global') as global_count,
-    COUNT(*) FILTER (WHERE scope = 'tenant') as tenant_count
+    COUNT(*) FILTER (WHERE scope = 'organization') as tenant_count
 FROM identify.roles;
 
 SELECT

@@ -23,8 +23,8 @@ type Chapter struct {
 	ID       uuid.UUID
 	NovelID  uuid.UUID
 	VolumeID *uuid.UUID // Nullable: chapter có thể tồn tại mà không thuộc volume
-	Novel    *Novel     // Optional: được load bởi JOIN query
-	Volume   *Volume    // Optional: được load bởi JOIN query
+	Novel    *Novel     `db:"-"` // Optional: được load bởi JOIN query
+	Volume   *Volume    `db:"-"` // Optional: được load bởi JOIN query
 
 	ChapterNumber int
 	Title         string
@@ -62,6 +62,8 @@ type Chapter struct {
 	ScheduledAt *time.Time // Cho xuất bản theo lịch
 
 	// Audit fields
+	CreatedBy uuid.UUID
+	UpdatedBy uuid.UUID
 	CreatedAt time.Time
 	UpdatedAt time.Time
 	DeletedAt *time.Time
@@ -101,6 +103,10 @@ type ChapterRepository interface {
 
 	// IncrementViewCount tăng view count
 	IncrementViewCount(ctx context.Context, id uuid.UUID) error
+
+	// BatchIncrementViewCount tăng view count cho nhiều chapters cùng lúc
+	// Sử dụng bulk UPDATE với VALUES để tối ưu performance
+	BatchIncrementViewCount(ctx context.Context, increments map[uuid.UUID]int64) error
 
 	// UpdateStatistics cập nhật thống kê của chapter
 	UpdateStatistics(ctx context.Context, id uuid.UUID, stats ChapterStatistics) error

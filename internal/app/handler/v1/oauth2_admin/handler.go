@@ -53,14 +53,14 @@ func (h *Handler) CreateClient(c *gin.Context) {
 	}
 
 	// Parse tenant ID if provided
-	var tenantID *uuid.UUID
-	if req.TenantID != nil {
-		tid, err := uuid.FromString(*req.TenantID)
+	var organizationID *uuid.UUID
+	if req.OrganizationID != nil {
+		tid, err := uuid.FromString(*req.OrganizationID)
 		if err != nil {
 			response.Error(c, http.StatusBadRequest, "INVALID_TENANT_ID", "validation.invalid_tenant_id", nil)
 			return
 		}
-		tenantID = &tid
+		organizationID = &tid
 	}
 
 	// Create client via service
@@ -73,7 +73,7 @@ func (h *Handler) CreateClient(c *gin.Context) {
 		IsPublic:          req.IsPublic,
 		IsInternal:        req.IsInternal,
 		TokenEndpointAuth: req.TokenEndpointAuth,
-		TenantID:          tenantID,
+		OrganizationID:          organizationID,
 		ClientURI:         req.ClientURI,
 		LogoURL:           req.LogoURL,
 	}
@@ -128,14 +128,14 @@ func (h *Handler) GetClient(c *gin.Context) {
 // @Failure 500 {object} map[string]any
 // @Router /admin/oauth2/clients [get]
 func (h *Handler) ListClients(c *gin.Context) {
-	var tenantID *uuid.UUID
-	if tenantIDStr := c.Query("tenant_id"); tenantIDStr != "" {
-		tid, err := uuid.FromString(tenantIDStr)
+	var organizationID *uuid.UUID
+	if organizationIDStr := c.Query("tenant_id"); organizationIDStr != "" {
+		tid, err := uuid.FromString(organizationIDStr)
 		if err != nil {
 			response.Error(c, http.StatusBadRequest, "INVALID_TENANT_ID", "validation.invalid_tenant_id", nil)
 			return
 		}
-		tenantID = &tid
+		organizationID = &tid
 	}
 
 	var active *bool
@@ -163,7 +163,7 @@ func (h *Handler) ListClients(c *gin.Context) {
 		}
 	}
 
-	clients, total, err := h.adminService.ListClients(c.Request.Context(), tenantID, active, limit, offset)
+	clients, total, err := h.adminService.ListClients(c.Request.Context(), organizationID, active, limit, offset)
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, "LIST_FAILED", "client.list_failed", nil)
 		return
@@ -324,10 +324,10 @@ func (h *Handler) RegenerateSecret(c *gin.Context) {
 // Helper methods
 
 func (h *Handler) buildClientResponse(client *domain.OAuth2Client, clientSecret *string) ClientResponse {
-	var tenantID *string
-	if client.TenantID != nil {
-		tid := client.TenantID.String()
-		tenantID = &tid
+	var organizationID *string
+	if client.OrganizationID != nil {
+		tid := client.OrganizationID.String()
+		organizationID = &tid
 	}
 
 	return ClientResponse{
@@ -341,7 +341,7 @@ func (h *Handler) buildClientResponse(client *domain.OAuth2Client, clientSecret 
 		IsPublic:          client.IsPublic,
 		IsInternal:        client.IsInternal,
 		TokenEndpointAuth: client.TokenEndpointAuth,
-		TenantID:          tenantID,
+		OrganizationID:          organizationID,
 		ClientURI:         client.ClientURI,
 		LogoURL:           client.LogoURL,
 		Active:            client.Active,

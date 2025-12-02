@@ -37,24 +37,29 @@ func NewVolumeService(volumeRepo domain.VolumeRepository, historyRepo VolumeHist
 	}
 }
 
-// CreateVolume creates a new volume
-func (s *VolumeService) CreateVolume(ctx context.Context, novelID uuid.UUID, volumeNumber int, title string, description, coverImageURL *string, displayOrder int, isPublished bool) (*domain.Volume, error) {
+// CreateVolume creates a new volume with auto-calculated volume number
+func (s *VolumeService) CreateVolume(ctx context.Context, novelID uuid.UUID, title string, description, coverImageURL *string, displayOrder int, isPublished bool, createdBy uuid.UUID) (*domain.Volume, error) {
 	// Validate input
 	if title == "" {
 		return nil, pkgerrors.ErrInvalidInput
 	}
 
-	if volumeNumber < 1 {
-		return nil, pkgerrors.ErrInvalidVolumeNumber
-	}
-
-	// Check if volume number already exists for this novel
-	existing, err := s.volumeRepo.GetByNovelIDAndNumber(ctx, novelID, volumeNumber)
-	if err != nil && err != pgx.ErrNoRows {
+	// Get all volumes for this novel to calculate next volume number
+	existingVolumes, err := s.volumeRepo.GetByNovelID(ctx, novelID, false)
+	if err != nil {
 		return nil, err
 	}
-	if existing != nil {
-		return nil, pkgerrors.ErrVolumeNumberExists
+
+	// Calculate next volume number (max + 1)
+	nextVolumeNumber := 1
+	if len(existingVolumes) > 0 {
+		maxVolNum := 0
+		for _, vol := range existingVolumes {
+			if vol.VolumeNumber > maxVolNum {
+				maxVolNum = vol.VolumeNumber
+			}
+		}
+		nextVolumeNumber = maxVolNum + 1
 	}
 
 	// Generate slug from title
@@ -66,16 +71,22 @@ func (s *VolumeService) CreateVolume(ctx context.Context, novelID uuid.UUID, vol
 		return nil, err
 	}
 
+	// Auto-set display_order if not provided
+	if displayOrder == 0 {
+		displayOrder = nextVolumeNumber
+	}
+
 	volume := &domain.Volume{
 		ID:           id,
 		NovelID:      novelID,
-		VolumeNumber: volumeNumber,
+		VolumeNumber: nextVolumeNumber,
 		Title:        title,
 		Slug:         volumeSlug,
 		Description:  description,
 		CoverImageURL: coverImageURL,
 		DisplayOrder: displayOrder,
 		IsPublished:  isPublished,
+		CreatedBy: createdBy,
 	}
 
 	if err := s.volumeRepo.Create(ctx, volume); err != nil {

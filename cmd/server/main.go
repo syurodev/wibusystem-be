@@ -88,11 +88,31 @@ func main() {
 		appLogger.Info("Redis health check passed", zap.Any("health_info", redisHealthInfo))
 	}
 
-	// 8. Khởi tạo Gin Router
-	appRouter := router.NewRouter(cfg, i18n.GetInstance(), appLogger, db, rdb)
+	// 8. Khởi tạo ClickHouse Connection
+	chCtx, chCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer chCancel()
+
+	ch, err := database.NewClickHouseClient(chCtx, &cfg.ClickHouse, appLogger)
+	if err != nil {
+		appLogger.Fatal("Failed to initialize ClickHouse connection", zap.Error(err))
+	}
+	defer ch.Close()
+
+	appLogger.Info("ClickHouse connection initialized successfully.")
+
+	// 9. Health check ClickHouse
+	chHealthInfo, err := ch.Health(context.Background())
+	if err != nil {
+		appLogger.Warn("ClickHouse health check warning", zap.Error(err))
+	} else {
+		appLogger.Info("ClickHouse health check passed", zap.Any("health_info", chHealthInfo))
+	}
+
+	// 10. Khởi tạo Gin Router
+	appRouter := router.NewRouter(cfg, i18n.GetInstance(), appLogger, db, rdb, ch)
 	appLogger.Info("Gin router initialized successfully.")
 
-	// 9. Khởi tạo và chạy HTTP Server
+	// 11. Khởi tạo và chạy HTTP Server
 	srv := &http.Server{
 		Addr:    ":" + cfg.Server.Port,
 		Handler: appRouter,
@@ -106,7 +126,7 @@ func main() {
 
 	appLogger.Info("HTTP Server started", zap.String("port", cfg.Server.Port))
 
-	// 10. Setup graceful shutdown
+	// 12. Setup graceful shutdown
 	// Tạo channel để listen shutdown signals
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)

@@ -2,11 +2,10 @@ package novel_volume
 
 // CreateVolumeRequest represents the request to create a new volume
 type CreateVolumeRequest struct {
-	NovelID      string  `json:"novel_id" binding:"required,uuid"`
-	VolumeNumber int     `json:"volume_number" binding:"required,min=1"`
+	NovelID      string  `json:"novel_id" binding:"omitempty,uuid"` // Optional, handler uses URL param
 	Title        string  `json:"title" binding:"required,min=1,max=500"`
 	Description  *string `json:"description,omitempty" binding:"omitempty,max=5000"`
-	CoverImageURL *string `json:"cover_image_url,omitempty" binding:"omitempty,url"`
+	CoverImageURL *string `json:"cover_image_url,omitempty"` // No url validation - empty string is valid
 	DisplayOrder int     `json:"display_order" binding:"min=0"`
 	IsPublished  bool    `json:"is_published"`
 }
@@ -30,6 +29,7 @@ type UpdateDisplayOrderRequest struct {
 type VolumeResponse struct {
 	ID           string  `json:"id"`
 	NovelID      string  `json:"novel_id"`
+	NovelTitle   string  `json:"novel_title"` // Added: Novel title for display
 	VolumeNumber int     `json:"volume_number"`
 	Title        string  `json:"title"`
 	Slug         string  `json:"slug"`
@@ -64,4 +64,11 @@ type VolumeDetailResponse struct {
 // ListVolumesRequest represents query parameters for listing volumes
 type ListVolumesRequest struct {
 	PublishedOnly bool `form:"published_only"`
+}
+
+// ListVolumesResponse wraps volumes list with novel info
+type ListVolumesResponse struct {
+	NovelID    string           `json:"novel_id"`
+	NovelTitle string           `json:"novel_title"`
+	Volumes    []VolumeResponse `json:"volumes"`
 }

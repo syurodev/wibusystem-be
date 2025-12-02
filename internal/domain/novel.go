@@ -106,6 +106,10 @@ type NovelRepository interface {
 
 	// IncrementViewCount tăng view count
 	IncrementViewCount(ctx context.Context, id uuid.UUID) error
+
+	// BatchIncrementViewCount tăng view count cho nhiều novels cùng lúc
+	// Sử dụng bulk UPDATE với VALUES để tối ưu performance
+	BatchIncrementViewCount(ctx context.Context, increments map[uuid.UUID]int64) error
 }
 
 // NovelFilter định nghĩa các filter cho việc query novel

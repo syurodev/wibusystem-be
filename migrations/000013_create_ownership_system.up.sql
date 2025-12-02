@@ -31,11 +31,11 @@ CREATE TABLE catalog.ownership_transfers (
     novel_id UUID NOT NULL REFERENCES catalog.novels(id) ON DELETE CASCADE,
 
     -- Source ownership
-    from_owner_type VARCHAR(20) NOT NULL CHECK (from_owner_type IN ('user', 'tenant')),
+    from_owner_type VARCHAR(20) NOT NULL CHECK (from_owner_type IN ('user', 'organization')),
     from_owner_id UUID NOT NULL,
 
     -- Target ownership
-    to_owner_type VARCHAR(20) NOT NULL CHECK (to_owner_type IN ('user', 'tenant')),
+    to_owner_type VARCHAR(20) NOT NULL CHECK (to_owner_type IN ('user', 'organization')),
     to_owner_id UUID NOT NULL,
 
     -- Transfer info
@@ -76,12 +76,12 @@ CREATE INDEX idx_ownership_transfers_status ON catalog.ownership_transfers(statu
 CREATE INDEX idx_ownership_transfers_pending_approval ON catalog.ownership_transfers(status, requires_approval) WHERE requires_approval = TRUE AND status = 'pending' AND deleted_at IS NULL;
 
 -- Comments
-COMMENT ON TABLE catalog.ownership_transfers IS 'Tracks ownership transfer requests between users and tenants';
-COMMENT ON COLUMN catalog.ownership_transfers.from_owner_type IS 'Source owner type: user or tenant';
+COMMENT ON TABLE catalog.ownership_transfers IS 'Tracks ownership transfer requests between users and organizations';
+COMMENT ON COLUMN catalog.ownership_transfers.from_owner_type IS 'Source owner type: user or organization';
 COMMENT ON COLUMN catalog.ownership_transfers.from_owner_id IS 'Source owner UUID (validated in application)';
-COMMENT ON COLUMN catalog.ownership_transfers.to_owner_type IS 'Target owner type: user or tenant';
+COMMENT ON COLUMN catalog.ownership_transfers.to_owner_type IS 'Target owner type: user or organization';
 COMMENT ON COLUMN catalog.ownership_transfers.to_owner_id IS 'Target owner UUID (validated in application)';
-COMMENT ON COLUMN catalog.ownership_transfers.requires_approval IS 'TRUE for 2-way transfers (user<->tenant or tenant<->tenant), FALSE for 1-way (user->tenant)';
+COMMENT ON COLUMN catalog.ownership_transfers.requires_approval IS 'TRUE for 2-way transfers (user<->organization or organization<->organization), FALSE for 1-way (user->organization)';
 
 -- =====================================================
 -- EXCLUSIVE TRANSLATION REPORTS TABLE
@@ -91,11 +91,11 @@ CREATE TABLE catalog.exclusive_translation_reports (
     novel_id UUID NOT NULL REFERENCES catalog.novels(id) ON DELETE CASCADE,
     language VARCHAR(10) NOT NULL, -- ISO 639-1
 
-    -- Reporting team
-    reporting_team_id UUID NOT NULL, -- References catalog.translation_teams (will be created in next migration)
+    -- Reporting organization
+    reporting_organization_id UUID NOT NULL, -- References identify.organizations
 
-    -- Reported team (claiming exclusive rights)
-    reported_team_id UUID NOT NULL, -- References catalog.translation_teams
+    -- Reported organization (claiming exclusive rights)
+    reported_organization_id UUID NOT NULL, -- References identify.organizations
 
     -- Report details
     reason TEXT NOT NULL,
@@ -122,22 +122,22 @@ CREATE TABLE catalog.exclusive_translation_reports (
     deleted_at TIMESTAMP WITH TIME ZONE,
     deleted_by UUID REFERENCES identify.users(id) ON DELETE SET NULL,
 
-    -- Ensure reporting and reported teams are different
-    CHECK (reporting_team_id != reported_team_id)
+    -- Ensure reporting and reported organizations are different
+    CHECK (reporting_organization_id != reported_organization_id)
 );
 
 -- Indexes for exclusive_translation_reports
 CREATE INDEX idx_exclusive_reports_novel_id ON catalog.exclusive_translation_reports(novel_id) WHERE deleted_at IS NULL;
 CREATE INDEX idx_exclusive_reports_language ON catalog.exclusive_translation_reports(language) WHERE deleted_at IS NULL;
-CREATE INDEX idx_exclusive_reports_reporting_team ON catalog.exclusive_translation_reports(reporting_team_id) WHERE deleted_at IS NULL;
-CREATE INDEX idx_exclusive_reports_reported_team ON catalog.exclusive_translation_reports(reported_team_id) WHERE deleted_at IS NULL;
+CREATE INDEX idx_exclusive_reports_reporting_organization ON catalog.exclusive_translation_reports(reporting_organization_id) WHERE deleted_at IS NULL;
+CREATE INDEX idx_exclusive_reports_reported_organization ON catalog.exclusive_translation_reports(reported_organization_id) WHERE deleted_at IS NULL;
 CREATE INDEX idx_exclusive_reports_status ON catalog.exclusive_translation_reports(status) WHERE deleted_at IS NULL;
 CREATE INDEX idx_exclusive_reports_pending ON catalog.exclusive_translation_reports(status) WHERE status = 'pending' AND deleted_at IS NULL;
 
 -- Comments
-COMMENT ON TABLE catalog.exclusive_translation_reports IS 'Reports for teams claiming exclusive translation rights';
-COMMENT ON COLUMN catalog.exclusive_translation_reports.reporting_team_id IS 'Team filing the report';
-COMMENT ON COLUMN catalog.exclusive_translation_reports.reported_team_id IS 'Team being reported for claiming exclusive rights';
+COMMENT ON TABLE catalog.exclusive_translation_reports IS 'Reports for organizations claiming exclusive translation rights';
+COMMENT ON COLUMN catalog.exclusive_translation_reports.reporting_organization_id IS 'Organization filing the report';
+COMMENT ON COLUMN catalog.exclusive_translation_reports.reported_organization_id IS 'Organization being reported for claiming exclusive rights';
 COMMENT ON COLUMN catalog.exclusive_translation_reports.evidence_urls IS 'URLs to evidence supporting the report';
 
 -- =====================================================

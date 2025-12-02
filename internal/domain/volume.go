@@ -12,7 +12,9 @@ import (
 type Volume struct {
 	ID       uuid.UUID
 	NovelID  uuid.UUID
-	Novel    *Novel // Optional: được load bởi JOIN query
+	CreatedBy  uuid.UUID
+	Novel    *Novel `db:"-"` // Optional: được load bởi JOIN query
+	NovelTitle string // Added: Novel title for display
 
 	VolumeNumber int
 	Title        string

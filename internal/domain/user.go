@@ -52,12 +52,12 @@ type UserRepository interface {
 	// GetGlobalPermissions lấy danh sách global permissions của user
 	GetGlobalPermissions(ctx context.Context, userID uuid.UUID) ([]string, error)
 
-	// GetTenantPermissions lấy danh sách permissions của user trong tenant
-	GetTenantPermissions(ctx context.Context, userID, tenantID uuid.UUID) ([]string, error)
+	// GetOrganizationPermissions lấy danh sách permissions của user trong organization
+	GetOrganizationPermissions(ctx context.Context, userID, organizationID uuid.UUID) ([]string, error)
 
 	// GetGlobalRoles lấy danh sách global roles của user
 	GetGlobalRoles(ctx context.Context, userID uuid.UUID) ([]string, error)
 
-	// GetTenantRoles lấy danh sách roles của user trong tenant
-	GetTenantRoles(ctx context.Context, userID, tenantID uuid.UUID) ([]string, error)
+	// GetOrganizationRoles lấy danh sách roles của user trong organization
+	GetOrganizationRoles(ctx context.Context, userID, organizationID uuid.UUID) ([]string, error)
 }

@@ -2,7 +2,7 @@
 -- Description: Xóa các bảng và types đã tạo trong migration 000001
 
 -- Drop triggers first
-DROP TRIGGER IF EXISTS update_tenants_updated_at ON tenants;
+DROP TRIGGER IF EXISTS update_organizations_updated_at ON organizations;
 DROP TRIGGER IF EXISTS update_users_updated_at ON users;
 DROP TRIGGER IF EXISTS update_roles_updated_at ON roles;
 
@@ -13,7 +13,7 @@ DROP FUNCTION IF EXISTS update_updated_at_column();
 DROP TABLE IF EXISTS roles CASCADE;
 DROP TABLE IF EXISTS permissions CASCADE;
 DROP TABLE IF EXISTS users CASCADE;
-DROP TABLE IF EXISTS tenants CASCADE;
+DROP TABLE IF EXISTS organizations CASCADE;
 
 -- Drop types
 DROP TYPE IF EXISTS role_scope;

@@ -10,14 +10,14 @@ ALTER TABLE identify.oauth2_sessions SET SCHEMA public;
 ALTER TABLE identify.oauth2_clients SET SCHEMA public;
 
 ALTER TABLE identify.user_global_roles SET SCHEMA public;
-ALTER TABLE identify.user_tenant_roles SET SCHEMA public;
-ALTER TABLE identify.user_tenant_memberships SET SCHEMA public;
+ALTER TABLE identify.user_organization_roles SET SCHEMA public;
+ALTER TABLE identify.user_organization_memberships SET SCHEMA public;
 ALTER TABLE identify.role_permissions SET SCHEMA public;
 
 ALTER TABLE identify.roles SET SCHEMA public;
 ALTER TABLE identify.permissions SET SCHEMA public;
 ALTER TABLE identify.users SET SCHEMA public;
-ALTER TABLE identify.tenants SET SCHEMA public;
+ALTER TABLE identify.organizations SET SCHEMA public;
 
 -- =====================================================
 -- Drop Schemas (only if empty)

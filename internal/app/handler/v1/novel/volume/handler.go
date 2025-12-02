@@ -8,6 +8,7 @@ import (
 	"github.com/gofrs/uuid/v5"
 	"github.com/jackc/pgx/v5"
 
+	"system/internal/app/middleware"
 	"system/internal/domain"
 	"system/internal/pkg/service"
 	pkgerrors "system/pkg/errors"
@@ -16,11 +17,13 @@ import (
 
 type Handler struct {
 	volumeService *service.VolumeService
+	novelService  *service.NovelService
 }
 
-func NewHandler(volumeService *service.VolumeService) *Handler {
+func NewHandler(volumeService *service.VolumeService, novelService *service.NovelService) *Handler {
 	return &Handler{
 		volumeService: volumeService,
+		novelService:  novelService,
 	}
 }
 
@@ -32,41 +35,67 @@ func NewHandler(volumeService *service.VolumeService) *Handler {
 // @Param request body CreateVolumeRequest true "Create Volume Request"
 // @Success 201 {object} response.StandardResponse{data=VolumeDetailResponse}
 // @Failure 400 {object} response.StandardResponse
-// @Failure 409 {object} response.StandardResponse
 // @Failure 500 {object} response.StandardResponse
 // @Router /api/v1/volumes [post]
 func (h *Handler) CreateVolume(c *gin.Context) {
+	userIDStr, exists := middleware.GetUserID(c)
+
+	if !exists {
+		response.Error(c, http.StatusUnauthorized, "UNAUTHORIZED", "auth.unauthorized", nil)
+		return
+	}
+
+	userID, uuidErr := uuid.FromString(userIDStr)
+	if uuidErr != nil {
+		response.Error(c, http.StatusUnauthorized, "INVALID_USER_ID", "auth.invalid_user_id", nil)
+		return
+	}
+	
 	var req CreateVolumeRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
+		// Debug: log full error
+		c.Error(err) // This logs to gin logger
 		response.Error(c, http.StatusBadRequest, "VALIDATION_FAILED", "validation.failed", err.Error())
 		return
 	}
 
 	// Parse novel ID
-	novelID, err := uuid.FromString(req.NovelID)
-	if err != nil {
-		response.Error(c, http.StatusBadRequest, "INVALID_NOVEL_ID", "novel.invalid_id", nil)
-		return
+	var novelID uuid.UUID
+	var err error
+
+	// Try to get novel ID from URL param first (for /novels/:id/volumes)
+	novelIDStr := c.Param("id")
+	if novelIDStr != "" {
+		novelID, err = uuid.FromString(novelIDStr)
+		if err != nil {
+			response.Error(c, http.StatusBadRequest, "INVALID_NOVEL_ID", "novel.invalid_id", nil)
+			return
+		}
+	} else {
+		// Fallback to body
+		novelID, err = uuid.FromString(req.NovelID)
+		if err != nil {
+			response.Error(c, http.StatusBadRequest, "INVALID_NOVEL_ID", "novel.invalid_id", nil)
+			return
+		}
 	}
 
-	// Create volume
+	// Create volume (volume_number auto-calculated by service)
 	volume, err := h.volumeService.CreateVolume(
 		c.Request.Context(),
 		novelID,
-		req.VolumeNumber,
 		req.Title,
 		req.Description,
 		req.CoverImageURL,
 		req.DisplayOrder,
 		req.IsPublished,
+		userID,
 	)
 	if err != nil {
+		// Debug: log full error
+		c.Error(err)
 		if errors.Is(err, pkgerrors.ErrInvalidInput) {
 			response.Error(c, http.StatusBadRequest, "INVALID_INPUT", "volume.invalid_input", nil)
-			return
-		}
-		if errors.Is(err, pkgerrors.ErrVolumeNumberExists) {
-			response.Error(c, http.StatusConflict, "VOLUME_NUMBER_EXISTS", "volume.number_already_exists", nil)
 			return
 		}
 		response.Error(c, http.StatusInternalServerError, "CREATE_FAILED", "volume.create_failed", nil)
@@ -225,7 +254,7 @@ func (h *Handler) GetVolume(c *gin.Context) {
 // @Produce json
 // @Param novel_id path string true "Novel ID"
 // @Param published_only query bool false "Only published volumes"
-// @Success 200 {object} response.StandardResponse{data=[]VolumeResponse}
+// @Success 200 {object} response.StandardResponse{data=ListVolumesResponse}
 // @Failure 400 {object} response.StandardResponse
 // @Failure 500 {object} response.StandardResponse
 // @Router /api/v1/novels/{novel_id}/volumes [get]
@@ -244,6 +273,13 @@ func (h *Handler) ListVolumesByNovel(c *gin.Context) {
 		return
 	}
 
+	// Get novel info to get title
+	novel, err := h.novelService.GetNovelByID(c.Request.Context(), novelID)
+	if err != nil {
+		response.Error(c, http.StatusNotFound, "NOVEL_NOT_FOUND", "novel.not_found", nil)
+		return
+	}
+
 	// Get volumes
 	volumes, err := h.volumeService.GetVolumesByNovelID(c.Request.Context(), novelID, req.PublishedOnly)
 	if err != nil {
@@ -257,7 +293,14 @@ func (h *Handler) ListVolumesByNovel(c *gin.Context) {
 		volumeResponses[i] = mapToVolumeResponse(volume)
 	}
 
-	response.Success(c, http.StatusOK, "volume.list_success", volumeResponses, nil)
+	// Build response with novel info
+	resp := ListVolumesResponse{
+		NovelID:    novelIDStr,
+		NovelTitle: novel.Title,
+		Volumes:    volumeResponses,
+	}
+
+	response.Success(c, http.StatusOK, "volume.list_success", resp, nil)
 }
 
 // UpdateDisplayOrder updates the display order of a volume
@@ -417,6 +460,11 @@ func mapToVolumeResponse(volume *domain.Volume) VolumeResponse {
 		IsPublished:  volume.IsPublished,
 		CreatedAt:    volume.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
 		UpdatedAt:    volume.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"),
+	}
+
+	// Add novel title if available
+	if volume.Novel != nil {
+		resp.NovelTitle = volume.Novel.Title
 	}
 
 	// Format optional dates

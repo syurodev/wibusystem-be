@@ -16,7 +16,7 @@ type CreateClientRequest struct {
 	IsPublic          bool     `json:"is_public"`
 	IsInternal        bool     `json:"is_internal"` // true = internal client (full access), false = external client (limited)
 	TokenEndpointAuth string   `json:"token_endpoint_auth_method" binding:"required,oneof=client_secret_basic client_secret_post client_secret_jwt private_key_jwt none"`
-	TenantID          *string  `json:"tenant_id,omitempty"` // Optional, null = global client
+	OrganizationID          *string  `json:"organization_id,omitempty"` // Optional, null = global client
 	ClientURI         *string  `json:"client_uri,omitempty"`
 	LogoURL           *string  `json:"logo_url,omitempty"`
 }
@@ -53,7 +53,7 @@ type ClientResponse struct {
 	IsPublic          bool      `json:"is_public"`
 	IsInternal        bool      `json:"is_internal"`
 	TokenEndpointAuth string    `json:"token_endpoint_auth_method"`
-	TenantID          *string   `json:"tenant_id,omitempty"`
+	OrganizationID          *string   `json:"organization_id,omitempty"`
 	ClientURI         *string   `json:"client_uri,omitempty"`
 	LogoURL           *string   `json:"logo_url,omitempty"`
 	Active            bool      `json:"active"`

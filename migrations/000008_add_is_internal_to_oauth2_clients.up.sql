@@ -20,10 +20,10 @@ COMMENT ON COLUMN identify.oauth2_clients.is_internal IS 'TRUE = Internal client
 
 -- =====================================================
 -- Update existing clients
--- Description: Mark clients with tenant_id = NULL as internal (first-party clients)
+-- Description: Mark clients with organization_id = NULL as internal (first-party clients)
 -- =====================================================
 UPDATE identify.oauth2_clients
 SET is_internal = TRUE
-WHERE tenant_id IS NULL;
+WHERE organization_id IS NULL;
 
-COMMENT ON COLUMN identify.oauth2_clients.is_internal IS 'TRUE = Internal/first-party client (full access), FALSE = External/third-party client (limited features). Internal clients typically have tenant_id = NULL.';
+COMMENT ON COLUMN identify.oauth2_clients.is_internal IS 'TRUE = Internal/first-party client (full access), FALSE = External/third-party client (limited features). Internal clients typically have organization_id = NULL.';

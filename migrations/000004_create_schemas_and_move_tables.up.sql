@@ -26,15 +26,15 @@ COMMENT ON SCHEMA payment IS 'Payment Processing, Transactions, Invoicing';
 -- =====================================================
 
 -- Core tables
-ALTER TABLE tenants SET SCHEMA identify;
+ALTER TABLE organizations SET SCHEMA identify;
 ALTER TABLE users SET SCHEMA identify;
 ALTER TABLE permissions SET SCHEMA identify;
 ALTER TABLE roles SET SCHEMA identify;
 
 -- RBAC relation tables
 ALTER TABLE role_permissions SET SCHEMA identify;
-ALTER TABLE user_tenant_memberships SET SCHEMA identify;
-ALTER TABLE user_tenant_roles SET SCHEMA identify;
+ALTER TABLE user_organization_memberships SET SCHEMA identify;
+ALTER TABLE user_organization_roles SET SCHEMA identify;
 ALTER TABLE user_global_roles SET SCHEMA identify;
 
 -- OAuth2 tables

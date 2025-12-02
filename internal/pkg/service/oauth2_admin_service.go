@@ -87,7 +87,7 @@ type CreateClientRequest struct {
 	IsPublic          bool
 	IsInternal        bool
 	TokenEndpointAuth string
-	TenantID          *uuid.UUID
+	OrganizationID    *uuid.UUID
 	ClientURI         *string
 	LogoURL           *string
 }
@@ -123,7 +123,7 @@ func (s *OAuth2AdminService) CreateClient(ctx context.Context, req CreateClientR
 		IsPublic:          req.IsPublic,
 		IsInternal:        req.IsInternal,
 		TokenEndpointAuth: req.TokenEndpointAuth,
-		TenantID:          req.TenantID,
+		OrganizationID:          req.OrganizationID,
 		ClientURI:         req.ClientURI,
 		LogoURL:           req.LogoURL,
 		Active:            true,
@@ -149,8 +149,8 @@ func (s *OAuth2AdminService) GetClientByID(ctx context.Context, clientID uuid.UU
 }
 
 // ListClients retrieves a list of OAuth2 clients with filtering.
-func (s *OAuth2AdminService) ListClients(ctx context.Context, tenantID *uuid.UUID, active *bool, limit, offset int) ([]*domain.OAuth2Client, int, error) {
-	clients, total, err := s.clientRepo.List(ctx, tenantID, active, limit, offset)
+func (s *OAuth2AdminService) ListClients(ctx context.Context, organizationID *uuid.UUID, active *bool, limit, offset int) ([]*domain.OAuth2Client, int, error) {
+	clients, total, err := s.clientRepo.List(ctx, organizationID, active, limit, offset)
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to list clients: %w", err)
 	}

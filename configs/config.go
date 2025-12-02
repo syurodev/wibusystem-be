@@ -15,14 +15,16 @@ import (
 
 // Config là struct tổng hợp chứa tất cả các cấu hình của ứng dụng.
 type Config struct {
-	Server   ServerConfig
-	DB       DatabaseConfig
-	Redis    RedisConfig
-	CORS     CORSConfig
-	Log      LogConfig
-	OAuth2   OAuthConfig
-	Email    EmailConfig
-	WebAuthn WebAuthnConfig
+	Server       ServerConfig
+	DB           DatabaseConfig
+	Redis        RedisConfig
+	ClickHouse   ClickHouseConfig
+	ViewTracking ViewTrackingConfig
+	CORS         CORSConfig
+	Log          LogConfig
+	OAuth2       OAuthConfig
+	Email        EmailConfig
+	WebAuthn     WebAuthnConfig
 }
 
 // OAuthConfig chứa cấu hình cho OAuth 2.0 Server.
@@ -69,6 +71,27 @@ type RedisConfig struct {
 	MaxRetries   int
 	PoolSize     int
 	MinIdleConns int
+}
+
+// ClickHouseConfig chứa cấu hình kết nối ClickHouse.
+type ClickHouseConfig struct {
+	Host            string
+	Port            string
+	Database        string
+	User            string
+	Password        string
+	MaxOpenConns    int
+	MaxIdleConns    int
+	ConnMaxLifetime time.Duration
+}
+
+// ViewTrackingConfig chứa cấu hình cho hệ thống view tracking.
+type ViewTrackingConfig struct {
+	DedupWindowSeconds  int  // Deduplication window in seconds (default: 300)
+	SyncIntervalMinutes int  // Sync interval from Redis to PostgreSQL in minutes (default: 5)
+	BatchSize           int  // PostgreSQL batch size (default: 1000)
+	ClickHouseBatchSize int  // ClickHouse batch size (default: 500)
+	WorkerEnabled       bool // Enable background worker (default: true)
 }
 
 // CORSConfig chứa cấu hình CORS cho Gin.
@@ -148,6 +171,27 @@ func LoadConfig(envPath string) (*Config, error) {
 	cfg.Redis.MaxRetries = getEnvAsInt("REDIS_MAX_RETRIES", 3)
 	cfg.Redis.PoolSize = getEnvAsInt("REDIS_POOL_SIZE", 10)
 	cfg.Redis.MinIdleConns = getEnvAsInt("REDIS_MIN_IDLE_CONNS", 5)
+
+	// CLICKHOUSE CONFIG
+	cfg.ClickHouse.Host = getEnv("CLICKHOUSE_HOST", "localhost")
+	cfg.ClickHouse.Port = getEnv("CLICKHOUSE_PORT", "9000")
+	cfg.ClickHouse.Database = getEnv("CLICKHOUSE_DATABASE", "clickhouse_dev")
+	cfg.ClickHouse.User = getEnv("CLICKHOUSE_USER", "clickhouse_dev")
+	cfg.ClickHouse.Password = getEnv("CLICKHOUSE_PASSWORD", "clickhouse_dev")
+	cfg.ClickHouse.MaxOpenConns = getEnvAsInt("CLICKHOUSE_MAX_OPEN_CONNS", 10)
+	cfg.ClickHouse.MaxIdleConns = getEnvAsInt("CLICKHOUSE_MAX_IDLE_CONNS", 5)
+	chConnLifetime, err := time.ParseDuration(getEnv("CLICKHOUSE_CONN_MAX_LIFETIME", "1h"))
+	if err != nil {
+		return nil, fmt.Errorf("invalid CLICKHOUSE_CONN_MAX_LIFETIME format: %w", err)
+	}
+	cfg.ClickHouse.ConnMaxLifetime = chConnLifetime
+
+	// VIEW TRACKING CONFIG
+	cfg.ViewTracking.DedupWindowSeconds = getEnvAsInt("VIEW_DEDUP_WINDOW_SECONDS", 300)
+	cfg.ViewTracking.SyncIntervalMinutes = getEnvAsInt("VIEW_SYNC_INTERVAL_MINUTES", 5)
+	cfg.ViewTracking.BatchSize = getEnvAsInt("VIEW_BATCH_SIZE", 1000)
+	cfg.ViewTracking.ClickHouseBatchSize = getEnvAsInt("VIEW_CLICKHOUSE_BATCH_SIZE", 500)
+	cfg.ViewTracking.WorkerEnabled = getEnvAsBool("VIEW_WORKER_ENABLED", true)
 
 	// CORS CONFIG
 	cfg.CORS.AllowOrigins = getEnvAsSlice("CORS_ALLOW_ORIGINS", nil)

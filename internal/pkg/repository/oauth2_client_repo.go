@@ -26,7 +26,7 @@ func NewOAuth2ClientRepository(pool *pgxpool.Pool) domain.OAuth2ClientRepository
 func (r *oauth2ClientRepository) GetClientByID(ctx context.Context, id uuid.UUID) (*domain.OAuth2Client, error) {
 	query := `
 		SELECT id, client_name, secret_hash, redirect_uris, grant_types, response_types,
-		       scopes, is_public, is_internal, token_endpoint_auth_method, tenant_id,
+		       scopes, is_public, is_internal, token_endpoint_auth_method, organization_id,
 		       client_uri, logo_url, active, created_at, updated_at
 		FROM identify.oauth2_clients
 		WHERE id=$1 AND active = true
@@ -73,7 +73,7 @@ func (r *oauth2ClientRepository) SetClientAssertionJWT(ctx context.Context, jti 
 func (r *oauth2ClientRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.OAuth2Client, error) {
 	query := `
 		SELECT id, client_name, secret_hash, redirect_uris, grant_types, response_types,
-		       scopes, is_public, is_internal, token_endpoint_auth_method, tenant_id, client_uri,
+		       scopes, is_public, is_internal, token_endpoint_auth_method, organization_id, client_uri,
 		       logo_url, active, created_at, updated_at
 		FROM identify.oauth2_clients
 		WHERE id = $1
@@ -97,7 +97,7 @@ func (r *oauth2ClientRepository) Create(ctx context.Context, client *domain.OAut
 	query := `
 		INSERT INTO identify.oauth2_clients (
 			id, client_name, secret_hash, redirect_uris, grant_types, response_types,
-			scopes, is_public, is_internal, token_endpoint_auth_method, tenant_id, client_uri,
+			scopes, is_public, is_internal, token_endpoint_auth_method, organization_id, client_uri,
 			logo_url, active, created_at, updated_at
 		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
 	`
@@ -113,7 +113,7 @@ func (r *oauth2ClientRepository) Create(ctx context.Context, client *domain.OAut
 		client.IsPublic,
 		client.IsInternal,
 		client.TokenEndpointAuth,
-		client.TenantID,
+		client.OrganizationID,
 		client.ClientURI,
 		client.LogoURL,
 		client.Active,
@@ -137,7 +137,7 @@ func (r *oauth2ClientRepository) Update(ctx context.Context, client *domain.OAut
 		    is_public = $8,
 		    is_internal = $9,
 		    token_endpoint_auth_method = $10,
-		    tenant_id = $11,
+		    organization_id = $11,
 		    client_uri = $12,
 		    logo_url = $13,
 		    active = $14,
@@ -156,7 +156,7 @@ func (r *oauth2ClientRepository) Update(ctx context.Context, client *domain.OAut
 		client.IsPublic,
 		client.IsInternal,
 		client.TokenEndpointAuth,
-		client.TenantID,
+		client.OrganizationID,
 		client.ClientURI,
 		client.LogoURL,
 		client.Active,
@@ -174,11 +174,11 @@ func (r *oauth2ClientRepository) Delete(ctx context.Context, id uuid.UUID) error
 }
 
 // List lấy danh sách OAuth2 clients với filter và pagination.
-func (r *oauth2ClientRepository) List(ctx context.Context, tenantID *uuid.UUID, active *bool, limit, offset int) ([]*domain.OAuth2Client, int, error) {
+func (r *oauth2ClientRepository) List(ctx context.Context, organizationID *uuid.UUID, active *bool, limit, offset int) ([]*domain.OAuth2Client, int, error) {
 	// Build dynamic query with filters
 	baseQuery := `
 		SELECT id, client_name, secret_hash, redirect_uris, grant_types, response_types,
-		       scopes, is_public, is_internal, token_endpoint_auth_method, tenant_id, client_uri,
+		       scopes, is_public, is_internal, token_endpoint_auth_method, organization_id, client_uri,
 		       logo_url, active, created_at, updated_at
 		FROM identify.oauth2_clients
 		WHERE 1=1
@@ -189,10 +189,10 @@ func (r *oauth2ClientRepository) List(ctx context.Context, tenantID *uuid.UUID, 
 	argIndex := 1
 
 	// Add filters
-	if tenantID != nil {
-		baseQuery += ` AND tenant_id = $` + strconv.Itoa(argIndex)
-		countQuery += ` AND tenant_id = $` + strconv.Itoa(argIndex)
-		args = append(args, *tenantID)
+	if organizationID != nil {
+		baseQuery += ` AND organization_id = $` + strconv.Itoa(argIndex)
+		countQuery += ` AND organization_id = $` + strconv.Itoa(argIndex)
+		args = append(args, *organizationID)
 		argIndex++
 	}
 

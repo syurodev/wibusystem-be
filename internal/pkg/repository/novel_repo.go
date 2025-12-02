@@ -27,7 +27,6 @@ const novelColumns = `
 	id, title, slug, synopsis, cover_image_url, thumbnail_url,
 	status, original_language, original_title,
 	owner_id, owner_type,
-	owner_display_name, owner_username, owner_avatar_url,
 	total_volumes, total_chapters, total_words, view_count,
 	favorite_count, rating_average, rating_count, metadata,
 	first_published_at, last_chapter_at, completed_at,
@@ -37,11 +36,22 @@ const novelColumns = `
 
 // GetByID lấy novel từ database theo ID
 func (r *novelRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.Novel, error) {
-	query := fmt.Sprintf(`
-		SELECT %s
-		FROM catalog.novels
-		WHERE id = $1 AND deleted_at IS NULL
-	`, novelColumns)
+	query := `
+		SELECT n.id, n.title, n.slug, n.synopsis, n.cover_image_url, n.thumbnail_url,
+		       n.status, n.original_language, n.original_title,
+		       n.owner_id, n.owner_type,
+		       COALESCE(u.full_name, '') as owner_display_name,
+		       COALESCE(u.email, '') as owner_username,
+		       u.avatar_url as owner_avatar_url,
+		       n.total_volumes, n.total_chapters, n.total_words, n.view_count,
+		       n.favorite_count, n.rating_average, n.rating_count, n.metadata,
+		       n.first_published_at, n.last_chapter_at, n.completed_at,
+		       n.created_by, n.updated_by, n.deleted_by,
+		       n.created_at, n.updated_at, n.deleted_at
+		FROM catalog.novels n
+		LEFT JOIN identify.users u ON n.owner_type = 'user' AND n.owner_id = u.id
+		WHERE n.id = $1 AND n.deleted_at IS NULL
+	`
 
 	rows, err := r.pool.Query(ctx, query, id)
 	if err != nil {
@@ -58,11 +68,22 @@ func (r *novelRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.No
 
 // GetBySlug lấy novel từ database theo slug
 func (r *novelRepository) GetBySlug(ctx context.Context, slug string) (*domain.Novel, error) {
-	query := fmt.Sprintf(`
-		SELECT %s
-		FROM catalog.novels
-		WHERE slug = $1 AND deleted_at IS NULL
-	`, novelColumns)
+	query := `
+		SELECT n.id, n.title, n.slug, n.synopsis, n.cover_image_url, n.thumbnail_url,
+		       n.status, n.original_language, n.original_title,
+		       n.owner_id, n.owner_type,
+		       COALESCE(u.full_name, '') as owner_display_name,
+		       COALESCE(u.email, '') as owner_username,
+		       u.avatar_url as owner_avatar_url,
+		       n.total_volumes, n.total_chapters, n.total_words, n.view_count,
+		       n.favorite_count, n.rating_average, n.rating_count, n.metadata,
+		       n.first_published_at, n.last_chapter_at, n.completed_at,
+		       n.created_by, n.updated_by, n.deleted_by,
+		       n.created_at, n.updated_at, n.deleted_at
+		FROM catalog.novels n
+		LEFT JOIN identify.users u ON n.owner_type = 'user' AND n.owner_id = u.id
+		WHERE n.slug = $1 AND n.deleted_at IS NULL
+	`
 
 	rows, err := r.pool.Query(ctx, query, slug)
 	if err != nil {
@@ -79,22 +100,25 @@ func (r *novelRepository) GetBySlug(ctx context.Context, slug string) (*domain.N
 
 // GetByAuthorID lấy danh sách novel theo author ID (via junction table)
 func (r *novelRepository) GetByAuthorID(ctx context.Context, authorID uuid.UUID, limit, offset int) ([]*domain.Novel, error) {
-	// Prefix each column with n.
-	cols := strings.Split(novelColumns, ", ")
-	prefixedCols := make([]string, len(cols))
-	for i, col := range cols {
-		prefixedCols[i] = "n." + strings.TrimSpace(col)
-	}
-	novelColumnsWithPrefix := strings.Join(prefixedCols, ", ")
-
-	query := fmt.Sprintf(`
-		SELECT %s
+	query := `
+		SELECT n.id, n.title, n.slug, n.synopsis, n.cover_image_url, n.thumbnail_url,
+		       n.status, n.original_language, n.original_title,
+		       n.owner_id, n.owner_type,
+		       COALESCE(u.full_name, '') as owner_display_name,
+		       COALESCE(u.email, '') as owner_username,
+		       u.avatar_url as owner_avatar_url,
+		       n.total_volumes, n.total_chapters, n.total_words, n.view_count,
+		       n.favorite_count, n.rating_average, n.rating_count, n.metadata,
+		       n.first_published_at, n.last_chapter_at, n.completed_at,
+		       n.created_by, n.updated_by, n.deleted_by,
+		       n.created_at, n.updated_at, n.deleted_at
 		FROM catalog.novels n
 		INNER JOIN catalog.novel_authors na ON n.id = na.novel_id
+		LEFT JOIN identify.users u ON n.owner_type = 'user' AND n.owner_id = u.id
 		WHERE na.author_id = $1 AND n.deleted_at IS NULL
 		ORDER BY n.created_at DESC
 		LIMIT $2 OFFSET $3
-	`, novelColumnsWithPrefix)
+	`
 
 	rows, err := r.pool.Query(ctx, query, authorID, limit, offset)
 	if err != nil {
@@ -413,6 +437,50 @@ func (r *novelRepository) IncrementViewCount(ctx context.Context, id uuid.UUID) 
 	`
 
 	_, err := r.pool.Exec(ctx, query, id)
+	return err
+}
+
+// BatchIncrementViewCount tăng view count cho nhiều novels cùng lúc.
+// Sử dụng bulk UPDATE với VALUES pattern để tối ưu performance.
+//
+// SQL Pattern:
+//
+//	UPDATE catalog.novels AS n
+//	SET view_count = n.view_count + v.increment, updated_at = NOW()
+//	FROM (VALUES (uuid1, 15), (uuid2, 20)) AS v(id, increment)
+//	WHERE n.id = v.id AND n.deleted_at IS NULL
+//
+// Parameters:
+//   - ctx: Context
+//   - increments: Map từ novel ID -> increment amount
+//
+// Returns:
+//   - error: Lỗi nếu có
+func (r *novelRepository) BatchIncrementViewCount(ctx context.Context, increments map[uuid.UUID]int64) error {
+	if len(increments) == 0 {
+		return nil
+	}
+
+	// Build VALUES clause cho bulk update
+	var values []string
+	var args []any
+	argIdx := 1
+
+	for id, count := range increments {
+		values = append(values, fmt.Sprintf("($%d::uuid, $%d::bigint)", argIdx, argIdx+1))
+		args = append(args, id, count)
+		argIdx += 2
+	}
+
+	query := fmt.Sprintf(`
+		UPDATE catalog.novels AS n
+		SET view_count = n.view_count + v.increment,
+		    updated_at = NOW()
+		FROM (VALUES %s) AS v(id, increment)
+		WHERE n.id = v.id AND n.deleted_at IS NULL
+	`, strings.Join(values, ", "))
+
+	_, err := r.pool.Exec(ctx, query, args...)
 	return err
 }
 

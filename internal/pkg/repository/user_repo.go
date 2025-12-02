@@ -163,11 +163,13 @@ func (r *userRepository) GetGlobalPermissions(ctx context.Context, userID uuid.U
 	return permissions, rows.Err()
 }
 
-// GetTenantPermissions lấy danh sách permissions của user trong tenant
-func (r *userRepository) GetTenantPermissions(ctx context.Context, userID, tenantID uuid.UUID) ([]string, error) {
-	query := `SELECT permission_name FROM identify.get_user_tenant_permissions($1, $2)`
+// GetOrganizationPermissions lấy danh sách permissions của user trong organization
+func (r *userRepository) GetOrganizationPermissions(ctx context.Context, userID, organizationID uuid.UUID) ([]string, error) {
+	query := `
+		SELECT identify.get_user_organization_permissions($1, $2)
+	`
 
-	rows, err := r.pool.Query(ctx, query, userID, tenantID)
+	rows, err := r.pool.Query(ctx, query, userID, organizationID)
 	if err != nil {
 		return nil, err
 	}
@@ -175,14 +177,21 @@ func (r *userRepository) GetTenantPermissions(ctx context.Context, userID, tenan
 
 	var permissions []string
 	for rows.Next() {
-		var p string
-		if err := rows.Scan(&p); err != nil {
+		var result struct {
+			PermissionName string `db:"permission_name"`
+		}
+		err := rows.Scan(&result.PermissionName)
+		if err != nil {
 			return nil, err
 		}
-		permissions = append(permissions, p)
+		permissions = append(permissions, result.PermissionName)
 	}
 
-	return permissions, rows.Err()
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return permissions, nil
 }
 
 // GetGlobalRoles lấy danh sách global roles của user
@@ -212,16 +221,16 @@ func (r *userRepository) GetGlobalRoles(ctx context.Context, userID uuid.UUID) (
 	return roles, rows.Err()
 }
 
-// GetTenantRoles lấy danh sách roles của user trong tenant
-func (r *userRepository) GetTenantRoles(ctx context.Context, userID, tenantID uuid.UUID) ([]string, error) {
+// GetOrganizationRoles lấy danh sách roles của user trong organization
+func (r *userRepository) GetOrganizationRoles(ctx context.Context, userID, organizationID uuid.UUID) ([]string, error) {
 	query := `
 		SELECT r.name
-		FROM identify.user_tenant_roles utr
-		JOIN identify.roles r ON utr.role_id = r.id
-		WHERE utr.user_id = $1 AND utr.tenant_id = $2
+		FROM identify.user_organization_roles uor
+		JOIN identify.roles r ON uor.role_id = r.id
+		WHERE uor.user_id = $1 AND uor.organization_id = $2
 	`
 
-	rows, err := r.pool.Query(ctx, query, userID, tenantID)
+	rows, err := r.pool.Query(ctx, query, userID, organizationID)
 	if err != nil {
 		return nil, err
 	}

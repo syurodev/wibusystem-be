@@ -36,9 +36,9 @@ type OAuth2Service interface {
 	GetClientInfo(ctx context.Context, clientID uuid.UUID) (*domain.OAuth2Client, error)
 	GetUserByEmail(ctx context.Context, email string) (*domain.User, error)
 	GetGlobalPermissions(ctx context.Context, userID uuid.UUID) ([]string, error)
-	GetTenantPermissions(ctx context.Context, userID, tenantID uuid.UUID) ([]string, error)
+	GetOrganizationPermissions(ctx context.Context, userID, organizationID uuid.UUID) ([]string, error)
 	GetGlobalRoles(ctx context.Context, userID uuid.UUID) ([]string, error)
-	GetTenantRoles(ctx context.Context, userID, tenantID uuid.UUID) ([]string, error)
+	GetOrganizationRoles(ctx context.Context, userID, organizationID uuid.UUID) ([]string, error)
 }
 
 // Handler là struct chứa các dependencies cho OAuth2 handlers.
@@ -626,15 +626,15 @@ func (h *Handler) finalizeAuthorization(c *gin.Context, ar fosite.AuthorizeReque
 			}
 
 			// 3. Tenant Permissions & Roles (if client is tenant-specific)
-			if client.TenantID != nil {
-				tenantPerms, err := h.oauth2Service.GetTenantPermissions(ctx, userUUID, *client.TenantID)
-				if err == nil && len(tenantPerms) > 0 {
-					session.Claims.Extra["tenant_permissions"] = tenantPerms
+			if client.OrganizationID != nil {
+				organizationPerms, err := h.oauth2Service.GetOrganizationPermissions(ctx, userUUID, *client.OrganizationID)
+				if err == nil && len(organizationPerms) > 0 {
+					session.Claims.Extra["tenant_permissions"] = organizationPerms
 				}
 
-				tenantRoles, err := h.oauth2Service.GetTenantRoles(ctx, userUUID, *client.TenantID)
-				if err == nil && len(tenantRoles) > 0 {
-					session.Claims.Extra["tenant_roles"] = tenantRoles
+				organizationRoles, err := h.oauth2Service.GetOrganizationRoles(ctx, userUUID, *client.OrganizationID)
+				if err == nil && len(organizationRoles) > 0 {
+					session.Claims.Extra["tenant_roles"] = organizationRoles
 				}
 			}
 		}

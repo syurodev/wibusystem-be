@@ -15,8 +15,8 @@ CREATE TABLE catalog.chapter_translations (
     content JSONB NOT NULL,
     title VARCHAR(500) NOT NULL,
 
-    -- Team assignment (optional - can be contributed by individuals)
-    team_id UUID REFERENCES catalog.translation_teams(id) ON DELETE SET NULL,
+    -- Organization assignment (optional - can be contributed by individuals)
+    organization_id UUID REFERENCES identify.organizations(id) ON DELETE SET NULL,
 
     -- Status
     status catalog.translation_status NOT NULL DEFAULT 'draft',
@@ -62,7 +62,7 @@ CREATE TABLE catalog.chapter_translations (
 -- Indexes for chapter_translations
 CREATE INDEX idx_chapter_translations_chapter_id ON catalog.chapter_translations(chapter_id) WHERE deleted_at IS NULL;
 CREATE INDEX idx_chapter_translations_language ON catalog.chapter_translations(language) WHERE deleted_at IS NULL;
-CREATE INDEX idx_chapter_translations_team_id ON catalog.chapter_translations(team_id) WHERE deleted_at IS NULL;
+CREATE INDEX idx_chapter_translations_organization_id ON catalog.chapter_translations(organization_id) WHERE deleted_at IS NULL;
 CREATE INDEX idx_chapter_translations_status ON catalog.chapter_translations(status) WHERE deleted_at IS NULL;
 CREATE INDEX idx_chapter_translations_published ON catalog.chapter_translations(chapter_id, language, published_at DESC) WHERE status = 'published' AND deleted_at IS NULL;
 CREATE INDEX idx_chapter_translations_content ON catalog.chapter_translations USING GIN(content) WHERE deleted_at IS NULL;
@@ -71,7 +71,7 @@ CREATE INDEX idx_chapter_translations_views ON catalog.chapter_translations(view
 -- Comments
 COMMENT ON TABLE catalog.chapter_translations IS 'Translated chapter content';
 COMMENT ON COLUMN catalog.chapter_translations.content IS 'Translated chapter content in JSONB format';
-COMMENT ON COLUMN catalog.chapter_translations.team_id IS 'Optional team responsible for this translation';
+COMMENT ON COLUMN catalog.chapter_translations.organization_id IS 'Optional organization responsible for this translation';
 COMMENT ON COLUMN catalog.chapter_translations.quality_score IS 'Aggregate quality score from community (0-5 scale)';
 COMMENT ON COLUMN catalog.chapter_translations.reviewer_rating IS 'Quality rating from official reviewers (0-5 scale)';
 

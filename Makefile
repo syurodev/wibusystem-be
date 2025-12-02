@@ -183,6 +183,12 @@ migrate-status: ## Hiển thị migration status
 	@echo "$(BLUE)Migration status:$(NC)"
 	@migrate -path $(MIGRATIONS_DIR) -database "$(DATABASE_URL)" version || echo "No migrations applied yet"
 
+.PHONY: migrate-clickhouse
+migrate-clickhouse: ## Chạy ClickHouse migrations
+	@echo "$(BLUE)Running ClickHouse migrations...$(NC)"
+	go run scripts/init_clickhouse.go
+	@echo "$(GREEN)✓ ClickHouse migrations completed$(NC)"
+
 # =====================================================
 # Docker Commands
 # =====================================================
@@ -242,6 +248,7 @@ setup: migrate-install docker-up ## Setup development environment
 	@echo "$(BLUE)Setting up development environment...$(NC)"
 	@sleep 3 # Wait for database to be ready
 	@$(MAKE) migrate-up
+	@$(MAKE) migrate-clickhouse
 	@$(MAKE) seed
 	@$(MAKE) seed-admin
 	@echo "$(GREEN)✓ Setup completed!$(NC)"

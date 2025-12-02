@@ -19,7 +19,7 @@ type OAuth2Client struct {
 	IsPublic          bool       `db:"is_public"`
 	IsInternal        bool       `db:"is_internal"`
 	TokenEndpointAuth string     `db:"token_endpoint_auth_method"`
-	TenantID          *uuid.UUID `db:"tenant_id"`
+	OrganizationID    *uuid.UUID `db:"organization_id"`
 	ClientURI         *string    `db:"client_uri"`
 	LogoURL           *string    `db:"logo_url"`
 	Active            bool       `db:"active"`
@@ -39,5 +39,5 @@ type OAuth2ClientRepository interface {
 	Create(ctx context.Context, client *OAuth2Client) error
 	Update(ctx context.Context, client *OAuth2Client) error
 	Delete(ctx context.Context, id uuid.UUID) error
-	List(ctx context.Context, tenantID *uuid.UUID, active *bool, limit, offset int) ([]*OAuth2Client, int, error)
+	List(ctx context.Context, organizationID *uuid.UUID, active *bool, limit, offset int) ([]*OAuth2Client, int, error)
 }

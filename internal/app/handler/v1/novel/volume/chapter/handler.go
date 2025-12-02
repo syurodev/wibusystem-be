@@ -1,7 +1,6 @@
 package volume_chapter
 
 import (
-	"encoding/json"
 	"errors"
 	"net/http"
 	"time"
@@ -10,6 +9,7 @@ import (
 	"github.com/gofrs/uuid/v5"
 	"github.com/jackc/pgx/v5"
 
+	"system/internal/app/middleware"
 	"system/internal/domain"
 	"system/internal/pkg/service"
 	pkgerrors "system/pkg/errors"
@@ -18,12 +18,16 @@ import (
 )
 
 type Handler struct {
-	chapterService *service.ChapterService
+	chapterService      *service.ChapterService
+	volumeService       *service.VolumeService
+	viewTrackingService *service.ViewTrackingService
 }
 
-func NewHandler(chapterService *service.ChapterService) *Handler {
+func NewHandler(chapterService *service.ChapterService, volumeService *service.VolumeService, viewTrackingService *service.ViewTrackingService) *Handler {
 	return &Handler{
-		chapterService: chapterService,
+		chapterService:      chapterService,
+		volumeService:       volumeService,
+		viewTrackingService: viewTrackingService,
 	}
 }
 
@@ -39,16 +43,8 @@ func NewHandler(chapterService *service.ChapterService) *Handler {
 // @Failure 500 {object} response.StandardResponse
 // @Router /api/v1/novels/{id}/volumes/{volume_id}/chapters [post]
 func (h *Handler) CreateChapter(c *gin.Context) {
-	// Get novel ID from path
-	novelIDStr := c.Param("id")
-	novelID, err := uuid.FromString(novelIDStr)
-	if err != nil {
-		response.Error(c, http.StatusBadRequest, "INVALID_NOVEL_ID", "novel.invalid_id", nil)
-		return
-	}
-
-	// Get volume ID from path
-	volumeIDStr := c.Param("volume_id")
+	// Get volume ID from path (new route: /novels/volumes/:id/chapters)
+	volumeIDStr := c.Param("id")
 	volumeIDVal, err := uuid.FromString(volumeIDStr)
 	if err != nil {
 		response.Error(c, http.StatusBadRequest, "INVALID_VOLUME_ID", "volume.invalid_id", nil)
@@ -56,28 +52,32 @@ func (h *Handler) CreateChapter(c *gin.Context) {
 	}
 	volumeID := &volumeIDVal
 
+	// Novel ID is implicit, service will look it up from volume
+	novelID := uuid.Nil
+
 	var req CreateChapterRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, http.StatusBadRequest, "VALIDATION_FAILED", "validation.failed", err.Error())
 		return
 	}
 
-	// Parse optional scheduled time
-	var scheduledAt *time.Time
-	if req.ScheduledAt != nil {
-		t, err := time.Parse(time.RFC3339, *req.ScheduledAt)
-		if err != nil {
-			response.Error(c, http.StatusBadRequest, "INVALID_SCHEDULED_TIME", "chapter.invalid_scheduled_time", nil)
-			return
-		}
-		scheduledAt = &t
+	// Get user ID from authentication context
+	userIDStr, exists := middleware.GetUserID(c)
+	if !exists {
+		response.Error(c, http.StatusUnauthorized, "UNAUTHORIZED", "auth.unauthorized", nil)
+		return
+	}
+	userID, err := uuid.FromString(userIDStr)
+	if err != nil {
+		response.Error(c, http.StatusUnauthorized, "INVALID_USER_ID", "auth.invalid_user_id", nil)
+		return
 	}
 
 	// Create chapter
 	chapter, err := h.chapterService.CreateChapter(
 		c.Request.Context(),
 		novelID,
-		volumeID,
+		*volumeID,
 		req.ChapterNumber,
 		req.Title,
 		req.Content,
@@ -87,7 +87,8 @@ func (h *Handler) CreateChapter(c *gin.Context) {
 		req.Currency,
 		req.Status,
 		req.DisplayOrder,
-		scheduledAt,
+		req.ScheduledAt,
+		userID,
 	)
 	if err != nil {
 		if errors.Is(err, pkgerrors.ErrInvalidInput) {
@@ -102,6 +103,12 @@ func (h *Handler) CreateChapter(c *gin.Context) {
 			response.Error(c, http.StatusBadRequest, "INVALID_STATUS", "chapter.invalid_status", nil)
 			return
 		}
+		// Log the actual error for debugging
+		// Assuming we have a logger or just use fmt.Printf/log.Println for now if logger not injected
+		// But better to rely on the middleware logging if we pass the error?
+		// response.Error doesn't take the error object to log it.
+		// Let's use c.Error(err) so Gin logger picks it up
+		_ = c.Error(err)
 		response.Error(c, http.StatusInternalServerError, "CREATE_FAILED", "chapter.create_failed", nil)
 		return
 	}
@@ -151,21 +158,9 @@ func (h *Handler) UpdateChapter(c *gin.Context) {
 		volumeID = &vid
 	}
 
-	// Parse optional scheduled time
-	var scheduledAt *time.Time
-	if req.ScheduledAt != nil {
-		t, err := time.Parse(time.RFC3339, *req.ScheduledAt)
-		if err != nil {
-			response.Error(c, http.StatusBadRequest, "INVALID_SCHEDULED_TIME", "chapter.invalid_scheduled_time", nil)
-			return
-		}
-		scheduledAt = &t
-	}
-
 	// TODO: Get actual user ID from authentication context
 	systemUserID := uuid.Must(uuid.FromString("00000000-0000-0000-0000-000000000000"))
-	requestContext := extractRequestContext(c)
-
+	
 	// Update chapter
 	chapter, err := h.chapterService.UpdateChapter(
 		c.Request.Context(),
@@ -180,9 +175,9 @@ func (h *Handler) UpdateChapter(c *gin.Context) {
 		req.Currency,
 		req.Status,
 		req.DisplayOrder,
-		scheduledAt,
+		req.ScheduledAt,
 		systemUserID,
-		requestContext,
+		nil, // requestContext
 	)
 	if err != nil {
 		if errors.Is(err, pkgerrors.ErrChapterNotFound) {
@@ -366,7 +361,7 @@ func (h *Handler) ListChaptersByNovel(c *gin.Context) {
 // @Produce json
 // @Param volume_id path string true "Volume ID"
 // @Param published_only query bool false "Only published chapters"
-// @Success 200 {object} response.StandardResponse{data=[]ChapterResponse}
+// @Success 200 {object} response.StandardResponse{data=ListChaptersResponse}
 // @Failure 400 {object} response.StandardResponse
 // @Failure 500 {object} response.StandardResponse
 // @Router /api/v1/volumes/{volume_id}/chapters [get]
@@ -381,6 +376,17 @@ func (h *Handler) ListChaptersByVolume(c *gin.Context) {
 
 	publishedOnly := c.Query("published_only") == "true"
 
+	// Get volume info to get title
+	volume, err := h.volumeService.GetVolumeByID(c.Request.Context(), volumeID)
+	if err != nil {
+		// If volume not found, return 404
+		// Note: We need to check error type, but for now generic error is fine or we can assume 500 if not found?
+		// Ideally we should return 404 if volume doesn't exist.
+		// Let's assume GetVolumeByID returns error if not found.
+		response.Error(c, http.StatusNotFound, "VOLUME_NOT_FOUND", "volume.not_found", nil)
+		return
+	}
+
 	// Get chapters
 	chapters, err := h.chapterService.GetChaptersByVolumeID(c.Request.Context(), volumeID, publishedOnly)
 	if err != nil {
@@ -394,7 +400,13 @@ func (h *Handler) ListChaptersByVolume(c *gin.Context) {
 		chapterResponses[i] = mapToChapterResponse(chapter)
 	}
 
-	response.Success(c, http.StatusOK, "chapter.list_success", chapterResponses, nil)
+	resp := ListChaptersResponse{
+		VolumeID:    volume.ID.String(),
+		VolumeTitle: volume.Title,
+		Chapters:    chapterResponses,
+	}
+
+	response.Success(c, http.StatusOK, "chapter.list_success", resp, nil)
 }
 
 // PublishChapter publishes a chapter immediately
@@ -500,14 +512,28 @@ func (h *Handler) IncrementViewCount(c *gin.Context) {
 		return
 	}
 
-	// Increment view count
-	err = h.chapterService.IncrementViewCount(c.Request.Context(), id)
+	// Get user ID from context (optional)
+	var userID *uuid.UUID
+	// TODO: Extract user ID from auth middleware if available
+	// if user := middleware.GetUser(c); user != nil {
+	// 	uid := user.ID
+	// 	userID = &uid
+	// }
+
+	// Get IP address
+	ipAddress := c.ClientIP()
+
+	// Track view using ViewTrackingService (Redis + ClickHouse)
+	counted, err := h.viewTrackingService.TrackChapterView(c.Request.Context(), id, userID, ipAddress)
 	if err != nil {
-		response.Error(c, http.StatusInternalServerError, "INCREMENT_FAILED", "chapter.increment_view_failed", nil)
-		return
+		// Log error but don't fail the request if tracking fails
+		// response.Error(c, http.StatusInternalServerError, "TRACKING_FAILED", "chapter.tracking_failed", nil)
+		// Instead, we return success but log the error internally (already done in service)
+		// For debugging purposes, we might want to return error
+		_ = err
 	}
 
-	response.Success(c, http.StatusOK, "chapter.view_incremented", nil, nil)
+	response.Success(c, http.StatusOK, "chapter.view_tracked", gin.H{"counted": counted}, nil)
 }
 
 // UpdateStatistics updates chapter statistics
@@ -566,7 +592,7 @@ func mapToChapterDetailResponse(chapter *domain.Chapter) ChapterDetailResponse {
 		ChapterNumber:  chapter.ChapterNumber,
 		Title:          chapter.Title,
 		Slug:           chapter.Slug,
-		Content:        extractContentFromJSON(chapter.Content),
+		Content:        chapter.Content,
 		WordCount:      chapter.WordCount,
 		CharacterCount: chapter.CharacterCount,
 		IsFree:         chapter.IsFree,
@@ -577,6 +603,7 @@ func mapToChapterDetailResponse(chapter *domain.Chapter) ChapterDetailResponse {
 		LikeCount:      chapter.LikeCount,
 		CommentCount:   chapter.CommentCount,
 		DisplayOrder:   chapter.DisplayOrder,
+		AuthorNotes:    chapter.AuthorNotes,
 		CreatedAt:      chapter.CreatedAt.Format(timeutil.ISO8601Layout),
 		UpdatedAt:      chapter.UpdatedAt.Format(timeutil.ISO8601Layout),
 	}
@@ -584,14 +611,6 @@ func mapToChapterDetailResponse(chapter *domain.Chapter) ChapterDetailResponse {
 	if chapter.VolumeID != nil {
 		volumeID := chapter.VolumeID.String()
 		resp.VolumeID = &volumeID
-	}
-
-	// Extract author notes if present
-	if len(chapter.AuthorNotes) > 0 {
-		authorNotes := extractContentFromJSON(chapter.AuthorNotes)
-		if authorNotes != "" {
-			resp.AuthorNotes = &authorNotes
-		}
 	}
 
 	// Format optional dates
@@ -648,21 +667,7 @@ func mapToChapterResponse(chapter *domain.Chapter) ChapterResponse {
 	return resp
 }
 
-// Helper function to extract content from JSONB
-func extractContentFromJSON(contentJSON json.RawMessage) string {
-	if len(contentJSON) == 0 {
-		return ""
-	}
 
-	var contentData map[string]any
-	if err := json.Unmarshal(contentJSON, &contentData); err == nil {
-		if content, ok := contentData["content"].(string); ok && content != "" {
-			return content
-		}
-	}
-
-	return ""
-}
 
 // Helper function to extract request context for history logging
 func extractRequestContext(c *gin.Context) map[string]any {

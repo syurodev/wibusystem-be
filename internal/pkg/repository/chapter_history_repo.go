@@ -25,7 +25,7 @@ func NewChapterHistoryRepository(pool *pgxpool.Pool) service.ChapterHistoryRepos
 func (r *chapterHistoryRepository) GetLatestVersion(ctx context.Context, chapterID uuid.UUID) (int, error) {
 	query := `
 		SELECT COALESCE(MAX(version_number), 0) as version
-		FROM catalog.chapter_history
+		FROM catalog.novel_chapter_histories
 		WHERE chapter_id = $1
 	`
 
@@ -87,7 +87,7 @@ func (r *chapterHistoryRepository) LogUpdate(ctx context.Context, chapterID, vol
 
 	// Insert history record
 	query := `
-		INSERT INTO catalog.chapter_history (
+		INSERT INTO catalog.novel_chapter_histories (
 			chapter_id, volume_id, novel_id, version_number, action,
 			title, slug, chapter_number, status,
 			word_count, character_count,
@@ -154,7 +154,7 @@ func (r *chapterHistoryRepository) LogPublish(ctx context.Context, chapterID, vo
 
 	// Insert history record
 	query := `
-		INSERT INTO catalog.chapter_history (
+		INSERT INTO catalog.novel_chapter_histories (
 			chapter_id, volume_id, novel_id, version_number, action,
 			changed_fields, change_summary, content_changed,
 			changed_by, request_id, ip_address, user_agent

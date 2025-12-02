@@ -8,9 +8,9 @@
 -- Description: Di chuyển functions kiểm tra permissions
 -- =====================================================
 
-ALTER FUNCTION user_has_tenant_permission(UUID, UUID, VARCHAR) SET SCHEMA identify;
+ALTER FUNCTION user_has_organization_permission(UUID, UUID, VARCHAR) SET SCHEMA identify;
 ALTER FUNCTION user_has_global_permission(UUID, VARCHAR) SET SCHEMA identify;
-ALTER FUNCTION get_user_tenant_permissions(UUID, UUID) SET SCHEMA identify;
+ALTER FUNCTION get_user_organization_permissions(UUID, UUID) SET SCHEMA identify;
 ALTER FUNCTION get_user_global_permissions(UUID) SET SCHEMA identify;
 
 -- =====================================================
@@ -38,9 +38,9 @@ BEGIN
     JOIN pg_namespace n ON p.pronamespace = n.oid
     WHERE n.nspname = 'identify'
         AND p.proname IN (
-            'user_has_tenant_permission',
+            'user_has_organization_permission',
             'user_has_global_permission',
-            'get_user_tenant_permissions',
+            'get_user_organization_permissions',
             'get_user_global_permissions',
             'cleanup_expired_oauth2_data',
             'is_token_revoked',

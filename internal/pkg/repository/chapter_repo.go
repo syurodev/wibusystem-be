@@ -28,8 +28,9 @@ func (r *chapterRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.
 		SELECT id, novel_id, volume_id, chapter_number, title, slug, content,
 		       word_count, character_count, is_free, price, currency, status,
 		       view_count, like_count, comment_count, display_order, author_notes,
-		       published_at, scheduled_at, created_at, updated_at, deleted_at
-		FROM catalog.chapters
+		       published_at, scheduled_at, created_at, updated_at, deleted_at,
+		       created_by, updated_by
+		FROM catalog.novel_chapters
 		WHERE id = $1 AND deleted_at IS NULL
 	`
 
@@ -52,8 +53,9 @@ func (r *chapterRepository) GetByNovelIDAndNumber(ctx context.Context, novelID u
 		SELECT id, novel_id, volume_id, chapter_number, title, slug, content,
 		       word_count, character_count, is_free, price, currency, status,
 		       view_count, like_count, comment_count, display_order, author_notes,
-		       published_at, scheduled_at, created_at, updated_at, deleted_at
-		FROM catalog.chapters
+		       published_at, scheduled_at, created_at, updated_at, deleted_at,
+		       created_by, updated_by
+		FROM catalog.novel_chapters
 		WHERE novel_id = $1 AND chapter_number = $2 AND deleted_at IS NULL
 	`
 
@@ -129,8 +131,9 @@ func (r *chapterRepository) GetByNovelID(ctx context.Context, novelID uuid.UUID,
 		SELECT id, novel_id, volume_id, chapter_number, title, slug, content,
 		       word_count, character_count, is_free, price, currency, status,
 		       view_count, like_count, comment_count, display_order, author_notes,
-		       published_at, scheduled_at, created_at, updated_at, deleted_at
-		FROM catalog.chapters
+		       published_at, scheduled_at, created_at, updated_at, deleted_at,
+		       created_by, updated_by
+		FROM catalog.novel_chapters
 		WHERE %s
 		ORDER BY %s
 	`, whereClause, orderBy)
@@ -165,8 +168,9 @@ func (r *chapterRepository) GetByVolumeID(ctx context.Context, volumeID uuid.UUI
 		SELECT id, novel_id, volume_id, chapter_number, title, slug, content,
 		       word_count, character_count, is_free, price, currency, status,
 		       view_count, like_count, comment_count, display_order, author_notes,
-		       published_at, scheduled_at, created_at, updated_at, deleted_at
-		FROM catalog.chapters
+		       published_at, scheduled_at, created_at, updated_at, deleted_at,
+		       created_by, updated_by
+		FROM catalog.novel_chapters
 		WHERE volume_id = $1 AND deleted_at IS NULL
 	`
 
@@ -192,11 +196,11 @@ func (r *chapterRepository) GetByVolumeID(ctx context.Context, volumeID uuid.UUI
 // Create tạo chapter mới trong database
 func (r *chapterRepository) Create(ctx context.Context, chapter *domain.Chapter) error {
 	query := `
-		INSERT INTO catalog.chapters (
+		INSERT INTO catalog.novel_chapters (
 			id, novel_id, volume_id, chapter_number, title, slug, content,
 			word_count, character_count, is_free, price, currency, status,
-			display_order, author_notes, scheduled_at
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+			display_order, author_notes, scheduled_at, created_by, updated_by
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
 	`
 
 	_, err := r.pool.Exec(ctx, query,
@@ -216,6 +220,8 @@ func (r *chapterRepository) Create(ctx context.Context, chapter *domain.Chapter)
 		chapter.DisplayOrder,
 		chapter.AuthorNotes,
 		chapter.ScheduledAt,
+		chapter.CreatedBy,
+		chapter.UpdatedBy,
 	)
 
 	return err
@@ -224,7 +230,7 @@ func (r *chapterRepository) Create(ctx context.Context, chapter *domain.Chapter)
 // Update cập nhật thông tin chapter
 func (r *chapterRepository) Update(ctx context.Context, chapter *domain.Chapter) error {
 	query := `
-		UPDATE catalog.chapters
+		UPDATE catalog.novel_chapters
 		SET volume_id = $2,
 		    chapter_number = $3,
 		    title = $4,
@@ -238,7 +244,8 @@ func (r *chapterRepository) Update(ctx context.Context, chapter *domain.Chapter)
 		    status = $12,
 		    display_order = $13,
 		    author_notes = $14,
-		    scheduled_at = $15
+		    scheduled_at = $15,
+		    updated_by = $16
 		WHERE id = $1 AND deleted_at IS NULL
 	`
 
@@ -258,6 +265,7 @@ func (r *chapterRepository) Update(ctx context.Context, chapter *domain.Chapter)
 		chapter.DisplayOrder,
 		chapter.AuthorNotes,
 		chapter.ScheduledAt,
+		chapter.UpdatedBy,
 	)
 
 	return err
@@ -266,7 +274,7 @@ func (r *chapterRepository) Update(ctx context.Context, chapter *domain.Chapter)
 // Delete xóa mềm chapter
 func (r *chapterRepository) Delete(ctx context.Context, id uuid.UUID) error {
 	query := `
-		UPDATE catalog.chapters
+		UPDATE catalog.novel_chapters
 		SET deleted_at = NOW()
 		WHERE id = $1 AND deleted_at IS NULL
 	`
@@ -278,7 +286,7 @@ func (r *chapterRepository) Delete(ctx context.Context, id uuid.UUID) error {
 // Publish xuất bản chapter ngay lập tức
 func (r *chapterRepository) Publish(ctx context.Context, id uuid.UUID) error {
 	query := `
-		UPDATE catalog.chapters
+		UPDATE catalog.novel_chapters
 		SET status = 'published',
 		    published_at = COALESCE(published_at, NOW()),
 		    scheduled_at = NULL
@@ -292,7 +300,7 @@ func (r *chapterRepository) Publish(ctx context.Context, id uuid.UUID) error {
 // Schedule đặt lịch xuất bản chapter
 func (r *chapterRepository) Schedule(ctx context.Context, id uuid.UUID, scheduledAt time.Time) error {
 	query := `
-		UPDATE catalog.chapters
+		UPDATE catalog.novel_chapters
 		SET status = 'scheduled',
 		    scheduled_at = $2
 		WHERE id = $1 AND deleted_at IS NULL
@@ -308,8 +316,9 @@ func (r *chapterRepository) GetScheduledChapters(ctx context.Context, before tim
 		SELECT id, novel_id, volume_id, chapter_number, title, slug, content,
 		       word_count, character_count, is_free, price, currency, status,
 		       view_count, like_count, comment_count, display_order, author_notes,
-		       published_at, scheduled_at, created_at, updated_at, deleted_at
-		FROM catalog.chapters
+		       published_at, scheduled_at, created_at, updated_at, deleted_at,
+		       created_by, updated_by
+		FROM catalog.novel_chapters
 		WHERE status = 'scheduled'
 		  AND scheduled_at <= $1
 		  AND deleted_at IS NULL
@@ -332,7 +341,7 @@ func (r *chapterRepository) GetScheduledChapters(ctx context.Context, before tim
 // IncrementViewCount tăng view count
 func (r *chapterRepository) IncrementViewCount(ctx context.Context, id uuid.UUID) error {
 	query := `
-		UPDATE catalog.chapters
+		UPDATE catalog.novel_chapters
 		SET view_count = view_count + 1
 		WHERE id = $1 AND deleted_at IS NULL
 	`
@@ -372,10 +381,53 @@ func (r *chapterRepository) UpdateStatistics(ctx context.Context, id uuid.UUID, 
 	}
 
 	query := fmt.Sprintf(`
-		UPDATE catalog.chapters
+		UPDATE catalog.novel_chapters
 		SET %s
 		WHERE id = $1 AND deleted_at IS NULL
 	`, strings.Join(setClauses, ", "))
+
+	_, err := r.pool.Exec(ctx, query, args...)
+	return err
+}
+
+// BatchIncrementViewCount tăng view count cho nhiều chapters cùng lúc.
+// Sử dụng bulk UPDATE với VALUES pattern để tối ưu performance.
+//
+// SQL Pattern:
+//
+//	UPDATE catalog.novel_chapters AS c
+//	SET view_count = c.view_count + v.increment
+//	FROM (VALUES (uuid1, 15), (uuid2, 20)) AS v(id, increment)
+//	WHERE c.id = v.id AND c.deleted_at IS NULL
+//
+// Parameters:
+//   - ctx: Context
+//   - increments: Map từ chapter ID -> increment amount
+//
+// Returns:
+//   - error: Lỗi nếu có
+func (r *chapterRepository) BatchIncrementViewCount(ctx context.Context, increments map[uuid.UUID]int64) error {
+	if len(increments) == 0 {
+		return nil
+	}
+
+	// Build VALUES clause cho bulk update
+	var values []string
+	var args []any
+	argIdx := 1
+
+	for id, count := range increments {
+		values = append(values, fmt.Sprintf("($%d::uuid, $%d::bigint)", argIdx, argIdx+1))
+		args = append(args, id, count)
+		argIdx += 2
+	}
+
+	query := fmt.Sprintf(`
+		UPDATE catalog.novel_chapters AS c
+		SET view_count = c.view_count + v.increment
+		FROM (VALUES %s) AS v(id, increment)
+		WHERE c.id = v.id AND c.deleted_at IS NULL
+	`, strings.Join(values, ", "))
 
 	_, err := r.pool.Exec(ctx, query, args...)
 	return err

@@ -23,10 +23,10 @@ CREATE TABLE oauth2_clients (
     -- Client type
     is_public BOOLEAN NOT NULL DEFAULT FALSE, -- TRUE for public clients (mobile, SPA)
 
-    -- Multi-tenant support
+    -- Multi-organization support
     -- NULL = global/first-party client (e.g., admin dashboard)
-    -- NOT NULL = tenant-specific client
-    tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
+    -- NOT NULL = organization-specific client
+    organization_id UUID REFERENCES organizations(id) ON DELETE CASCADE,
 
     -- Metadata
     owner_user_id UUID REFERENCES users(id) ON DELETE SET NULL, -- User who created this client
@@ -54,7 +54,7 @@ CREATE TABLE oauth2_clients (
 );
 
 -- Indexes
-CREATE INDEX idx_oauth2_clients_tenant_id ON oauth2_clients(tenant_id);
+CREATE INDEX idx_oauth2_clients_organization_id ON oauth2_clients(organization_id);
 CREATE INDEX idx_oauth2_clients_owner_user_id ON oauth2_clients(owner_user_id);
 CREATE INDEX idx_oauth2_clients_is_public ON oauth2_clients(is_public);
 
@@ -63,8 +63,8 @@ CREATE TRIGGER update_oauth2_clients_updated_at BEFORE UPDATE ON oauth2_clients
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- Comment
-COMMENT ON TABLE oauth2_clients IS 'Lưu trữ OAuth 2.0 clients đã đăng ký - hỗ trợ cả global và tenant-specific clients';
-COMMENT ON COLUMN oauth2_clients.tenant_id IS 'NULL = global client (first-party), NOT NULL = tenant-specific client (third-party)';
+COMMENT ON TABLE oauth2_clients IS 'Lưu trữ OAuth 2.0 clients đã đăng ký - hỗ trợ cả global và organization-specific clients';
+COMMENT ON COLUMN oauth2_clients.organization_id IS 'NULL = global client (first-party), NOT NULL = organization-specific client (third-party)';
 COMMENT ON COLUMN oauth2_clients.is_public IS 'TRUE cho public clients (mobile apps, SPAs) không có secret';
 COMMENT ON COLUMN oauth2_clients.secret_hash IS 'Hashed client secret (bcrypt hoặc argon2)';
 COMMENT ON COLUMN oauth2_clients.redirect_uris IS 'Danh sách redirect URIs được phép (OAuth 2.0 callback)';
@@ -292,7 +292,7 @@ INSERT INTO oauth2_clients (
     response_types,
     scopes,
     is_public,
-    tenant_id,
+    organization_id,
     token_endpoint_auth_method
 ) VALUES (
     gen_random_uuid(),

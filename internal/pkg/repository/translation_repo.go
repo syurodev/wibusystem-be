@@ -29,7 +29,7 @@ func (r *chapterTranslationRepository) GetByID(ctx context.Context, id uuid.UUID
 		       translator_id, version, status, word_count, character_count,
 		       view_count, like_count, rating_average, rating_count,
 		       published_at, created_at, updated_at, deleted_at
-		FROM catalog.chapter_translations
+		FROM catalog.novel_chapter_translations
 		WHERE id = $1 AND deleted_at IS NULL
 	`
 
@@ -53,7 +53,7 @@ func (r *chapterTranslationRepository) GetByChapterAndLanguage(ctx context.Conte
 		       translator_id, version, status, word_count, character_count,
 		       view_count, like_count, rating_average, rating_count,
 		       published_at, created_at, updated_at, deleted_at
-		FROM catalog.chapter_translations
+		FROM catalog.novel_chapter_translations
 		WHERE chapter_id = $1 AND language = $2 AND deleted_at IS NULL
 	`
 
@@ -77,7 +77,7 @@ func (r *chapterTranslationRepository) GetByChapterID(ctx context.Context, chapt
 		       translator_id, version, status, word_count, character_count,
 		       view_count, like_count, rating_average, rating_count,
 		       published_at, created_at, updated_at, deleted_at
-		FROM catalog.chapter_translations
+		FROM catalog.novel_chapter_translations
 		WHERE chapter_id = $1 AND deleted_at IS NULL
 		ORDER BY language ASC
 	`
@@ -135,7 +135,7 @@ func (r *chapterTranslationRepository) GetByTranslatorID(ctx context.Context, tr
 		       translator_id, version, status, word_count, character_count,
 		       view_count, like_count, rating_average, rating_count,
 		       published_at, created_at, updated_at, deleted_at
-		FROM catalog.chapter_translations
+		FROM catalog.novel_chapter_translations
 		WHERE %s
 		ORDER BY %s
 	`, whereClause, orderBy)
@@ -167,7 +167,7 @@ func (r *chapterTranslationRepository) GetByTranslatorID(ctx context.Context, tr
 // Create tạo translation mới
 func (r *chapterTranslationRepository) Create(ctx context.Context, translation *domain.ChapterTranslation) error {
 	query := `
-		INSERT INTO catalog.chapter_translations (
+		INSERT INTO catalog.novel_chapter_translations (
 			id, chapter_id, language, title, content, translator_notes,
 			translator_id, version, status, word_count, character_count
 		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
@@ -193,7 +193,7 @@ func (r *chapterTranslationRepository) Create(ctx context.Context, translation *
 // Update cập nhật translation
 func (r *chapterTranslationRepository) Update(ctx context.Context, translation *domain.ChapterTranslation) error {
 	query := `
-		UPDATE catalog.chapter_translations
+		UPDATE catalog.novel_chapter_translations
 		SET language = $2,
 		    title = $3,
 		    content = $4,
@@ -223,7 +223,7 @@ func (r *chapterTranslationRepository) Update(ctx context.Context, translation *
 // Delete xóa mềm translation
 func (r *chapterTranslationRepository) Delete(ctx context.Context, id uuid.UUID) error {
 	query := `
-		UPDATE catalog.chapter_translations
+		UPDATE catalog.novel_chapter_translations
 		SET deleted_at = NOW()
 		WHERE id = $1 AND deleted_at IS NULL
 	`
@@ -235,7 +235,7 @@ func (r *chapterTranslationRepository) Delete(ctx context.Context, id uuid.UUID)
 // Publish xuất bản translation
 func (r *chapterTranslationRepository) Publish(ctx context.Context, id uuid.UUID) error {
 	query := `
-		UPDATE catalog.chapter_translations
+		UPDATE catalog.novel_chapter_translations
 		SET status = 'published',
 		    published_at = COALESCE(published_at, NOW())
 		WHERE id = $1 AND deleted_at IS NULL
@@ -248,7 +248,7 @@ func (r *chapterTranslationRepository) Publish(ctx context.Context, id uuid.UUID
 // IncrementViewCount tăng view count
 func (r *chapterTranslationRepository) IncrementViewCount(ctx context.Context, id uuid.UUID) error {
 	query := `
-		UPDATE catalog.chapter_translations
+		UPDATE catalog.novel_chapter_translations
 		SET view_count = view_count + 1
 		WHERE id = $1 AND deleted_at IS NULL
 	`
@@ -294,7 +294,7 @@ func (r *chapterTranslationRepository) UpdateStatistics(ctx context.Context, id 
 	}
 
 	query := fmt.Sprintf(`
-		UPDATE catalog.chapter_translations
+		UPDATE catalog.novel_chapter_translations
 		SET %s
 		WHERE id = $1 AND deleted_at IS NULL
 	`, strings.Join(setClauses, ", "))

@@ -22,11 +22,13 @@ func NewVolumeRepository(pool *pgxpool.Pool) domain.VolumeRepository {
 // GetByID lấy volume từ database theo ID
 func (r *volumeRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.Volume, error) {
 	query := `
-		SELECT id, novel_id, volume_number, title, slug, description,
-		       cover_image_url, chapter_count, word_count, display_order,
-		       is_published, published_at, created_at, updated_at, deleted_at
-		FROM catalog.volumes
-		WHERE id = $1 AND deleted_at IS NULL
+		SELECT v.id, v.novel_id, v.volume_number, v.title, v.slug, v.description,
+		       v.cover_image_url, v.chapter_count, v.word_count, v.display_order,
+		       v.is_published, v.published_at, v.created_at, v.updated_at, v.deleted_at, v.created_by,
+		       n.title as novel_title
+		FROM catalog.novel_volumes v
+		LEFT JOIN catalog.novels n ON v.novel_id = n.id
+		WHERE v.id = $1 AND v.deleted_at IS NULL
 	`
 
 	rows, err := r.pool.Query(ctx, query, id)
@@ -45,11 +47,13 @@ func (r *volumeRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.V
 // GetByNovelIDAndNumber lấy volume theo novel ID và volume number
 func (r *volumeRepository) GetByNovelIDAndNumber(ctx context.Context, novelID uuid.UUID, volumeNumber int) (*domain.Volume, error) {
 	query := `
-		SELECT id, novel_id, volume_number, title, slug, description,
-		       cover_image_url, chapter_count, word_count, display_order,
-		       is_published, published_at, created_at, updated_at, deleted_at
-		FROM catalog.volumes
-		WHERE novel_id = $1 AND volume_number = $2 AND deleted_at IS NULL
+		SELECT v.id, v.novel_id, v.volume_number, v.title, v.slug, v.description,
+		       v.cover_image_url, v.chapter_count, v.word_count, v.display_order,
+		       v.is_published, v.published_at, v.created_at, v.updated_at, v.deleted_at, v.created_by,
+		       n.title as novel_title
+		FROM catalog.novel_volumes v
+		LEFT JOIN catalog.novels n ON v.novel_id = n.id
+		WHERE v.novel_id = $1 AND v.volume_number = $2 AND v.deleted_at IS NULL
 	`
 
 	rows, err := r.pool.Query(ctx, query, novelID, volumeNumber)
@@ -68,18 +72,20 @@ func (r *volumeRepository) GetByNovelIDAndNumber(ctx context.Context, novelID uu
 // GetByNovelID lấy danh sách volume theo novel ID
 func (r *volumeRepository) GetByNovelID(ctx context.Context, novelID uuid.UUID, publishedOnly bool) ([]*domain.Volume, error) {
 	query := `
-		SELECT id, novel_id, volume_number, title, slug, description,
-		       cover_image_url, chapter_count, word_count, display_order,
-		       is_published, published_at, created_at, updated_at, deleted_at
-		FROM catalog.volumes
-		WHERE novel_id = $1 AND deleted_at IS NULL
+		SELECT v.id, v.novel_id, v.volume_number, v.title, v.slug, v.description,
+		       v.cover_image_url, v.chapter_count, v.word_count, v.display_order,
+		       v.is_published, v.published_at, v.created_at, v.updated_at, v.deleted_at, v.created_by,
+		       n.title as novel_title
+		FROM catalog.novel_volumes v
+		LEFT JOIN catalog.novels n ON v.novel_id = n.id
+		WHERE v.novel_id = $1 AND v.deleted_at IS NULL
 	`
 
 	if publishedOnly {
-		query += " AND is_published = true"
+		query += " AND v.is_published = true"
 	}
 
-	query += " ORDER BY display_order ASC, volume_number ASC"
+	query += " ORDER BY v.display_order ASC, v.volume_number ASC"
 
 	rows, err := r.pool.Query(ctx, query, novelID)
 	if err != nil {
@@ -97,10 +103,10 @@ func (r *volumeRepository) GetByNovelID(ctx context.Context, novelID uuid.UUID, 
 // Create tạo volume mới trong database
 func (r *volumeRepository) Create(ctx context.Context, volume *domain.Volume) error {
 	query := `
-		INSERT INTO catalog.volumes (
+		INSERT INTO catalog.novel_volumes (
 			id, novel_id, volume_number, title, slug, description,
-			cover_image_url, display_order, is_published
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+			cover_image_url, display_order, is_published, created_by
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 	`
 
 	_, err := r.pool.Exec(ctx, query,
@@ -113,6 +119,7 @@ func (r *volumeRepository) Create(ctx context.Context, volume *domain.Volume) er
 		volume.CoverImageURL,
 		volume.DisplayOrder,
 		volume.IsPublished,
+		volume.CreatedBy,
 	)
 
 	return err
@@ -121,7 +128,7 @@ func (r *volumeRepository) Create(ctx context.Context, volume *domain.Volume) er
 // Update cập nhật thông tin volume
 func (r *volumeRepository) Update(ctx context.Context, volume *domain.Volume) error {
 	query := `
-		UPDATE catalog.volumes
+		UPDATE catalog.novel_volumes
 		SET volume_number = $2,
 		    title = $3,
 		    slug = $4,
@@ -149,7 +156,7 @@ func (r *volumeRepository) Update(ctx context.Context, volume *domain.Volume) er
 // Delete xóa mềm volume
 func (r *volumeRepository) Delete(ctx context.Context, id uuid.UUID) error {
 	query := `
-		UPDATE catalog.volumes
+		UPDATE catalog.novel_volumes
 		SET deleted_at = NOW()
 		WHERE id = $1 AND deleted_at IS NULL
 	`
@@ -161,7 +168,7 @@ func (r *volumeRepository) Delete(ctx context.Context, id uuid.UUID) error {
 // UpdateDisplayOrder cập nhật thứ tự hiển thị của volume
 func (r *volumeRepository) UpdateDisplayOrder(ctx context.Context, id uuid.UUID, order int) error {
 	query := `
-		UPDATE catalog.volumes
+		UPDATE catalog.novel_volumes
 		SET display_order = $2
 		WHERE id = $1 AND deleted_at IS NULL
 	`
@@ -173,7 +180,7 @@ func (r *volumeRepository) UpdateDisplayOrder(ctx context.Context, id uuid.UUID,
 // Publish xuất bản volume
 func (r *volumeRepository) Publish(ctx context.Context, id uuid.UUID) error {
 	query := `
-		UPDATE catalog.volumes
+		UPDATE catalog.novel_volumes
 		SET is_published = true,
 		    published_at = COALESCE(published_at, NOW())
 		WHERE id = $1 AND deleted_at IS NULL
@@ -186,7 +193,7 @@ func (r *volumeRepository) Publish(ctx context.Context, id uuid.UUID) error {
 // Unpublish ẩn volume
 func (r *volumeRepository) Unpublish(ctx context.Context, id uuid.UUID) error {
 	query := `
-		UPDATE catalog.volumes
+		UPDATE catalog.novel_volumes
 		SET is_published = false
 		WHERE id = $1 AND deleted_at IS NULL
 	`

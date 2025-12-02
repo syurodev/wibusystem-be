@@ -26,7 +26,7 @@ func NewVolumeHistoryRepository(pool *pgxpool.Pool) service.VolumeHistoryReposit
 func (r *volumeHistoryRepository) GetLatestVersion(ctx context.Context, volumeID uuid.UUID) (int, error) {
 	query := `
 		SELECT COALESCE(MAX(version_number), 0) as version
-		FROM catalog.volume_history
+		FROM catalog.novel_volume_histories
 		WHERE volume_id = $1
 	`
 
@@ -82,7 +82,7 @@ func (r *volumeHistoryRepository) LogUpdate(ctx context.Context, volumeID, novel
 
 	// Insert history record
 	query := `
-		INSERT INTO catalog.volume_history (
+		INSERT INTO catalog.novel_volume_histories (
 			volume_id, novel_id, version_number, action,
 			title, slug, volume_number, is_published,
 			chapter_count, word_count,
@@ -141,7 +141,7 @@ func (r *volumeHistoryRepository) LogPublish(ctx context.Context, volumeID, nove
 
 	// Insert history record
 	query := `
-		INSERT INTO catalog.volume_history (
+		INSERT INTO catalog.novel_volume_histories (
 			volume_id, novel_id, version_number, action,
 			changed_fields, change_summary,
 			changed_by, request_id, ip_address, user_agent
@@ -194,7 +194,7 @@ func (r *volumeHistoryRepository) LogUnpublish(ctx context.Context, volumeID, no
 
 	// Insert history record
 	query := `
-		INSERT INTO catalog.volume_history (
+		INSERT INTO catalog.novel_volume_histories (
 			volume_id, novel_id, version_number, action,
 			changed_fields, change_summary,
 			changed_by, request_id, ip_address, user_agent

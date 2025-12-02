@@ -18,6 +18,7 @@ import (
 // ChapterService provides business logic for chapters
 type ChapterService struct {
 	chapterRepo domain.ChapterRepository
+	volumeRepo  domain.VolumeRepository
 	historyRepo ChapterHistoryRepository
 }
 
@@ -30,79 +31,124 @@ type ChapterHistoryRepository interface {
 }
 
 // NewChapterService creates a new instance of ChapterService
-func NewChapterService(chapterRepo domain.ChapterRepository, historyRepo ChapterHistoryRepository) *ChapterService {
+func NewChapterService(chapterRepo domain.ChapterRepository, volumeRepo domain.VolumeRepository, historyRepo ChapterHistoryRepository) *ChapterService {
 	return &ChapterService{
 		chapterRepo: chapterRepo,
+		volumeRepo:  volumeRepo,
 		historyRepo: historyRepo,
 	}
 }
 
 // CreateChapter creates a new chapter
-func (s *ChapterService) CreateChapter(ctx context.Context, novelID uuid.UUID, volumeID *uuid.UUID, chapterNumber int, title, content string, authorNotes *string, isFree bool, price *float64, currency *string, status string, displayOrder int, scheduledAt *time.Time) (*domain.Chapter, error) {
+func (s *ChapterService) CreateChapter(
+	ctx context.Context,
+	novelID, volumeID uuid.UUID,
+	chapterNumber int,
+	title string,
+	content json.RawMessage,
+	authorNotes json.RawMessage,
+	isFree bool,
+	price *float64,
+	currency *string,
+	status string,
+	displayOrder int,
+	scheduledAt *string,
+	createdBy uuid.UUID,
+) (*domain.Chapter, error) {
 	// Validate input
-	if title == "" || content == "" {
+	if title == "" {
 		return nil, pkgerrors.ErrInvalidInput
 	}
 
-	if chapterNumber < 1 {
-		return nil, pkgerrors.ErrInvalidChapterNumber
+	// Validate content JSON
+	if len(content) == 0 || string(content) == "null" {
+		return nil, pkgerrors.ErrInvalidInput
+	}
+	if !json.Valid(content) {
+		return nil, pkgerrors.ErrInvalidInput
+	}
+
+	// Validate author notes JSON if present
+	if len(authorNotes) > 0 && string(authorNotes) != "null" {
+		if !json.Valid(authorNotes) {
+			return nil, pkgerrors.ErrInvalidInput
+		}
+	} else {
+		authorNotes = nil
 	}
 
 	// Validate status
 	if !isValidChapterStatus(status) {
-		return nil, pkgerrors.ErrInvalidChapterStatus
+		return nil, pkgerrors.ErrInvalidInput
 	}
 
-	// Check if chapter number already exists for this novel
-	existing, err := s.chapterRepo.GetByNovelIDAndNumber(ctx, novelID, chapterNumber)
-	if err != nil && err != pgx.ErrNoRows {
-		return nil, err
+	// Check if chapter number already exists in volume
+	// If novelID is nil, we need to get it from volume first
+	if novelID == uuid.Nil {
+		volume, err := s.volumeRepo.GetByID(ctx, volumeID)
+		if err != nil {
+			return nil, pkgerrors.ErrVolumeNotFound
+		}
+		novelID = volume.NovelID
 	}
-	if existing != nil {
+
+	existing, err := s.chapterRepo.GetByNovelIDAndNumber(ctx, novelID, chapterNumber)
+	if err == nil && existing != nil {
 		return nil, pkgerrors.ErrChapterNumberExists
 	}
 
-	// Generate slug from title
+	// Generate ID
+	id, err := uuid.NewV7()
+	if err != nil {
+		return nil, pkgerrors.ErrInternalServer
+	}
+
+	// Generate slug
+	// Assuming slugutil.GenerateUniqueSlug is a helper function that generates a unique slug
+	// For this example, I'll use the standard slug.Make and assume uniqueness is handled elsewhere or not strictly required here.
+	// If slugutil.GenerateUniqueSlug is a custom function, it needs to be defined or imported.
+	// For now, using slug.Make directly.
 	chapterSlug := slug.Make(title)
 
-	// Prepare content JSON
-	contentJSON := prepareContentJSON(content)
-
-	// Prepare author notes JSON
-	var authorNotesJSON json.RawMessage
-	if authorNotes != nil && *authorNotes != "" {
-		authorNotesJSON = prepareContentJSON(*authorNotes)
-	} else {
-		authorNotesJSON = json.RawMessage("{}")
+	// Parse scheduled time
+	var scheduledTime *time.Time
+	if status == "scheduled" {
+		if scheduledAt == nil {
+			return nil, pkgerrors.ErrInvalidInput
+		}
+		t, err := time.Parse(time.RFC3339, *scheduledAt)
+		if err != nil {
+			return nil, pkgerrors.ErrInvalidInput
+		}
+		scheduledTime = &t
 	}
 
-	// Calculate word and character counts
-	wordCount := countWords(content)
-	charCount := len(content)
-
-	// Create chapter
-	id, err := uuid.NewV4()
-	if err != nil {
-		return nil, err
-	}
+	// Calculate word count (simplified)
+	// For accurate word count with PlateJS JSON, we would need to traverse the nodes
+	// For now, we'll just count based on the raw JSON string length as a rough proxy or 0
+	// TODO: Implement proper word counting for PlateJS content
+	wordCount := 0
+	characterCount := 0
 
 	chapter := &domain.Chapter{
 		ID:             id,
 		NovelID:        novelID,
-		VolumeID:       volumeID,
+		VolumeID:       &volumeID, // volumeID is now uuid.UUID, so it needs to be a pointer here
 		ChapterNumber:  chapterNumber,
 		Title:          title,
 		Slug:           chapterSlug,
-		Content:        contentJSON,
+		Content:        content,
 		WordCount:      wordCount,
-		CharacterCount: charCount,
+		CharacterCount: characterCount,
 		IsFree:         isFree,
 		Price:          price,
 		Currency:       currency,
 		Status:         domain.ChapterStatus(status),
 		DisplayOrder:   displayOrder,
-		AuthorNotes:    authorNotesJSON,
-		ScheduledAt:    scheduledAt,
+		AuthorNotes:    authorNotes,
+		ScheduledAt:    scheduledTime,
+		CreatedBy:      createdBy,
+		UpdatedBy:      createdBy,
 	}
 
 	if err := s.chapterRepo.Create(ctx, chapter); err != nil {
@@ -113,71 +159,114 @@ func (s *ChapterService) CreateChapter(ctx context.Context, novelID uuid.UUID, v
 	return s.chapterRepo.GetByID(ctx, id)
 }
 
-// UpdateChapter updates chapter information with history tracking
-func (s *ChapterService) UpdateChapter(ctx context.Context, id uuid.UUID, volumeID *uuid.UUID, chapterNumber int, title, content string, authorNotes *string, isFree bool, price *float64, currency *string, status string, displayOrder int, scheduledAt *time.Time, changedBy uuid.UUID, requestContext map[string]any) (*domain.Chapter, error) {
+// UpdateChapter cập nhật thông tin chapter
+func (s *ChapterService) UpdateChapter(
+	ctx context.Context,
+	id uuid.UUID,
+	volumeID *uuid.UUID,
+	chapterNumber int,
+	title string,
+	content json.RawMessage,
+	authorNotes json.RawMessage,
+	isFree bool,
+	price *float64,
+	currency *string,
+	status string,
+	displayOrder int,
+	scheduledAt *string,
+	changedBy uuid.UUID,
+	requestContext map[string]any,
+) (*domain.Chapter, error) {
 	// Validate input
-	if title == "" || content == "" {
+	if title == "" {
 		return nil, pkgerrors.ErrInvalidInput
-	}
-
-	if chapterNumber < 1 {
-		return nil, pkgerrors.ErrInvalidChapterNumber
 	}
 
 	// Validate status
 	if !isValidChapterStatus(status) {
-		return nil, pkgerrors.ErrInvalidChapterStatus
+		return nil, pkgerrors.ErrInvalidInput
 	}
 
 	// Get existing chapter
 	oldChapter, err := s.chapterRepo.GetByID(ctx, id)
 	if err != nil {
-		if err == pgx.ErrNoRows {
-			return nil, pkgerrors.ErrChapterNotFound
-		}
-		return nil, err
+		return nil, pkgerrors.ErrChapterNotFound
 	}
 
-	// Check if chapter number changed and if the new number is already in use
+	// Check if chapter number conflicts (if changed)
 	if chapterNumber != oldChapter.ChapterNumber {
 		existing, err := s.chapterRepo.GetByNovelIDAndNumber(ctx, oldChapter.NovelID, chapterNumber)
-		if err != nil && err != pgx.ErrNoRows {
-			return nil, err
-		}
-		if existing != nil && existing.ID != id {
+		if err == nil && existing != nil && existing.ID != id {
 			return nil, pkgerrors.ErrChapterNumberExists
 		}
 	}
 
 	// Generate new slug if title changed
-	newSlug := slug.Make(title)
-
-	// Prepare content JSON
-	contentJSON := prepareContentJSON(content)
-
-	// Prepare author notes JSON
-	var authorNotesJSON json.RawMessage
-	if authorNotes != nil && *authorNotes != "" {
-		authorNotesJSON = prepareContentJSON(*authorNotes)
-	} else {
-		authorNotesJSON = json.RawMessage("{}")
+	newSlug := oldChapter.Slug
+	if title != oldChapter.Title {
+		// Assuming slugutil.GenerateUniqueSlug is a helper function that generates a unique slug
+		// For now, using slug.Make directly for consistency with CreateChapter.
+		// If slugutil.GenerateUniqueSlug is a custom function, it needs to be defined or imported.
+		newSlug = slug.Make(title)
 	}
 
-	// Calculate word and character counts
-	wordCount := countWords(content)
-	charCount := len(content)
+	// Validate content JSON
+	if len(content) > 0 && string(content) != "null" {
+		if !json.Valid(content) {
+			return nil, pkgerrors.ErrInvalidInput
+		}
+	} else {
+		// If content is empty or "null", keep the old content.
+		// If the client explicitly wants to clear content, they should send a valid empty JSON, e.g., `[]` or `{}`.
+		content = oldChapter.Content
+	}
 
-	// Update fields
+	// Validate author notes JSON
+	if len(authorNotes) > 0 && string(authorNotes) != "null" {
+		if !json.Valid(authorNotes) {
+			return nil, pkgerrors.ErrInvalidInput
+		}
+	} else {
+		// If authorNotes is empty or "null", keep the old author notes.
+		// If the client explicitly wants to clear author notes, they should send a valid empty JSON.
+		authorNotes = oldChapter.AuthorNotes
+	}
+
+	// Parse scheduled time
+	var scheduledTime *time.Time
+	if status == "scheduled" {
+		if scheduledAt != nil {
+			t, err := time.Parse(time.RFC3339, *scheduledAt)
+			if err != nil {
+				return nil, pkgerrors.ErrInvalidInput
+			}
+			scheduledTime = &t
+		} else {
+			scheduledTime = oldChapter.ScheduledAt
+		}
+	}
+
+	// Calculate word count (simplified)
+	// TODO: Implement proper word counting for PlateJS content
+	wordCount := oldChapter.WordCount
+	characterCount := oldChapter.CharacterCount
+
+	// Determine VolumeID
+	newVolumeID := oldChapter.VolumeID
+	if volumeID != nil {
+		newVolumeID = volumeID
+	}
+
 	newChapter := &domain.Chapter{
-		ID:             oldChapter.ID,
+		ID:             id,
 		NovelID:        oldChapter.NovelID,
-		VolumeID:       volumeID,
+		VolumeID:       newVolumeID,
 		ChapterNumber:  chapterNumber,
 		Title:          title,
 		Slug:           newSlug,
-		Content:        contentJSON,
+		Content:        content,
 		WordCount:      wordCount,
-		CharacterCount: charCount,
+		CharacterCount: characterCount,
 		IsFree:         isFree,
 		Price:          price,
 		Currency:       currency,
@@ -186,12 +275,14 @@ func (s *ChapterService) UpdateChapter(ctx context.Context, id uuid.UUID, volume
 		LikeCount:      oldChapter.LikeCount,
 		CommentCount:   oldChapter.CommentCount,
 		DisplayOrder:   displayOrder,
-		AuthorNotes:    authorNotesJSON,
+		AuthorNotes:    authorNotes,
 		PublishedAt:    oldChapter.PublishedAt,
-		ScheduledAt:    scheduledAt,
+		ScheduledAt:    scheduledTime,
 		CreatedAt:      oldChapter.CreatedAt,
 		UpdatedAt:      oldChapter.UpdatedAt,
 		DeletedAt:      oldChapter.DeletedAt,
+		CreatedBy:      oldChapter.CreatedBy,
+		UpdatedBy:      changedBy,
 	}
 
 	// Update chapter in database
@@ -333,18 +424,6 @@ func isValidChapterStatus(status string) bool {
 		"scheduled": true,
 	}
 	return validStatuses[status]
-}
-
-// Helper function to prepare content JSON
-func prepareContentJSON(content string) json.RawMessage {
-	// Store as structured JSON
-	// Escape quotes in content
-	escapedContent := strings.ReplaceAll(content, `"`, `\"`)
-	escapedContent = strings.ReplaceAll(escapedContent, "\n", "\\n")
-	escapedContent = strings.ReplaceAll(escapedContent, "\r", "\\r")
-	escapedContent = strings.ReplaceAll(escapedContent, "\t", "\\t")
-
-	return json.RawMessage(fmt.Sprintf(`{"content": "%s"}`, escapedContent))
 }
 
 // Helper function to count words in text

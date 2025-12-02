@@ -1,6 +1,7 @@
 package router
 
 import (
+	"context"
 	"html/template"
 	"io/fs"
 	"net/http"
@@ -36,7 +37,7 @@ import (
 )
 
 // NewRouter khởi tạo và cấu hình Gin router.
-func NewRouter(cfg *configs.Config, i18nInstance *i18n.I18n, zapLogger *zap.Logger, db *database.PostgresDB, rdb *database.RedisClient) *gin.Engine {
+func NewRouter(cfg *configs.Config, i18nInstance *i18n.I18n, zapLogger *zap.Logger, db *database.PostgresDB, rdb *database.RedisClient, ch *database.ClickHouseClient) *gin.Engine {
 	// Thiết lập Gin mode
 	if cfg.Server.IsProd {
 		gin.SetMode(gin.ReleaseMode)
@@ -152,6 +153,8 @@ func NewRouter(cfg *configs.Config, i18nInstance *i18n.I18n, zapLogger *zap.Logg
 	txManager := txdb.NewTransactionManager(db.Pool)
 	webauthnCredentialRepo := repository.NewWebAuthnCredentialRepository(db.Pool)
 	webauthnSessionRepo := repository.NewWebAuthnSessionRepository(db.Pool)
+	viewAnalyticsRepo := repository.NewViewAnalyticsClickHouseRepository(ch)
+	viewTrackingRepo := repository.NewViewTrackingRedisRepository(rdb)
 
 	// Fosite Storage
 	sqlStore := fosite_storage.NewSQLStore(oauth2ClientRepo, oauth2SessionRepo)
@@ -186,7 +189,36 @@ func NewRouter(cfg *configs.Config, i18nInstance *i18n.I18n, zapLogger *zap.Logg
 	artistService := service.NewArtistService(artistRepo)
 	novelService := service.NewNovelService(novelRepo, volumeRepo, genreRepo, authorRepo, artistRepo, txManager)
 	volumeService := service.NewVolumeService(volumeRepo, volumeHistoryRepo)
-	chapterService := service.NewChapterService(chapterRepo, chapterHistoryRepo)
+	chapterService := service.NewChapterService(chapterRepo, volumeRepo, chapterHistoryRepo)
+	viewTrackingService := service.NewViewTrackingService(viewTrackingRepo, viewAnalyticsRepo, chapterRepo, novelRepo, zapLogger, &cfg.ViewTracking)
+
+	// Start View Tracking Workers
+	if cfg.ViewTracking.WorkerEnabled {
+		// Worker 1: Sync buffers from Redis to Postgres
+		go func() {
+			ticker := time.NewTicker(time.Duration(cfg.ViewTracking.SyncIntervalMinutes) * time.Minute)
+			defer ticker.Stop()
+
+			for range ticker.C {
+				if err := viewTrackingService.SyncBuffersToPostgreSQL(context.Background()); err != nil {
+					zapLogger.Error("Failed to sync view buffers to PostgreSQL", zap.Error(err))
+				}
+			}
+		}()
+
+		// Worker 2: Sync events from Redis to ClickHouse
+		go func() {
+			// Sync frequently for near real-time analytics (e.g., every 10 seconds)
+			ticker := time.NewTicker(10 * time.Second)
+			defer ticker.Stop()
+
+			for range ticker.C {
+				if err := viewTrackingService.SyncEventsToClickHouse(context.Background()); err != nil {
+					zapLogger.Error("Failed to sync view events to ClickHouse", zap.Error(err))
+				}
+			}
+		}()
+	}
 
 	webauthnService, err := service.NewWebAuthnService(
 		cfg.WebAuthn,
@@ -216,9 +248,9 @@ func NewRouter(cfg *configs.Config, i18nInstance *i18n.I18n, zapLogger *zap.Logg
 	authorHandler := author.NewHandler(authorService, zapLogger)
 	artistHandler := artist.NewHandler(artistService)
 	novelHandler := novel.NewHandler(novelService)
-	volumeHandler := novel_volume.NewHandler(volumeService)
+	volumeHandler := novel_volume.NewHandler(volumeService, novelService)
 
-	chapterHandler := volume_chapter.NewHandler(chapterService)
+	chapterHandler := volume_chapter.NewHandler(chapterService, volumeService, viewTrackingService)
 	userHandler := user.NewHandler(userRepo)
 
 	// --- Đăng ký Routes ---
@@ -246,39 +278,50 @@ func NewRouter(cfg *configs.Config, i18nInstance *i18n.I18n, zapLogger *zap.Logg
 		{
 			novelHandler.RegisterRoutes(novelGroup, middleware.RequireAuth(oauth2Provider, zapLogger))
 
-			// Nested: Volumes by novel (use :id to match existing routes)
+			// Nested: Volumes by novel
 			novelGroup.GET("/:id/volumes", volumeHandler.ListVolumesByNovel)
+			novelGroup.POST("/:id/volumes", middleware.RequireAuth(oauth2Provider, zapLogger), volumeHandler.CreateVolume)
+		}
 
-			// Nested: Chapters by novel (use :id to match existing routes)
-			novelChaptersGroup := novelGroup.Group("/:id/chapters")
+		// Novel Volume routes (Namespace: /novels/volumes)
+		novelVolumeGroup := apiV1.Group("/novels/volumes")
+		{
+			novelVolumeGroup.GET("/:id", volumeHandler.GetVolume)
+			
+			// Protected volume operations
+			protectedVolumeGroup := novelVolumeGroup.Group("")
+			protectedVolumeGroup.Use(middleware.RequireAuth(oauth2Provider, zapLogger))
 			{
-				chapterHandler.RegisterNovelChaptersRoutes(novelChaptersGroup)
+				protectedVolumeGroup.PUT("/:id", volumeHandler.UpdateVolume)
+				protectedVolumeGroup.DELETE("/:id", volumeHandler.DeleteVolume)
+				protectedVolumeGroup.PUT("/:id/display-order", volumeHandler.UpdateDisplayOrder)
+				protectedVolumeGroup.POST("/:id/publish", volumeHandler.PublishVolume)
+				protectedVolumeGroup.POST("/:id/unpublish", volumeHandler.UnpublishVolume)
+			}
+
+			// Nested: Chapters by volume
+			novelVolumeGroup.GET("/:id/chapters", chapterHandler.ListChaptersByVolume)
+			novelVolumeGroup.POST("/:id/chapters", middleware.RequireAuth(oauth2Provider, zapLogger), chapterHandler.CreateChapter)
+		}
+
+		// Novel Chapter routes (Namespace: /novels/chapters)
+		novelChapterGroup := apiV1.Group("/novels/chapters")
+		{
+			novelChapterGroup.GET("/:id", chapterHandler.GetChapter)
+			
+			// Protected chapter operations
+			protectedChapterGroup := novelChapterGroup.Group("")
+			protectedChapterGroup.Use(middleware.RequireAuth(oauth2Provider, zapLogger))
+			{
+				protectedChapterGroup.PUT("/:id", chapterHandler.UpdateChapter)
+				protectedChapterGroup.DELETE("/:id", chapterHandler.DeleteChapter)
+				protectedChapterGroup.POST("/:id/publish", chapterHandler.PublishChapter)
+				protectedChapterGroup.POST("/:id/schedule", chapterHandler.ScheduleChapter)
+				protectedChapterGroup.PUT("/:id/statistics", chapterHandler.UpdateStatistics)
 			}
 			
-			// Nested: Chapters by volume (standard RESTful endpoint)
-			// POST /api/v1/novels/:id/volumes/:volume_id/chapters
-			novelVolumeChaptersGroup := novelGroup.Group("/:id/volumes/:volume_id/chapters")
-			{
-				novelVolumeChaptersGroup.POST("", chapterHandler.CreateChapter)
-			}
-		}
-
-		// Volume routes
-		volumeGroup := apiV1.Group("/volumes")
-		{
-			volumeHandler.RegisterRoutes(volumeGroup)
-
-			// Nested: Chapters by volume (use :id to match existing routes)
-			volumeChaptersGroup := volumeGroup.Group("/:id/chapters")
-			{
-				chapterHandler.RegisterVolumeChaptersRoutes(volumeChaptersGroup)
-			}
-		}
-
-		// Chapter routes
-		chapterGroup := apiV1.Group("/chapters")
-		{
-			chapterHandler.RegisterRoutes(chapterGroup)
+			// Public chapter operations
+			novelChapterGroup.POST("/:id/view", chapterHandler.IncrementViewCount)
 		}
 
 
