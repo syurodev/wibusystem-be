@@ -21,13 +21,15 @@ type Handler struct {
 	chapterService      *service.ChapterService
 	volumeService       *service.VolumeService
 	viewTrackingService *service.ViewTrackingService
+	novelService        *service.NovelService
 }
 
-func NewHandler(chapterService *service.ChapterService, volumeService *service.VolumeService, viewTrackingService *service.ViewTrackingService) *Handler {
+func NewHandler(chapterService *service.ChapterService, volumeService *service.VolumeService, viewTrackingService *service.ViewTrackingService, novelService *service.NovelService) *Handler {
 	return &Handler{
 		chapterService:      chapterService,
 		volumeService:       volumeService,
 		viewTrackingService: viewTrackingService,
+		novelService:        novelService,
 	}
 }
 
@@ -282,8 +284,20 @@ func (h *Handler) GetChapter(c *gin.Context) {
 		return
 	}
 
+	// Get novel to fetch language
+	novel, err := h.novelService.GetNovelByID(c.Request.Context(), chapter.NovelID)
+	if err != nil {
+		// Language is optional, so we just log and continue
+		_ = err
+	}
+
 	// Map to response
 	resp := mapToChapterDetailResponse(chapter)
+	
+	// Add source language if novel was found
+	if novel != nil && novel.OriginalLanguage != nil && *novel.OriginalLanguage != "" {
+		resp.SourceLanguage = novel.OriginalLanguage
+	}
 
 	response.Success(c, http.StatusOK, "chapter.get_success", resp, nil)
 }

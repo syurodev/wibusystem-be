@@ -85,6 +85,7 @@ type ChapterDetailResponse struct {
 	CommentCount   int             `json:"comment_count"`
 	DisplayOrder   int             `json:"display_order"`
 	AuthorNotes    json.RawMessage `json:"author_notes,omitempty"`
+	SourceLanguage *string         `json:"source_language,omitempty"` // Language from novel
 	PublishedAt    *string         `json:"published_at,omitempty"`
 	ScheduledAt    *string         `json:"scheduled_at,omitempty"`
 	CreatedAt      string          `json:"created_at"`
