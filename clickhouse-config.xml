@@ -1,0 +1,56 @@
+<?xml version="1.0"?>
+<!--
+    ClickHouse config tối ưu cho server 2 vCPUs, 4GB RAM
+    Mục tiêu: Giới hạn memory usage ~800MB-1.2GB (đủ cho merge tasks)
+-->
+<clickhouse>
+    <!-- Memory limits - 50% RAM (~2GB trên server 4GB, ~1GB với docker limit) -->
+    <max_server_memory_usage_to_ram_ratio>0.8</max_server_memory_usage_to_ram_ratio>
+    
+    <!-- Background processing -->
+    <background_pool_size>8</background_pool_size>
+    <background_schedule_pool_size>4</background_schedule_pool_size>
+    <background_move_pool_size>2</background_move_pool_size>
+    <background_fetches_pool_size>2</background_fetches_pool_size>
+    <background_common_pool_size>4</background_common_pool_size>
+    <background_buffer_flush_schedule_pool_size>2</background_buffer_flush_schedule_pool_size>
+    <background_merges_mutations_concurrency_ratio>4</background_merges_mutations_concurrency_ratio>
+    
+    <!-- Mark cache - giảm để tiết kiệm RAM -->
+    <mark_cache_size>67108864</mark_cache_size> <!-- 64MB -->
+    
+    <!-- Uncompressed cache - tắt -->
+    <uncompressed_cache_size>0</uncompressed_cache_size>
+    
+    <!-- Compiled expression cache -->
+    <compiled_expression_cache_size>33554432</compiled_expression_cache_size> <!-- 32MB -->
+    
+    <!-- Query cache -->
+    <query_cache_size>33554432</query_cache_size> <!-- 32MB -->
+    
+    <!-- Merge tree settings -->
+    <merge_tree>
+        <number_of_free_entries_in_pool_to_lower_max_size_of_merge>8</number_of_free_entries_in_pool_to_lower_max_size_of_merge>
+        <number_of_free_entries_in_pool_to_execute_mutation>8</number_of_free_entries_in_pool_to_execute_mutation>
+        <number_of_free_entries_in_pool_to_execute_optimize_entire_partition>8</number_of_free_entries_in_pool_to_execute_optimize_entire_partition>
+        <!-- Giảm size của merge để tránh OOM -->
+        <max_bytes_to_merge_at_max_space_in_pool>536870912</max_bytes_to_merge_at_max_space_in_pool> <!-- 512MB -->
+    </merge_tree>
+    
+    <!-- Tắt hoặc giảm system logs để tiết kiệm memory -->
+    <text_log remove="1"/>
+    <query_thread_log remove="1"/>
+    <part_log remove="1"/>
+    <trace_log remove="1"/>
+    
+    <!-- Giữ lại các log quan trọng nhưng giảm retention -->
+    <query_log>
+        <flush_interval_milliseconds>30000</flush_interval_milliseconds>
+    </query_log>
+    
+    <!-- Logging level -->
+    <logger>
+        <level>warning</level>
+        <console>1</console>
+    </logger>
+</clickhouse>

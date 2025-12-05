@@ -1,0 +1,46 @@
+<?xml version="1.0"?>
+<!--
+    ClickHouse users config với memory limits
+-->
+<clickhouse>
+    <profiles>
+        <default>
+            <!-- Memory per query -->
+            <max_memory_usage>300000000</max_memory_usage> <!-- 300MB -->
+            
+            <!-- Threads -->
+            <max_threads>2</max_threads>
+            
+            <!-- Prefer disk over RAM for large operations -->
+            <max_bytes_before_external_group_by>100000000</max_bytes_before_external_group_by> <!-- 100MB -->
+            <max_bytes_before_external_sort>100000000</max_bytes_before_external_sort> <!-- 100MB -->
+            
+            <!-- Limit concurrent queries -->
+            <max_concurrent_queries_for_user>5</max_concurrent_queries_for_user>
+            
+            <!-- Timeout settings -->
+            <max_execution_time>60</max_execution_time>
+            <timeout_overflow_mode>throw</timeout_overflow_mode>
+        </default>
+    </profiles>
+    
+    <users>
+        <default>
+            <profile>default</profile>
+            <quota>default</quota>
+        </default>
+    </users>
+    
+    <quotas>
+        <default>
+            <interval>
+                <duration>3600</duration>
+                <queries>1000</queries>
+                <errors>100</errors>
+                <result_rows>100000000</result_rows>
+                <read_rows>1000000000</read_rows>
+                <execution_time>1800</execution_time>
+            </interval>
+        </default>
+    </quotas>
+</clickhouse>

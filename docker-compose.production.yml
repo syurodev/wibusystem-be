@@ -1,0 +1,224 @@
+# =============================================================================
+# WibuSystem Backend - Production Docker Compose
+# =============================================================================
+
+services:
+  # Go Backend Application
+  wibusystem-be:
+    image: ${DOCKER_IMAGE:-wibusystem-be:latest}
+    container_name: wibusystem-be
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      - ENVIRONMENT=${ENVIRONMENT:-production}
+      - SERVER_PORT=8080
+      - DB_HOST=system_prod
+      - DB_PORT=5432
+      - DB_NAME=${DB_NAME:-wibusystem}
+      - DB_USER=${DB_USER:-wibusystem}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_SSL_MODE=disable
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+      - CLICKHOUSE_HOST=clickhouse
+      - CLICKHOUSE_PORT=9000
+      - CLICKHOUSE_DATABASE=${CLICKHOUSE_DATABASE:-wibusystem}
+      - CLICKHOUSE_USER=${CLICKHOUSE_USER:-wibusystem}
+      - CLICKHOUSE_PASSWORD=${CLICKHOUSE_PASSWORD}
+      - OAUTH2_ISSUER=${OAUTH2_ISSUER:-https://api.wibutime.io.vn}
+      - OAUTH2_HMAC_SECRET=${OAUTH2_HMAC_SECRET}
+      - OAUTH2_PRIVATE_KEY_PATH=/app/configs/keys/private.pem
+      - CORS_ALLOW_ORIGINS=${CORS_ALLOW_ORIGINS:-https://wibutime.io.vn}
+      - EMAIL_PROVIDER=${EMAIL_PROVIDER:-resend}
+      - EMAIL_API_KEY=${EMAIL_API_KEY}
+      - EMAIL_FROM_EMAIL=${EMAIL_FROM_EMAIL:-noreply@wibutime.io.vn}
+      - EMAIL_FROM_NAME=${EMAIL_FROM_NAME:-WibuTime}
+      - EMAIL_BASE_URL=${EMAIL_BASE_URL:-https://wibutime.io.vn}
+      - WEBAUTHN_RP_ID=${WEBAUTHN_RP_ID:-wibutime.io.vn}
+      - WEBAUTHN_RP_NAME=${WEBAUTHN_RP_NAME:-WibuTime}
+      - WEBAUTHN_RP_ORIGINS=${WEBAUTHN_RP_ORIGINS:-https://wibutime.io.vn}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+    volumes:
+      - ./configs/keys:/app/configs/keys:ro
+    depends_on:
+      system_prod:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      clickhouse:
+        condition: service_healthy
+    networks:
+      - wibusystem_network
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--no-verbose",
+          "--tries=1",
+          "--spider",
+          "http://localhost:8080/health",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # PostgreSQL Database
+  system_prod:
+    image: postgres:16-alpine
+    container_name: system_prod
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME:-wibusystem}
+      POSTGRES_USER: ${DB_USER:-wibusystem}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - wibusystem_network
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${DB_USER:-wibusystem} -d ${DB_NAME:-wibusystem}",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+
+  # ClickHouse Analytics Database
+  clickhouse:
+    image: clickhouse/clickhouse-server:24.3-alpine
+    container_name: clickhouse
+    restart: unless-stopped
+    environment:
+      - CLICKHOUSE_DB=${CLICKHOUSE_DATABASE:-wibusystem}
+      - CLICKHOUSE_USER=${CLICKHOUSE_USER:-wibusystem}
+      - CLICKHOUSE_PASSWORD=${CLICKHOUSE_PASSWORD}
+      - CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT=1
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+      - ./clickhouse-config.xml:/etc/clickhouse-server/config.d/custom.xml:ro
+      - ./clickhouse-users.xml:/etc/clickhouse-server/users.d/custom.xml:ro
+    networks:
+      - wibusystem_network
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--no-verbose",
+          "--tries=1",
+          "--spider",
+          "http://localhost:8123/ping",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+        reservations:
+          memory: 256M
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
+    volumes:
+      - redis_data:/data
+    networks:
+      - wibusystem_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
+  # Grafana Monitoring
+  grafana:
+    image: grafana/grafana:11.0.0
+    container_name: grafana
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana-datasource.yml:/etc/grafana/provisioning/datasources/loki-datasource.yml:ro
+    networks:
+      - wibusystem_network
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
+  # Loki Log Aggregator
+  loki:
+    image: grafana/loki:3.0.0
+    container_name: loki
+    restart: unless-stopped
+    command: -config.file=/etc/loki/loki-config.yml
+    volumes:
+      - loki_data:/loki
+      - ./loki-config-production.yml:/etc/loki/loki-config.yml:ro
+    networks:
+      - wibusystem_network
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
+  # Promtail Log Collector
+  promtail:
+    image: grafana/promtail:3.0.0
+    container_name: promtail
+    restart: unless-stopped
+    command: -config.file=/etc/promtail/promtail-config.yml
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./promtail-config-production.yml:/etc/promtail/promtail-config.yml:ro
+    networks:
+      - wibusystem_network
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+
+volumes:
+  postgres_data:
+  clickhouse_data:
+  redis_data:
+  grafana_data:
+  loki_data:
+
+networks:
+  wibusystem_network:
+    driver: bridge
+    name: wibusystem-network
