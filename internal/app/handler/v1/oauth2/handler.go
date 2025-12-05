@@ -1011,6 +1011,10 @@ func (h *Handler) ConsentSubmit(c *gin.Context) {
 	// Redirect back to /oauth2/auth with request_id only
 	// Authorize handler will load full params from Redis
 	// User is now authenticated and has given consent
+
+	// Clear passkey prompt flag to prevent redirect loop
+	_ = h.authRequestRepo.SavePasskeyPromptFlag(c.Request.Context(), requestID, false, time.Minute*10)
+
 	h.logger.Info("Consent granted, redirecting to authorization endpoint",
 		zap.String("request_id", requestID),
 		zap.String("user_id", userID),

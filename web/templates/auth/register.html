@@ -1,14 +1,74 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Create Account</title>
+    <!-- htmx & Alpine.js -->
+    <script src="/static/js/htmx.min.js"></script>
+    <script src="/static/js/alpine.min.js" defer></script>
     <style>
       * {
         margin: 0;
         padding: 0;
         box-sizing: border-box;
+      }
+
+      :root {
+        --background: #ffffff;
+        --foreground: #1f2937;
+        --card: #ffffff;
+        --card-foreground: #1f2937;
+        --primary: #1f2937;
+        --primary-foreground: #fafafa;
+        --secondary: #f4f4f5;
+        --secondary-foreground: #1f2937;
+        --muted: #f4f4f5;
+        --muted-foreground: #6b7280;
+        --accent: #f4f4f5;
+        --accent-foreground: #1f2937;
+        --destructive: #ef4444;
+        --success: #10b981;
+        --warning: #f59e0b;
+        --border: #e5e7eb;
+        --input: #e5e7eb;
+        --ring: #a1a1aa;
+        --radius: 0.75rem;
+        --gradient-start: #fef3c7;
+        --gradient-mid: #fca5a5;
+        --gradient-end: #c084fc;
+        --shape-1: #93c5fd;
+        --shape-2: #a78bfa;
+        --shape-3: #f0abfc;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --background: #0f0f10;
+          --foreground: #fafafa;
+          --card: #18181b;
+          --card-foreground: #fafafa;
+          --primary: #e4e4e7;
+          --primary-foreground: #18181b;
+          --secondary: #27272a;
+          --secondary-foreground: #fafafa;
+          --muted: #27272a;
+          --muted-foreground: #a1a1aa;
+          --accent: #27272a;
+          --accent-foreground: #fafafa;
+          --destructive: #f87171;
+          --success: #34d399;
+          --warning: #fbbf24;
+          --border: rgba(255, 255, 255, 0.1);
+          --input: rgba(255, 255, 255, 0.15);
+          --ring: #71717a;
+          --gradient-start: #312e81;
+          --gradient-mid: #581c87;
+          --gradient-end: #831843;
+          --shape-1: #3b82f6;
+          --shape-2: #8b5cf6;
+          --shape-3: #d946ef;
+        }
       }
 
       html,
@@ -18,9 +78,10 @@
       }
 
       body {
-        font-family:
-          -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
           "Helvetica Neue", Arial, sans-serif;
+        background: var(--background);
+        color: var(--foreground);
       }
 
       .card {
@@ -32,9 +93,9 @@
       .illustration {
         background: linear-gradient(
           135deg,
-          #fef3c7 0%,
-          #fca5a5 50%,
-          #c084fc 100%
+          var(--gradient-start) 0%,
+          var(--gradient-mid) 50%,
+          var(--gradient-end) 100%
         );
         position: relative;
         padding: 3rem;
@@ -67,29 +128,27 @@
       .shape1 {
         width: 280px;
         height: 320px;
-        background: #93c5fd;
+        background: var(--shape-1);
         top: 20%;
         left: 10%;
       }
-
       .shape2 {
         width: 300px;
         height: 300px;
-        background: #a78bfa;
+        background: var(--shape-2);
         top: 30%;
         left: 25%;
       }
-
       .shape3 {
         width: 200px;
         height: 280px;
-        background: #f0abfc;
+        background: var(--shape-3);
         top: 45%;
         left: 40%;
       }
 
       .content {
-        background: white;
+        background: var(--card);
         padding: 3rem 4rem;
         display: flex;
         flex-direction: column;
@@ -106,16 +165,14 @@
       h1 {
         font-size: 2rem;
         font-weight: 700;
-        color: #1f2937;
+        color: var(--card-foreground);
         margin-bottom: 0.5rem;
-        line-height: 1.2;
       }
 
       .subtitle {
-        color: #6b7280;
+        color: var(--muted-foreground);
         margin-bottom: 2.5rem;
         font-size: 0.9375rem;
-        line-height: 1.5;
       }
 
       .form-group {
@@ -125,7 +182,7 @@
       label {
         display: block;
         margin-bottom: 0.5rem;
-        color: #374151;
+        color: var(--card-foreground);
         font-weight: 500;
         font-size: 0.875rem;
       }
@@ -135,88 +192,95 @@
       input[type="text"] {
         width: 100%;
         padding: 0.875rem 1rem;
-        border: none;
-        background: #f3f4f6;
-        border-radius: 12px;
+        border: 1px solid var(--border);
+        background: var(--secondary);
+        border-radius: var(--radius);
         font-size: 0.9375rem;
-        transition: background 0.15s ease-in-out;
-        color: #1f2937;
+        transition: all 0.15s ease-in-out;
+        color: var(--card-foreground);
       }
 
       input[type="email"]:focus,
       input[type="password"]:focus,
       input[type="text"]:focus {
         outline: none;
-        background: #e5e7eb;
+        border-color: var(--ring);
+        box-shadow: 0 0 0 2px var(--ring);
       }
 
       input::placeholder {
-        color: #9ca3af;
+        color: var(--muted-foreground);
       }
 
-      button {
+      .btn {
         width: 100%;
         padding: 0.875rem;
-        background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-        color: white;
+        background: var(--primary);
+        color: var(--primary-foreground);
         border: none;
-        border-radius: 12px;
+        border-radius: var(--radius);
         font-size: 0.9375rem;
         font-weight: 600;
         cursor: pointer;
         transition: all 0.2s;
-        box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
       }
 
-      button:hover {
+      .btn:hover {
+        opacity: 0.9;
         transform: translateY(-1px);
-        box-shadow: 0 6px 16px rgba(59, 130, 246, 0.4);
       }
-
-      button:active {
-        transform: translateY(0);
-      }
-
-      button:disabled {
+      .btn:disabled {
         opacity: 0.6;
         cursor: not-allowed;
         transform: none;
       }
 
-      .success {
-        background: #d1fae5;
-        color: #065f46;
+      .alert {
         padding: 0.875rem;
-        border-radius: 12px;
+        border-radius: var(--radius);
         margin-bottom: 1.5rem;
         font-size: 0.875rem;
-        border: 1px solid #6ee7b7;
-        display: none;
+        animation: slideIn 0.3s ease-out;
       }
 
-      .error {
-        background: #fee2e2;
-        color: #dc2626;
-        padding: 0.875rem;
-        border-radius: 12px;
-        margin-bottom: 1.5rem;
-        font-size: 0.875rem;
-        border: 1px solid #fecaca;
-        display: none;
+      .alert-success {
+        background: rgba(16, 185, 129, 0.1);
+        color: var(--success);
+        border: 1px solid rgba(16, 185, 129, 0.2);
+      }
+
+      .alert-error {
+        background: rgba(239, 68, 68, 0.1);
+        color: var(--destructive);
+        border: 1px solid rgba(239, 68, 68, 0.2);
+      }
+
+      @keyframes slideIn {
+        from {
+          opacity: 0;
+          transform: translateY(-10px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
       }
 
       .footer-link {
         text-align: center;
         margin-top: 1.5rem;
-        color: #6b7280;
+        color: var(--muted-foreground);
         font-size: 0.875rem;
       }
 
       .footer-link a {
-        color: #3b82f6;
+        color: var(--ring);
         text-decoration: none;
         font-weight: 500;
-        margin-left: 0.25rem;
       }
 
       .footer-link a:hover {
@@ -226,18 +290,44 @@
       .password-strength {
         margin-top: 0.5rem;
         font-size: 0.8125rem;
+        display: flex;
+        align-items: center;
+        gap: 0.375rem;
       }
 
       .strength-weak {
-        color: #dc2626;
+        color: var(--destructive);
       }
-
       .strength-medium {
-        color: #f59e0b;
+        color: var(--warning);
+      }
+      .strength-strong {
+        color: var(--success);
       }
 
-      .strength-strong {
-        color: #10b981;
+      .icon {
+        width: 18px;
+        height: 18px;
+        display: inline-block;
+        vertical-align: middle;
+      }
+
+      .icon-sm {
+        width: 14px;
+        height: 14px;
+      }
+
+      .spinner {
+        animation: spin 1s linear infinite;
+      }
+
+      @keyframes spin {
+        from {
+          transform: rotate(0deg);
+        }
+        to {
+          transform: rotate(360deg);
+        }
       }
 
       /* Responsive */
@@ -245,11 +335,9 @@
         .card {
           grid-template-columns: 1fr;
         }
-
         .illustration {
           display: none;
         }
-
         .content {
           padding: 2rem;
         }
@@ -259,14 +347,13 @@
         .content {
           padding: 1.5rem;
         }
-
         h1 {
           font-size: 1.75rem;
         }
       }
     </style>
   </head>
-  <body>
+  <body x-data="registerForm()">
     <div class="card">
       <div class="illustration">
         <img src="/images/logo.png" alt="Logo" class="logo" />
@@ -282,16 +369,28 @@
           <h1>Create Account</h1>
           <p class="subtitle">Join us and start your journey today</p>
 
-          <div class="success" id="success"></div>
-          <div class="error" id="error"></div>
+          <!-- Alerts -->
+          <div
+            x-show="success"
+            x-transition
+            class="alert alert-success"
+            x-text="success"
+          ></div>
+          <div
+            x-show="error"
+            x-transition
+            class="alert alert-error"
+            x-text="error"
+          ></div>
 
-          <form id="registerForm">
+          <form @submit.prevent="handleSubmit">
             <div class="form-group">
               <label for="full_name">Full Name</label>
               <input
                 type="text"
                 id="full_name"
                 name="full_name"
+                x-model="fullName"
                 required
                 autocomplete="name"
                 placeholder="John Doe"
@@ -304,6 +403,7 @@
                 type="email"
                 id="email"
                 name="email"
+                x-model="email"
                 required
                 autocomplete="email"
                 placeholder="your@email.com"
@@ -316,125 +416,158 @@
                 type="password"
                 id="password"
                 name="password"
+                x-model="password"
+                @input="checkStrength"
                 required
                 autocomplete="new-password"
                 placeholder="Create a strong password"
               />
-              <div class="password-strength" id="passwordStrength"></div>
+              <div
+                class="password-strength"
+                :class="strengthClass"
+                x-show="password.length > 0"
+              >
+                <img
+                  x-show="strength === 'strong'"
+                  src="/static/icons/circle-check.svg"
+                  class="icon-sm"
+                  :style="{ filter: 'invert(48%) sepia(79%) saturate(2476%) hue-rotate(86deg) brightness(118%) contrast(119%)' }"
+                  alt=""
+                />
+                <img
+                  x-show="strength === 'medium'"
+                  src="/static/icons/triangle-alert.svg"
+                  class="icon-sm"
+                  :style="{ filter: 'invert(73%) sepia(60%) saturate(3000%) hue-rotate(3deg) brightness(108%) contrast(101%)' }"
+                  alt=""
+                />
+                <img
+                  x-show="strength === 'weak'"
+                  src="/static/icons/shield-x.svg"
+                  class="icon-sm"
+                  :style="{ filter: 'invert(27%) sepia(94%) saturate(5057%) hue-rotate(352deg) brightness(96%) contrast(91%)' }"
+                  alt=""
+                />
+                <span x-text="strengthText"></span>
+              </div>
             </div>
 
-            <button type="submit" id="submitBtn">Create Account</button>
+            <button type="submit" class="btn" :disabled="loading">
+              <template x-if="!loading">
+                <span>Create Account</span>
+              </template>
+              <template x-if="loading">
+                <span style="display: flex; align-items: center; gap: 0.5rem">
+                  <img
+                    src="/static/icons/loader-circle.svg"
+                    class="icon spinner"
+                    alt=""
+                    style="filter: brightness(0) invert(1)"
+                  />
+                  Creating...
+                </span>
+              </template>
+            </button>
           </form>
 
           <div class="footer-link">
-            Already have an account? <a href="/oauth2/login">Sign in</a>
+            Already have an account?
+            <a
+              href="/oauth2/login{{ if .RequestID }}?request_id={{ .RequestID }}{{ end }}"
+              >Sign in</a
+            >
           </div>
         </div>
       </div>
     </div>
 
     <script>
-      const passwordInput = document.getElementById("password");
-      const strengthIndicator = document.getElementById("passwordStrength");
-      const form = document.getElementById("registerForm");
-      const submitBtn = document.getElementById("submitBtn");
-      const errorDiv = document.getElementById("error");
-      const successDiv = document.getElementById("success");
+      function registerForm() {
+        return {
+          fullName: "",
+          email: "",
+          password: "",
+          loading: false,
+          error: "",
+          success: "",
+          strength: "",
 
-      // Password strength checker
-      passwordInput.addEventListener("input", (e) => {
-        const password = e.target.value;
-        const strength = checkPasswordStrength(password);
+          get strengthClass() {
+            return `password-strength strength-${this.strength}`;
+          },
 
-        if (password.length === 0) {
-          strengthIndicator.textContent = "";
-          return;
-        }
+          get strengthText() {
+            if (this.strength === "strong") return "Strong password";
+            if (this.strength === "medium") return "Medium strength";
+            return "Weak password";
+          },
 
-        if (strength === "strong") {
-          strengthIndicator.textContent = "✓ Strong password";
-          strengthIndicator.className = "password-strength strength-strong";
-        } else if (strength === "medium") {
-          strengthIndicator.textContent = "⚠ Medium strength";
-          strengthIndicator.className = "password-strength strength-medium";
-        } else {
-          strengthIndicator.textContent = "✗ Weak password";
-          strengthIndicator.className = "password-strength strength-weak";
-        }
-      });
+          checkStrength() {
+            const pwd = this.password;
+            if (pwd.length < 8) {
+              this.strength = "weak";
+              return;
+            }
 
-      function checkPasswordStrength(password) {
-        if (password.length < 8) return "weak";
+            let conditions = 0;
+            if (/[A-Z]/.test(pwd)) conditions++;
+            if (/[a-z]/.test(pwd)) conditions++;
+            if (/[0-9]/.test(pwd)) conditions++;
+            if (/[^A-Za-z0-9]/.test(pwd)) conditions++;
 
-        let hasUpper = /[A-Z]/.test(password);
-        let hasLower = /[a-z]/.test(password);
-        let hasDigit = /[0-9]/.test(password);
-        let hasSpecial = /[^A-Za-z0-9]/.test(password);
+            if (conditions >= 3 && pwd.length >= 12) {
+              this.strength = "strong";
+            } else if (conditions >= 2 && pwd.length >= 8) {
+              this.strength = "medium";
+            } else {
+              this.strength = "weak";
+            }
+          },
 
-        let conditions = 0;
-        if (hasUpper) conditions++;
-        if (hasLower) conditions++;
-        if (hasDigit) conditions++;
-        if (hasSpecial) conditions++;
+          async handleSubmit() {
+            this.error = "";
+            this.success = "";
+            this.loading = true;
 
-        if (conditions >= 3 && password.length >= 12) return "strong";
-        if (conditions >= 2 && password.length >= 8) return "medium";
-        return "weak";
-      }
+            try {
+              const response = await fetch("/api/v1/auth/register", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  full_name: this.fullName,
+                  email: this.email,
+                  password: this.password,
+                }),
+              });
 
-      // Form submission
-      form.addEventListener("submit", async (e) => {
-        e.preventDefault();
+              const result = await response.json();
 
-        const formData = new FormData(form);
-        const data = {
-          full_name: formData.get("full_name"),
-          email: formData.get("email"),
-          password: formData.get("password"),
+              if (!response.ok) {
+                throw new Error(result.message || "Registration failed");
+              }
+
+              this.success =
+                result.message || "Account created! Redirecting...";
+
+              // Redirect immediately to OAuth auth endpoint (user is now logged in via session)
+              globalThis.setTimeout(() => {
+                const requestId = "{{ .RequestID }}";
+                if (requestId) {
+                  // Continue OAuth flow
+                  globalThis.window.location.href = `/oauth2/auth?request_id=${requestId}`;
+                } else {
+                  // No OAuth flow, just go to login
+                  globalThis.window.location.href = "/oauth2/login";
+                }
+              }, 1000);
+            } catch (err) {
+              this.error = err.message;
+            } finally {
+              this.loading = false;
+            }
+          },
         };
-
-        errorDiv.style.display = "none";
-        successDiv.style.display = "none";
-        submitBtn.disabled = true;
-        submitBtn.textContent = "Creating account...";
-
-        try {
-          const response = await fetch("/api/v1/auth/register", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify(data),
-          });
-
-          const result = await response.json();
-
-          if (!response.ok) {
-            throw new Error(result.message || "Registration failed");
-          }
-
-          // Success
-          successDiv.textContent =
-            result.message ||
-            "Account created successfully! Please check your email to verify your account.";
-          successDiv.style.display = "block";
-          form.reset();
-          strengthIndicator.textContent = "";
-
-          // Redirect to login after 3 seconds
-          setTimeout(() => {
-            const requestId = "{{.RequestID}}";
-            const loginUrl = requestId ? `/oauth2/login?request_id=${requestId}` : "/oauth2/login";
-            window.location.href = loginUrl;
-          }, 3000);
-        } catch (err) {
-          errorDiv.textContent = err.message;
-          errorDiv.style.display = "block";
-        } finally {
-          submitBtn.disabled = false;
-          submitBtn.textContent = "Create Account";
-        }
-      });
+      }
     </script>
   </body>
 </html>

@@ -7,6 +7,7 @@ import (
 
 	"github.com/gofrs/uuid/v5"
 	"github.com/jackc/pgx/v5"
+	"go.uber.org/zap"
 
 	"system/internal/domain"
 	pkgerrors "system/pkg/errors"
@@ -19,6 +20,7 @@ type AuthService struct {
 	userRepo          domain.UserRepository
 	verificationRepo  domain.EmailVerificationRepository
 	passwordResetRepo domain.PasswordResetRepository
+	roleRepo          domain.RoleRepository
 }
 
 // NewAuthService tạo instance mới của AuthService.
@@ -26,11 +28,13 @@ func NewAuthService(
 	userRepo domain.UserRepository,
 	verificationRepo domain.EmailVerificationRepository,
 	passwordResetRepo domain.PasswordResetRepository,
+	roleRepo domain.RoleRepository,
 ) *AuthService {
 	return &AuthService{
 		userRepo:          userRepo,
 		verificationRepo:  verificationRepo,
 		passwordResetRepo: passwordResetRepo,
+		roleRepo:          roleRepo,
 	}
 }
 
@@ -81,6 +85,16 @@ func (s *AuthService) RegisterUser(ctx context.Context, email, password, fullNam
 		return nil, "", fmt.Errorf("failed to create user: %w", err)
 	}
 
+	// Gán role USER mặc định cho user mới
+	if err := s.assignDefaultRole(ctx, user.ID); err != nil {
+		// Log error nhưng không fail registration
+		// User vẫn có thể được gán role sau
+		zap.L().Error("failed to assign default role to new user",
+			zap.String("user_id", user.ID.String()),
+			zap.Error(err),
+		)
+	}
+
 	// Tạo verification token
 	verificationToken, err := s.CreateEmailVerificationToken(ctx, user.ID)
 	if err != nil {
@@ -88,6 +102,29 @@ func (s *AuthService) RegisterUser(ctx context.Context, email, password, fullNam
 	}
 
 	return user, verificationToken, nil
+}
+
+// assignDefaultRole gán role mặc định (USER) cho user mới
+func (s *AuthService) assignDefaultRole(ctx context.Context, userID uuid.UUID) error {
+	defaultRole := domain.GetDefaultRole()
+
+	// Lấy role ID từ database
+	roleID, err := s.roleRepo.GetRoleIDByName(ctx, defaultRole)
+	if err != nil {
+		return fmt.Errorf("failed to get default role ID: %w", err)
+	}
+
+	// Gán role cho user
+	if err := s.roleRepo.AssignGlobalRole(ctx, userID, roleID); err != nil {
+		return fmt.Errorf("failed to assign default role: %w", err)
+	}
+
+	zap.L().Info("assigned default role to new user",
+		zap.String("user_id", userID.String()),
+		zap.String("role", defaultRole.String()),
+	)
+
+	return nil
 }
 
 // CreateEmailVerificationToken tạo token để verify email.

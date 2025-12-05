@@ -1,205 +1,313 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Authorization Error</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
 
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
-        }
+      :root {
+        --background: #ffffff;
+        --foreground: #1f2937;
+        --card: #ffffff;
+        --card-foreground: #1f2937;
+        --primary: #1f2937;
+        --primary-foreground: #fafafa;
+        --secondary: #f4f4f5;
+        --secondary-foreground: #1f2937;
+        --muted: #f4f4f5;
+        --muted-foreground: #6b7280;
+        --destructive: #ef4444;
+        --border: #e5e7eb;
+        --ring: #a1a1aa;
+        --radius: 0.75rem;
+        --gradient-start: #fef3c7;
+        --gradient-mid: #fca5a5;
+        --gradient-end: #c084fc;
+      }
 
-        .error-container {
-            background: white;
-            border-radius: 16px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-            max-width: 500px;
-            width: 100%;
-            padding: 40px;
-            text-align: center;
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --background: #0f0f10;
+          --foreground: #fafafa;
+          --card: #18181b;
+          --card-foreground: #fafafa;
+          --primary: #e4e4e7;
+          --primary-foreground: #18181b;
+          --secondary: #27272a;
+          --secondary-foreground: #fafafa;
+          --muted: #27272a;
+          --muted-foreground: #a1a1aa;
+          --destructive: #f87171;
+          --border: rgba(255, 255, 255, 0.1);
+          --ring: #71717a;
+          --gradient-start: #312e81;
+          --gradient-mid: #581c87;
+          --gradient-end: #831843;
         }
+      }
 
-        .error-icon {
-            width: 80px;
-            height: 80px;
-            margin: 0 auto 24px;
-            background: #FEE2E2;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          "Helvetica Neue", Arial, sans-serif;
+        background: linear-gradient(
+          135deg,
+          var(--gradient-start) 0%,
+          var(--gradient-mid) 50%,
+          var(--gradient-end) 100%
+        );
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+        color: var(--foreground);
+      }
 
-        .error-icon svg {
-            width: 48px;
-            height: 48px;
-            color: #DC2626;
-        }
+      .error-container {
+        background: var(--card);
+        border-radius: 16px;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        max-width: 500px;
+        width: 100%;
+        padding: 40px;
+        text-align: center;
+      }
 
-        h1 {
-            font-size: 24px;
-            color: #1F2937;
-            margin-bottom: 12px;
-            font-weight: 600;
-        }
+      .error-icon {
+        width: 80px;
+        height: 80px;
+        margin: 0 auto 24px;
+        background: rgba(239, 68, 68, 0.1);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
 
-        .error-code {
-            display: inline-block;
-            background: #FEE2E2;
-            color: #DC2626;
-            padding: 6px 12px;
-            border-radius: 6px;
-            font-size: 13px;
-            font-weight: 500;
-            margin-bottom: 20px;
-        }
+      .error-icon img {
+        width: 40px;
+        height: 40px;
+      }
 
-        .error-description {
-            color: #6B7280;
-            font-size: 16px;
-            line-height: 1.6;
-            margin-bottom: 16px;
+      @media (prefers-color-scheme: light) {
+        .error-icon img {
+          filter: invert(27%) sepia(94%) saturate(5057%) hue-rotate(352deg)
+            brightness(96%) contrast(91%);
         }
+      }
 
-        .hint {
-            background: #F3F4F6;
-            border-left: 3px solid #667eea;
-            padding: 12px 16px;
-            border-radius: 6px;
-            color: #4B5563;
-            font-size: 14px;
-            line-height: 1.5;
-            text-align: left;
-            margin: 24px 0;
+      @media (prefers-color-scheme: dark) {
+        .error-icon img {
+          filter: invert(57%) sepia(70%) saturate(1234%) hue-rotate(327deg)
+            brightness(101%) contrast(95%);
         }
+      }
 
-        .actions {
-            margin-top: 32px;
-            display: flex;
-            gap: 12px;
-            flex-direction: column;
-        }
+      h1 {
+        font-size: 24px;
+        color: var(--card-foreground);
+        margin-bottom: 12px;
+        font-weight: 600;
+      }
 
-        .btn {
-            padding: 14px 24px;
-            border-radius: 8px;
-            font-size: 15px;
-            font-weight: 500;
-            text-decoration: none;
-            display: inline-block;
-            transition: all 0.2s;
-            cursor: pointer;
-            border: none;
-            width: 100%;
-        }
+      .error-code {
+        display: inline-block;
+        background: rgba(239, 68, 68, 0.1);
+        color: var(--destructive);
+        padding: 6px 12px;
+        border-radius: 6px;
+        font-size: 13px;
+        font-weight: 500;
+        margin-bottom: 20px;
+      }
 
-        .btn-primary {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-        }
+      .error-description {
+        color: var(--muted-foreground);
+        font-size: 16px;
+        line-height: 1.6;
+        margin-bottom: 16px;
+      }
 
-        .btn-primary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
-        }
+      .hint {
+        background: var(--secondary);
+        border-left: 3px solid var(--ring);
+        padding: 12px 16px;
+        border-radius: 6px;
+        color: var(--muted-foreground);
+        font-size: 14px;
+        line-height: 1.5;
+        text-align: left;
+        margin: 24px 0;
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+      }
 
-        .btn-secondary {
-            background: #F3F4F6;
-            color: #6B7280;
-        }
+      .hint img {
+        width: 20px;
+        height: 20px;
+        flex-shrink: 0;
+        margin-top: 1px;
+      }
 
-        .btn-secondary:hover {
-            background: #E5E7EB;
+      @media (prefers-color-scheme: light) {
+        .hint img {
+          filter: invert(48%) sepia(79%) saturate(2476%) hue-rotate(16deg)
+            brightness(118%) contrast(119%);
         }
+      }
 
-        .footer {
-            margin-top: 32px;
-            padding-top: 24px;
-            border-top: 1px solid #E5E7EB;
-            color: #9CA3AF;
-            font-size: 13px;
+      @media (prefers-color-scheme: dark) {
+        .hint img {
+          filter: invert(84%) sepia(63%) saturate(567%) hue-rotate(7deg)
+            brightness(104%) contrast(102%);
         }
+      }
 
-        .footer a {
-            color: #667eea;
-            text-decoration: none;
-        }
+      .actions {
+        margin-top: 32px;
+        display: flex;
+        gap: 12px;
+        flex-direction: column;
+      }
 
-        .footer a:hover {
-            text-decoration: underline;
+      .btn {
+        padding: 14px 24px;
+        border-radius: var(--radius);
+        font-size: 15px;
+        font-weight: 500;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        transition: all 0.2s;
+        cursor: pointer;
+        border: none;
+        width: 100%;
+      }
+
+      .btn-primary {
+        background: var(--primary);
+        color: var(--primary-foreground);
+      }
+
+      .btn-primary:hover {
+        opacity: 0.9;
+        transform: translateY(-2px);
+      }
+
+      .btn-secondary {
+        background: var(--secondary);
+        color: var(--secondary-foreground);
+      }
+
+      .btn-secondary:hover {
+        background: var(--muted);
+      }
+
+      .btn img {
+        width: 18px;
+        height: 18px;
+      }
+
+      @media (prefers-color-scheme: light) {
+        .btn-primary img {
+          filter: brightness(0) invert(1);
         }
+        .btn-secondary img {
+          filter: brightness(0);
+        }
+      }
+
+      @media (prefers-color-scheme: dark) {
+        .btn-primary img {
+          filter: brightness(0);
+        }
+        .btn-secondary img {
+          filter: brightness(0) invert(1);
+        }
+      }
+
+      .footer {
+        margin-top: 32px;
+        padding-top: 24px;
+        border-top: 1px solid var(--border);
+        color: var(--muted-foreground);
+        font-size: 13px;
+      }
+
+      .footer a {
+        color: var(--ring);
+        text-decoration: none;
+      }
+
+      .footer a:hover {
+        text-decoration: underline;
+      }
     </style>
-</head>
-<body>
+  </head>
+  <body>
     <div class="error-container">
-        <div class="error-icon">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-            </svg>
-        </div>
+      <div class="error-icon">
+        <img src="/static/icons/triangle-alert.svg" alt="" />
+      </div>
 
-        <h1>Authorization Error</h1>
-        <span class="error-code">{{ .Error }}</span>
+      <h1>Authorization Error</h1>
+      <span class="error-code">{{ .Error }}</span>
 
-        <p class="error-description">
-            {{ .ErrorDescription }}
-        </p>
+      <p class="error-description">{{ .ErrorDescription }}</p>
 
-        {{if .Hint}}
-        <div class="hint">
-            💡 {{ .Hint }}
-        </div>
+      {{if .Hint}}
+      <div class="hint">
+        <img src="/static/icons/lightbulb.svg" alt="" />
+        <span>{{ .Hint }}</span>
+      </div>
+      {{end}}
+
+      <div class="actions">
+        {{if .RedirectURI}}
+        <a href="{{ .RedirectURI }}" class="btn btn-primary">
+          <img src="/static/icons/arrow-left.svg" alt="" />
+          Return to Application
+        </a>
+        {{else}}
+        <button onclick="globalThis.window.close()" class="btn btn-primary">
+          Close Window
+        </button>
         {{end}}
 
-        <div class="actions">
-            {{if .RedirectURI}}
-            <!-- If we have redirect_uri, show "Try Again" button that goes back to the app -->
-            <a href="{{ .RedirectURI }}" class="btn btn-primary">
-                ← Return to Application
-            </a>
-            {{else}}
-            <!-- If no redirect_uri, suggest closing window -->
-            <button onclick="window.close()" class="btn btn-primary">
-                Close Window
-            </button>
-            {{end}}
+        <button onclick="globalThis.history.back()" class="btn btn-secondary">
+          <img src="/static/icons/arrow-left.svg" alt="" />
+          Go Back
+        </button>
+      </div>
 
-            <button onclick="history.back()" class="btn btn-secondary">
-                ← Go Back
-            </button>
-        </div>
-
-        <div class="footer">
-            <p>If you continue to experience issues, please contact support.</p>
-            {{if .ClientID}}
-            <p style="margin-top: 8px; font-family: monospace; font-size: 11px;">
-                Client ID: {{ .ClientID }}
-            </p>
-            {{end}}
-        </div>
+      <div class="footer">
+        <p>If you continue to experience issues, please contact support.</p>
+        {{if .ClientID}}
+        <p style="margin-top: 8px; font-family: monospace; font-size: 11px">
+          Client ID: {{ .ClientID }}
+        </p>
+        {{end}}
+      </div>
     </div>
 
     <script>
-        // Auto-close window after 60 seconds if opened in popup
-        if (window.opener && !{{ .RedirectURI }}) {
-            setTimeout(() => {
-                if (confirm('This window will close automatically. Click OK to close now.')) {
-                    window.close();
-                }
-            }, 60000);
-        }
+      // Auto-close window after 60 seconds if opened in popup
+      if (globalThis.window.opener && !{{ .RedirectURI }}) {
+          globalThis.setTimeout(() => {
+              if (globalThis.confirm('This window will close automatically. Click OK to close now.')) {
+                  globalThis.window.close();
+              }
+          }, 60000);
+      }
     </script>
-</body>
+  </body>
 </html>

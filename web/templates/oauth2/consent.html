@@ -1,18 +1,72 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Grant Access</title>
-
-    <!-- Alpine.js for popup -->
+    <!-- htmx & Alpine.js -->
+    <script src="/static/js/htmx.min.js"></script>
     <script src="/static/js/alpine.min.js" defer></script>
-
     <style>
       * {
         margin: 0;
         padding: 0;
         box-sizing: border-box;
+      }
+
+      :root {
+        --background: #ffffff;
+        --foreground: #1f2937;
+        --card: #ffffff;
+        --card-foreground: #1f2937;
+        --primary: #1f2937;
+        --primary-foreground: #fafafa;
+        --secondary: #f4f4f5;
+        --secondary-foreground: #1f2937;
+        --muted: #f4f4f5;
+        --muted-foreground: #6b7280;
+        --accent: #f4f4f5;
+        --accent-foreground: #1f2937;
+        --destructive: #ef4444;
+        --success: #10b981;
+        --border: #e5e7eb;
+        --input: #e5e7eb;
+        --ring: #a1a1aa;
+        --radius: 0.75rem;
+        --gradient-start: #ddd6fe;
+        --gradient-mid: #c7d2fe;
+        --gradient-end: #fca5a5;
+        --shape-1: #93c5fd;
+        --shape-2: #a78bfa;
+        --shape-3: #f0abfc;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --background: #0f0f10;
+          --foreground: #fafafa;
+          --card: #18181b;
+          --card-foreground: #fafafa;
+          --primary: #e4e4e7;
+          --primary-foreground: #18181b;
+          --secondary: #27272a;
+          --secondary-foreground: #fafafa;
+          --muted: #27272a;
+          --muted-foreground: #a1a1aa;
+          --accent: #27272a;
+          --accent-foreground: #fafafa;
+          --destructive: #f87171;
+          --success: #34d399;
+          --border: rgba(255, 255, 255, 0.1);
+          --input: rgba(255, 255, 255, 0.15);
+          --ring: #71717a;
+          --gradient-start: #312e81;
+          --gradient-mid: #581c87;
+          --gradient-end: #831843;
+          --shape-1: #3b82f6;
+          --shape-2: #8b5cf6;
+          --shape-3: #d946ef;
+        }
       }
 
       html,
@@ -22,9 +76,10 @@
       }
 
       body {
-        font-family:
-          -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
           "Helvetica Neue", Arial, sans-serif;
+        background: var(--background);
+        color: var(--foreground);
       }
 
       .card {
@@ -36,9 +91,9 @@
       .illustration {
         background: linear-gradient(
           135deg,
-          #ddd6fe 0%,
-          #c7d2fe 50%,
-          #fca5a5 100%
+          var(--gradient-start) 0%,
+          var(--gradient-mid) 50%,
+          var(--gradient-end) 100%
         );
         position: relative;
         padding: 3rem;
@@ -64,7 +119,11 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: 1.25rem;
+      }
+
+      .lock-icon img {
+        width: 24px;
+        height: 24px;
       }
 
       .artwork {
@@ -85,29 +144,27 @@
       .shape1 {
         width: 280px;
         height: 320px;
-        background: #93c5fd;
+        background: var(--shape-1);
         top: 20%;
         left: 10%;
       }
-
       .shape2 {
         width: 300px;
         height: 300px;
-        background: #a78bfa;
+        background: var(--shape-2);
         top: 30%;
         left: 25%;
       }
-
       .shape3 {
         width: 200px;
         height: 280px;
-        background: #f0abfc;
+        background: var(--shape-3);
         top: 45%;
         left: 40%;
       }
 
       .content {
-        background: white;
+        background: var(--card);
         padding: 3rem 4rem;
         display: flex;
         flex-direction: column;
@@ -124,41 +181,39 @@
       h1 {
         font-size: 2rem;
         font-weight: 700;
-        color: #1f2937;
+        color: var(--card-foreground);
         margin-bottom: 0.5rem;
-        line-height: 1.2;
       }
 
       .subtitle {
-        color: #6b7280;
+        color: var(--muted-foreground);
         margin-bottom: 2rem;
         font-size: 0.9375rem;
-        line-height: 1.5;
       }
 
       .client-info {
-        background: #f9fafb;
+        background: var(--secondary);
         padding: 1.25rem;
-        border-radius: 12px;
+        border-radius: var(--radius);
         margin-bottom: 1.5rem;
-        border-left: 3px solid #3b82f6;
+        border-left: 3px solid var(--ring);
       }
 
       .client-name {
         font-weight: 600;
-        color: #1f2937;
+        color: var(--card-foreground);
         font-size: 1rem;
         margin-bottom: 0.25rem;
       }
 
       .client-desc {
-        color: #6b7280;
+        color: var(--muted-foreground);
         font-size: 0.875rem;
       }
 
       .scopes-title {
         font-weight: 600;
-        color: #1f2937;
+        color: var(--card-foreground);
         margin-bottom: 1rem;
         font-size: 0.9375rem;
       }
@@ -170,8 +225,8 @@
 
       .scope-item {
         padding: 1rem;
-        background: #f9fafb;
-        border-radius: 12px;
+        background: var(--secondary);
+        border-radius: var(--radius);
         margin-bottom: 0.75rem;
         display: flex;
         align-items: flex-start;
@@ -181,15 +236,19 @@
       .scope-icon {
         width: 20px;
         height: 20px;
-        background: #10b981;
+        background: var(--success);
         border-radius: 50%;
         flex-shrink: 0;
         display: flex;
         align-items: center;
         justify-content: center;
-        color: white;
-        font-size: 0.75rem;
         margin-top: 2px;
+      }
+
+      .scope-icon img {
+        width: 12px;
+        height: 12px;
+        filter: brightness(0) invert(1);
       }
 
       .scope-content {
@@ -198,13 +257,13 @@
 
       .scope-name {
         font-weight: 500;
-        color: #1f2937;
+        color: var(--card-foreground);
         margin-bottom: 0.25rem;
         font-size: 0.875rem;
       }
 
       .scope-desc {
-        color: #6b7280;
+        color: var(--muted-foreground);
         font-size: 0.8125rem;
       }
 
@@ -213,74 +272,56 @@
         gap: 1rem;
       }
 
-      button {
+      .btn {
         flex: 1;
         padding: 0.875rem;
         border: none;
-        border-radius: 12px;
+        border-radius: var(--radius);
         font-size: 0.9375rem;
         font-weight: 600;
         cursor: pointer;
         transition: all 0.2s;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        text-decoration: none;
       }
 
       .btn-allow {
-        background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-        color: white;
-        box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+        background: var(--primary);
+        color: var(--primary-foreground);
       }
 
       .btn-allow:hover {
+        opacity: 0.9;
         transform: translateY(-1px);
-        box-shadow: 0 6px 16px rgba(59, 130, 246, 0.4);
       }
 
       .btn-deny {
-        background: #f3f4f6;
-        color: #374151;
+        background: var(--secondary);
+        color: var(--secondary-foreground);
       }
 
       .btn-deny:hover {
-        background: #e5e7eb;
+        background: var(--muted);
       }
 
       .footer {
         margin-top: 1.5rem;
         text-align: center;
-        color: #9ca3af;
+        color: var(--muted-foreground);
         font-size: 0.8125rem;
       }
 
-      /* Responsive */
-      @media (max-width: 968px) {
-        .card {
-          grid-template-columns: 1fr;
-        }
-
-        .illustration {
-          display: none;
-        }
-
-        .content {
-          padding: 2rem;
-        }
+      .icon {
+        width: 18px;
+        height: 18px;
+        display: inline-block;
+        vertical-align: middle;
       }
 
-      @media (max-width: 480px) {
-        .content {
-          padding: 1.5rem;
-        }
-
-        h1 {
-          font-size: 1.75rem;
-        }
-
-        .buttons {
-          flex-direction: column-reverse;
-        }
-      }
-
-      /* Modal styles */
+      /* Modal */
       .modal-overlay {
         position: fixed;
         inset: 0;
@@ -294,11 +335,11 @@
       }
 
       .modal-content {
-        background: white;
+        background: var(--card);
         border-radius: 20px;
         max-width: 480px;
         width: 100%;
-        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
         overflow: hidden;
         animation: slideUp 0.3s ease-out;
       }
@@ -315,21 +356,37 @@
       }
 
       .modal-header {
-        background: linear-gradient(135deg, #dbeafe 0%, #a5b4fc 50%, #c084fc 100%);
+        background: linear-gradient(
+          135deg,
+          var(--gradient-start) 0%,
+          var(--gradient-mid) 50%,
+          var(--gradient-end) 100%
+        );
         padding: 2rem;
         text-align: center;
       }
 
       .modal-icon {
-        font-size: 64px;
-        margin-bottom: 1rem;
-        display: inline-block;
+        width: 64px;
+        height: 64px;
+        margin: 0 auto 1rem;
+        background: rgba(255, 255, 255, 0.9);
+        border-radius: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
         animation: float 3s ease-in-out infinite;
       }
 
+      .modal-icon img {
+        width: 32px;
+        height: 32px;
+      }
+
       @keyframes float {
-        0%, 100% {
-          transform: translateY(0px);
+        0%,
+        100% {
+          transform: translateY(0);
         }
         50% {
           transform: translateY(-10px);
@@ -339,12 +396,12 @@
       .modal-title {
         font-size: 1.5rem;
         font-weight: 700;
-        color: #1f2937;
+        color: var(--foreground);
         margin-bottom: 0.5rem;
       }
 
       .modal-subtitle {
-        color: #6b7280;
+        color: var(--muted-foreground);
         font-size: 0.9375rem;
       }
 
@@ -363,34 +420,36 @@
         gap: 0.75rem;
         margin-bottom: 1rem;
         font-size: 0.9375rem;
-        color: #4b5563;
+        color: var(--muted-foreground);
         line-height: 1.5;
       }
 
-      .modal-benefits li::before {
-        content: "✓";
-        display: inline-block;
+      .benefit-icon {
         width: 20px;
         height: 20px;
-        background: #10b981;
-        color: white;
+        background: var(--success);
         border-radius: 50%;
-        text-align: center;
-        line-height: 20px;
-        font-size: 0.75rem;
-        font-weight: bold;
+        display: flex;
+        align-items: center;
+        justify-content: center;
         flex-shrink: 0;
         margin-top: 2px;
       }
 
+      .benefit-icon img {
+        width: 12px;
+        height: 12px;
+        filter: brightness(0) invert(1);
+      }
+
       .modal-info {
-        background: #f0f9ff;
-        border: 1px solid #bae6fd;
-        border-radius: 12px;
+        background: var(--secondary);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
         padding: 0.875rem 1rem;
         margin-bottom: 1.5rem;
         font-size: 0.875rem;
-        color: #0c4a6e;
+        color: var(--muted-foreground);
         line-height: 1.5;
       }
 
@@ -403,42 +462,71 @@
         flex: 1;
         padding: 0.875rem 1.5rem;
         border: none;
-        border-radius: 12px;
+        border-radius: var(--radius);
         font-size: 0.9375rem;
         font-weight: 600;
         cursor: pointer;
         transition: all 0.2s;
         text-decoration: none;
         text-align: center;
-        display: inline-block;
       }
 
       .modal-btn-primary {
-        background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
-        color: white;
-        box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+        background: var(--primary);
+        color: var(--primary-foreground);
       }
 
       .modal-btn-primary:hover {
+        opacity: 0.9;
         transform: translateY(-1px);
-        box-shadow: 0 6px 16px rgba(59, 130, 246, 0.4);
       }
 
       .modal-btn-secondary {
-        background: #f3f4f6;
-        color: #4b5563;
+        background: var(--secondary);
+        color: var(--secondary-foreground);
       }
 
       .modal-btn-secondary:hover {
-        background: #e5e7eb;
+        background: var(--muted);
+      }
+
+      /* Responsive */
+      @media (max-width: 968px) {
+        .card {
+          grid-template-columns: 1fr;
+        }
+        .illustration {
+          display: none;
+        }
+        .content {
+          padding: 2rem;
+        }
+      }
+
+      @media (max-width: 480px) {
+        .content {
+          padding: 1.5rem;
+        }
+        h1 {
+          font-size: 1.75rem;
+        }
+        .buttons {
+          flex-direction: column-reverse;
+        }
       }
     </style>
   </head>
-  <body x-data="{ showPasskeyModal: {{ if .ShowPasskeyPrompt }}true{{ else }}false{{ end }} }">
+  <body
+    x-data="consentFlow()"
+    x-init="initPasskeyModal()"
+    data-show-passkey="{{ if .ShowPasskeyPrompt }}true{{ else }}false{{ end }}"
+  >
     <div class="card">
       <div class="illustration">
         <img src="/images/logo.png" alt="Logo" class="logo" />
-        <div class="lock-icon">🔒</div>
+        <div class="lock-icon">
+          <img src="/static/icons/lock.svg" alt="" />
+        </div>
         <div class="artwork">
           <div class="shape shape1"></div>
           <div class="shape shape2"></div>
@@ -462,7 +550,9 @@
           <ul class="scope-list">
             {{ range .Scopes }}
             <li class="scope-item">
-              <div class="scope-icon">✓</div>
+              <div class="scope-icon">
+                <img src="/static/icons/check.svg" alt="" />
+              </div>
               <div class="scope-content">
                 <div class="scope-name">{{ .Name }}</div>
                 <div class="scope-desc">{{ .Description }}</div>
@@ -471,23 +561,28 @@
             {{ end }}
           </ul>
 
-          <form action="/oauth2/consent" method="POST">
-            <input type="hidden" name="request_id" value="{{ .RequestID }}" />
-
-            <div class="buttons">
-              <button type="button" class="btn-deny" onclick="denyAccess()">
-                Deny
-              </button>
-              <button
-                type="submit"
-                name="action"
-                value="allow"
-                class="btn-allow"
-              >
-                Allow Access
-              </button>
+          <div class="buttons">
+              <form method="POST" action="/oauth2/consent" style="flex: 1">
+                <input type="hidden" name="request_id" value="{{ .RequestID }}" />
+                <input type="hidden" name="action" value="deny" />
+                <button type="submit" class="btn btn-deny" style="width: 100%">
+                  Deny
+                </button>
+              </form>
+              <form method="POST" action="/oauth2/consent" style="flex: 1">
+                <input type="hidden" name="request_id" value="{{ .RequestID }}" />
+                <input type="hidden" name="action" value="allow" />
+                <button type="submit" class="btn btn-allow" style="width: 100%">
+                  <img
+                    src="/static/icons/shield-check.svg"
+                    class="icon"
+                    alt=""
+                    style="filter: brightness(0) invert(1)"
+                  />
+                  Allow Access
+                </button>
+              </form>
             </div>
-          </form>
 
           <div class="footer">
             You can revoke access at any time in your account settings
@@ -497,52 +592,86 @@
     </div>
 
     <!-- Passkey Setup Modal -->
-    <div x-show="showPasskeyModal"
-         x-transition
-         class="modal-overlay"
-         @click.self="showPasskeyModal = false">
+    <div
+      x-show="showPasskeyModal"
+      x-transition
+      class="modal-overlay"
+      @click.self="showPasskeyModal = false"
+    >
       <div class="modal-content">
         <div class="modal-header">
-          <div class="modal-icon">🔐</div>
+          <div class="modal-icon">
+            <img src="/static/icons/key-round.svg" alt="" />
+          </div>
           <h2 class="modal-title">Secure Your Account</h2>
           <p class="modal-subtitle">Add a passkey for faster, safer sign-ins</p>
         </div>
 
         <div class="modal-body">
           <ul class="modal-benefits">
-            <li>Sign in instantly with your fingerprint or face</li>
-            <li>No passwords to remember or type</li>
-            <li>More secure - resistant to phishing attacks</li>
-            <li>Works across all your devices</li>
+            <li>
+              <span class="benefit-icon"
+                ><img src="/static/icons/check.svg" alt=""
+              /></span>
+              Sign in instantly with your fingerprint or face
+            </li>
+            <li>
+              <span class="benefit-icon"
+                ><img src="/static/icons/check.svg" alt=""
+              /></span>
+              No passwords to remember or type
+            </li>
+            <li>
+              <span class="benefit-icon"
+                ><img src="/static/icons/check.svg" alt=""
+              /></span>
+              More secure - resistant to phishing attacks
+            </li>
+            <li>
+              <span class="benefit-icon"
+                ><img src="/static/icons/check.svg" alt=""
+              /></span>
+              Works across all your devices
+            </li>
           </ul>
 
           <div class="modal-info">
-            <strong>Your privacy is protected:</strong> Your biometric data never leaves your device. Only a secure cryptographic key is shared.
+            <strong>Your privacy is protected:</strong> Your biometric data
+            never leaves your device. Only a secure cryptographic key is shared.
           </div>
 
           <div class="modal-buttons">
-            <button @click="showPasskeyModal = false" class="modal-btn modal-btn-secondary">
+            <button
+              @click="dismissPasskeyModal()"
+              class="modal-btn modal-btn-secondary"
+            >
               Maybe Later
             </button>
-            <a href="/auth/passkey/register?request_id={{ .RequestID }}" class="modal-btn modal-btn-primary">
-              Add Passkey Now
-            </a>
+            <a
+              href="/auth/passkey/register?request_id={{ .RequestID }}"
+              class="modal-btn modal-btn-primary"
+              >Add Passkey Now</a
+            >
           </div>
-        </div>
       </div>
     </div>
 
     <script>
-      function denyAccess() {
-        if (confirm("Are you sure you want to deny access?")) {
-          const form = document.querySelector("form");
-          const input = document.createElement("input");
-          input.type = "hidden";
-          input.name = "action";
-          input.value = "deny";
-          form.appendChild(input);
-          form.submit();
-        }
+      function consentFlow() {
+        return {
+          showPasskeyModal: false,
+
+          initPasskeyModal() {
+            const dismissed = globalThis.sessionStorage.getItem('passkey_prompt_dismissed');
+            const serverWantsToShow = this.$el.dataset.showPasskey === 'true';
+            this.showPasskeyModal = serverWantsToShow && !dismissed;
+          },
+
+          dismissPasskeyModal() {
+            globalThis.sessionStorage.setItem('passkey_prompt_dismissed', 'true');
+            this.showPasskeyModal = false;
+          }
+        };
       }
     </script>
   </body>

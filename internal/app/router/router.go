@@ -155,6 +155,7 @@ func NewRouter(cfg *configs.Config, i18nInstance *i18n.I18n, zapLogger *zap.Logg
 	webauthnSessionRepo := repository.NewWebAuthnSessionRepository(db.Pool)
 	viewAnalyticsRepo := repository.NewViewAnalyticsClickHouseRepository(ch)
 	viewTrackingRepo := repository.NewViewTrackingRedisRepository(rdb)
+	roleRepo := repository.NewRoleRepository(db.Pool)
 
 	// Fosite Storage
 	sqlStore := fosite_storage.NewSQLStore(oauth2ClientRepo, oauth2SessionRepo)
@@ -178,6 +179,7 @@ func NewRouter(cfg *configs.Config, i18nInstance *i18n.I18n, zapLogger *zap.Logg
 		userRepo,
 		emailVerificationRepo,
 		passwordResetRepo,
+		roleRepo,
 	)
 
 	emailService := service.NewEmailService(&cfg.Email, zapLogger)

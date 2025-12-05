@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
@@ -76,10 +77,28 @@ func (h *Handler) Register(c *gin.Context) {
 		c.Error(err) // This will be logged by Gin middleware
 	}
 
+	// Auto-login: Create session for the new user
+	sessionID, err := h.oauth2Service.CreateUserSession(c.Request.Context(), user.ID, 7*24*time.Hour)
+	if err != nil {
+		zap.L().Error("Failed to create session after registration", zap.Error(err))
+		// Still return success but without auto-login
+		resp := RegisterResponse{
+			UserID:  user.ID.String(),
+			Email:   user.Email,
+			Message: "Registration successful. Please check your email to verify your account.",
+		}
+		response.Success(c, http.StatusCreated, "auth.registration_success", resp, nil)
+		return
+	}
+
+	// Set session cookie
+	c.SetSameSite(http.SameSiteLaxMode)
+	c.SetCookie("session_id", sessionID, 86400*7, "/", "", false, true)
+
 	resp := RegisterResponse{
 		UserID:  user.ID.String(),
 		Email:   user.Email,
-		Message: "Registration successful. Please check your email to verify your account.",
+		Message: "Registration successful. You are now logged in.",
 	}
 
 	response.Success(c, http.StatusCreated, "auth.registration_success", resp, nil)
