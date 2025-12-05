@@ -1,0 +1,8 @@
+{
+  "analytics": {
+    "get_trending_success": "Lấy dữ liệu thịnh hành thành công",
+    "get_trending_failed": "Lấy dữ liệu thịnh hành thất bại",
+    "serialization_failed": "Lỗi khi xử lý dữ liệu phản hồi",
+    "mapping_failed": "Lỗi khi ánh xạ dữ liệu phản hồi"
+  }
+}

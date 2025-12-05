@@ -10,6 +10,7 @@ import (
 	"strings"
 	"system/configs"
 	v1 "system/internal/app/handler/v1"
+	"system/internal/app/handler/v1/analytics"
 	"system/internal/app/handler/v1/artist"
 	"system/internal/app/handler/v1/auth"
 	"system/internal/app/handler/v1/author"
@@ -193,6 +194,7 @@ func NewRouter(cfg *configs.Config, i18nInstance *i18n.I18n, zapLogger *zap.Logg
 	volumeService := service.NewVolumeService(volumeRepo, volumeHistoryRepo)
 	chapterService := service.NewChapterService(chapterRepo, volumeRepo, chapterHistoryRepo)
 	viewTrackingService := service.NewViewTrackingService(viewTrackingRepo, viewAnalyticsRepo, chapterRepo, novelRepo, zapLogger, &cfg.ViewTracking)
+	analyticsService := service.NewAnalyticsService(viewAnalyticsRepo, novelRepo, zapLogger)
 
 	// Start View Tracking Workers
 	if cfg.ViewTracking.WorkerEnabled {
@@ -254,6 +256,7 @@ func NewRouter(cfg *configs.Config, i18nInstance *i18n.I18n, zapLogger *zap.Logg
 
 	chapterHandler := volume_chapter.NewHandler(chapterService, volumeService, viewTrackingService, novelService)
 	userHandler := user.NewHandler(userRepo)
+	analyticsHandler := analytics.NewHandler(analyticsService)
 
 	// --- Đăng ký Routes ---
 	apiV1 := router.Group("/api/v1")
@@ -327,11 +330,16 @@ func NewRouter(cfg *configs.Config, i18nInstance *i18n.I18n, zapLogger *zap.Logg
 		}
 
 
-		// User routes
 		userGroup := apiV1.Group("/users/me")
 		userGroup.Use(middleware.RequireAuth(oauth2Provider, zapLogger))
 		{
 			userHandler.RegisterRoutes(userGroup)
+		}
+
+		// Analytics routes
+		analyticsGroup := apiV1.Group("/analytics")
+		{
+			analyticsGroup.GET("/trending", analyticsHandler.GetTrending)
 		}
 	}
 

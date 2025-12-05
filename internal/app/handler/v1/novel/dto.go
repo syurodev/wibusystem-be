@@ -1,6 +1,9 @@
 package novel
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"system/internal/app/dto"
+)
 
 // CreateNovelRequest là DTO cho việc tạo novel mới
 type CreateNovelRequest struct {
@@ -33,59 +36,16 @@ type UpdateNovelRequest struct {
 }
 
 // OwnerInfo là DTO cho owner (user hoặc tenant) - match BaseUserSchema
-type OwnerInfo struct {
-	ID          string  `json:"id"`
-	DisplayName string  `json:"display_name"`
-	Username    string  `json:"username"`
-	AvatarURL   *string `json:"avatar_url,omitempty"`
-}
+type OwnerInfo = dto.OwnerInfo
 
 // GenreInfo là DTO cho genre - match GenreSchema
-type GenreInfo struct {
-	ID   string `json:"id"`
-	Name string `json:"name"`
-}
+type GenreInfo = dto.GenreInfo
 
 // LatestChapterInfo là DTO cho chapter mới nhất - match MediaUnitSchema
-type LatestChapterInfo struct {
-	ID          string `json:"id"`
-	Title       string `json:"title"`
-	PublishedAt string `json:"published_at"`
-}
+type LatestChapterInfo = dto.LatestChapterInfo
 
 // NovelResponse là DTO cho response novel (cho danh sách) - match MediaSeriesSchema
-type NovelResponse struct {
-	// Required fields
-	ID             string  `json:"id"`
-	Title          string  `json:"title"`
-	OriginalTitle  *string `json:"original_title,omitempty"`
-	Slug           string  `json:"slug"`
-	OriginalLanguage *string `json:"original_language,omitempty"`
-	
-	// Content fields
-	Description []map[string]any `json:"description"` // Empty array [] for list view
-	CoverURL    *string          `json:"cover_url,omitempty"`
-	
-	// Type và status
-	Type   string `json:"type"`   // "novel", "manga", "anime"
-	Status string `json:"status"` // "ongoing", "completed", "hiatus", "cancelled"
-	
-	// Relations
-	Genres []GenreInfo `json:"genres"`
-	Owner  OwnerInfo   `json:"owner"`
-	
-	// Stats
-	Rating    float64 `json:"rating"`    // 0-10
-	Views     int64   `json:"views"`
-	Favorites int     `json:"favorites"`
-	
-	// Optional fields
-	LatestChapter *LatestChapterInfo `json:"latest_chapter,omitempty"`
-	
-	// Timestamps
-	CreatedAt string `json:"created_at"`
-	UpdatedAt string `json:"updated_at"`
-}
+type NovelResponse = dto.MediaSeriesResponse
 
 // ListNovelsRequest là DTO cho việc lấy danh sách novels
 type ListNovelsRequest struct {

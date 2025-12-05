@@ -245,6 +245,13 @@ func (r *novelRepository) List(ctx context.Context, filter domain.NovelFilter) (
 
 	whereClauses = append(whereClauses, "n.deleted_at IS NULL")
 
+	// Filter by specific IDs
+	if len(filter.IDs) > 0 {
+		whereClauses = append(whereClauses, fmt.Sprintf("n.id = ANY($%d)", argIdx))
+		args = append(args, filter.IDs)
+		argIdx++
+	}
+
 	// Filter by owner ID
 	if filter.OwnerID != nil {
 		whereClauses = append(whereClauses, fmt.Sprintf("n.owner_id = $%d", argIdx))
@@ -482,6 +489,46 @@ func (r *novelRepository) BatchIncrementViewCount(ctx context.Context, increment
 
 	_, err := r.pool.Exec(ctx, query, args...)
 	return err
+}
+
+// GetAuthors lấy danh sách author IDs của novel
+func (r *novelRepository) GetAuthors(ctx context.Context, novelID uuid.UUID) ([]uuid.UUID, error) {
+	query := `SELECT author_id FROM catalog.novel_authors WHERE novel_id = $1`
+	rows, err := r.pool.Query(ctx, query, novelID)
+	if err != nil {
+		return nil, err
+	}
+	return pgx.CollectRows(rows, pgx.RowTo[uuid.UUID])
+}
+
+// GetGenres lấy danh sách genre IDs của novel
+func (r *novelRepository) GetGenres(ctx context.Context, novelID uuid.UUID) ([]uuid.UUID, error) {
+	query := `SELECT genre_id FROM catalog.novel_genres WHERE novel_id = $1`
+	rows, err := r.pool.Query(ctx, query, novelID)
+	if err != nil {
+		return nil, err
+	}
+	return pgx.CollectRows(rows, pgx.RowTo[uuid.UUID])
+}
+
+// GetArtists lấy danh sách artist IDs của novel
+func (r *novelRepository) GetArtists(ctx context.Context, novelID uuid.UUID) ([]uuid.UUID, error) {
+	query := `SELECT artist_id FROM catalog.novel_artists WHERE novel_id = $1`
+	rows, err := r.pool.Query(ctx, query, novelID)
+	if err != nil {
+		return nil, err
+	}
+	return pgx.CollectRows(rows, pgx.RowTo[uuid.UUID])
+}
+
+// GetOrganizationAssignments lấy danh sách organization IDs được assign cho novel
+func (r *novelRepository) GetOrganizationAssignments(ctx context.Context, novelID uuid.UUID) ([]uuid.UUID, error) {
+	query := `SELECT organization_id FROM catalog.novel_organization_assignments WHERE novel_id = $1 AND status = 'active'`
+	rows, err := r.pool.Query(ctx, query, novelID)
+	if err != nil {
+		return nil, err
+	}
+	return pgx.CollectRows(rows, pgx.RowTo[uuid.UUID])
 }
 
 // loadNovelGenres loads genres for a specific novel

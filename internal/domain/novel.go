@@ -110,10 +110,17 @@ type NovelRepository interface {
 	// BatchIncrementViewCount tăng view count cho nhiều novels cùng lúc
 	// Sử dụng bulk UPDATE với VALUES để tối ưu performance
 	BatchIncrementViewCount(ctx context.Context, increments map[uuid.UUID]int64) error
+	
+	// Relation getters for Analytics
+	GetAuthors(ctx context.Context, novelID uuid.UUID) ([]uuid.UUID, error)
+	GetGenres(ctx context.Context, novelID uuid.UUID) ([]uuid.UUID, error)
+	GetArtists(ctx context.Context, novelID uuid.UUID) ([]uuid.UUID, error)
+	GetOrganizationAssignments(ctx context.Context, novelID uuid.UUID) ([]uuid.UUID, error)
 }
 
 // NovelFilter định nghĩa các filter cho việc query novel
 type NovelFilter struct {
+	IDs              []uuid.UUID   // Filter by specific IDs
 	OwnerID          *uuid.UUID    // Filter by owner ID (user or tenant)
 	Statuses         []NovelStatus // Filter by multiple statuses
 	GenreIDs         []uuid.UUID   // Filter by genre IDs

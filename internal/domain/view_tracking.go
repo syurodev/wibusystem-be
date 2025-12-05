@@ -7,17 +7,45 @@ import (
 	"github.com/gofrs/uuid/v5"
 )
 
+// MediaType constants for analytics
+const (
+	MediaTypeNovel = "novel"
+	MediaTypeManga = "manga"
+	MediaTypeAnime = "anime"
+)
+
 // ViewEvent represents a single view tracking event for analytics.
 // This struct is used to store view events in ClickHouse for detailed analytics.
 type ViewEvent struct {
-	EventTime  time.Time
-	EntityType string // "novel" or "chapter"
-	EntityID   uuid.UUID
-	NovelID    uuid.UUID
-	ChapterID  *uuid.UUID // Nullable - only set when viewing a chapter
-	UserID     *uuid.UUID // Nullable - only set for authenticated users
-	IPAddress  string
-	ViewCount  uint32
+	EventTime time.Time
+	MediaType string // "novel", "manga", "anime"
+	MediaID   uuid.UUID
+	UnitID    uuid.UUID // ChapterID or EpisodeID
+	UserID    *uuid.UUID
+	IPAddress string
+	ViewCount uint32
+
+	// Content Metadata
+	AuthorIDs        []uuid.UUID
+	GenreIDs         []uuid.UUID
+	ArtistIDs        []uuid.UUID
+	TagIDs           []uuid.UUID
+	GroupID          *uuid.UUID
+	OwnerID          *uuid.UUID
+	StudioID         *uuid.UUID
+	OriginalLanguage string
+
+	// User Context
+	Platform    string
+	OS          string
+	Browser     string
+	CountryCode string
+	City        string
+	Referrer    string
+
+	// User Status
+	IsPremium bool
+	UserRole  string
 }
 
 // ViewBuffer represents buffered view counts awaiting sync to PostgreSQL.
@@ -135,4 +163,17 @@ type ViewAnalyticsRepository interface {
 	//   - map[string]any: Map chứa statistics (total_views, unique_users, etc.)
 	//   - error: Lỗi nếu có
 	GetViewStats(ctx context.Context, entityType string, entityID uuid.UUID, from, to time.Time) (map[string]any, error)
+
+	// GetTopTrending retrieves top trending entities based on view counts.
+	//
+	// Parameters:
+	//   - ctx: Context
+	//   - mediaType: Optional filter by media type (novel, manga, anime). Empty string for all.
+	//   - timeRange: Time range for trending (e.g. "1 day", "7 days", "30 days")
+	//   - limit: Number of items to return
+	//
+	// Returns:
+	//   - []map[string]any: List of trending items
+	//   - error: Error if any
+	GetTopTrending(ctx context.Context, mediaType string, timeRange string, limit int) ([]map[string]any, error)
 }

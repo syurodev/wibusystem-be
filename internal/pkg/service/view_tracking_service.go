@@ -132,42 +132,94 @@ func (s *ViewTrackingService) TrackChapterView(ctx context.Context, chapterID uu
 		// Continue even if novel increment fails - không block user request
 	}
 
-	// 6. Enqueue event for ClickHouse analytics (CHAPTER)
-	eventTime := time.Now()
-	chapterEvent := &domain.ViewEvent{
-		EventTime:  eventTime,
-		EntityType: "chapter",
-		EntityID:   chapterID,
-		NovelID:    chapter.NovelID,
-		ChapterID:  &chapterID,
-		UserID:     userID,
-		IPAddress:  ipAddress,
-		ViewCount:  1,
+	// 6. Enqueue event for ClickHouse analytics
+	// Fetch enriched metadata
+	novel, err := s.novelRepo.GetByID(ctx, chapter.NovelID)
+	if err != nil {
+		s.logger.Error("Failed to get novel for analytics", zap.Error(err))
+		// Continue with minimal data
 	}
 
-	if err := s.viewTrackingRepo.EnqueueEvent(ctx, chapterEvent); err != nil {
-		s.logger.Warn("Failed to enqueue chapter ClickHouse event",
+	var authorIDs, genreIDs, artistIDs, groupIDs []uuid.UUID
+	var originalLanguage string
+	var ownerID *uuid.UUID
+	var studioID *uuid.UUID // Anime only, null for novel
+
+	if novel != nil {
+		originalLanguage = *novel.OriginalLanguage
+		ownerID = &novel.OwnerID
+
+		// Fetch relations in parallel or sequence
+		// Ignoring errors to ensure view is counted even if metadata fails
+		authorIDs, _ = s.novelRepo.GetAuthors(ctx, novel.ID)
+		genreIDs, _ = s.novelRepo.GetGenres(ctx, novel.ID)
+		artistIDs, _ = s.novelRepo.GetArtists(ctx, novel.ID)
+		groupIDs, _ = s.novelRepo.GetOrganizationAssignments(ctx, novel.ID)
+	}
+
+	// Determine GroupID (Translation Group)
+	var groupID *uuid.UUID
+	if len(groupIDs) > 0 {
+		groupID = &groupIDs[0] // Pick first active group for now
+	} else if novel != nil && novel.OwnerType == "tenant" {
+		// If owner is a tenant (group), use it as group_id
+		groupID = &novel.OwnerID
+	}
+
+	// Parse User Agent (Simple implementation)
+	// In a real app, use a library like uasurfer or user_agent
+	// Here we assume these are passed via context or we parse raw string if available
+	// Since TrackChapterView signature only has ipAddress, we can't get UA easily unless we change signature
+	// For now, we'll leave them empty or "unknown"
+	platform := "web"
+	os := "unknown"
+	browser := "unknown"
+
+	// Determine User Status
+	isPremium := false
+	userRole := "guest"
+	if userID != nil {
+		userRole = "user"
+		// TODO: Check if user is premium via UserRepo or cached session
+	}
+
+	eventTime := time.Now()
+	event := &domain.ViewEvent{
+		EventTime: eventTime,
+		MediaType: domain.MediaTypeNovel,
+		MediaID:   chapter.NovelID,
+		UnitID:    chapterID,
+		UserID:    userID,
+		IPAddress: ipAddress,
+		ViewCount: 1,
+
+		// Metadata
+		AuthorIDs:        authorIDs,
+		GenreIDs:         genreIDs,
+		ArtistIDs:        artistIDs,
+		TagIDs:           []uuid.UUID{}, // Future proof
+		GroupID:          groupID,
+		OwnerID:          ownerID,
+		StudioID:         studioID,
+		OriginalLanguage: originalLanguage,
+
+		// Context
+		Platform:    platform,
+		OS:          os,
+		Browser:     browser,
+		CountryCode: "", // Requires GeoIP
+		City:        "", // Requires GeoIP
+		Referrer:    "", // Requires context
+
+		// Status
+		IsPremium: isPremium,
+		UserRole:  userRole,
+	}
+
+	if err := s.viewTrackingRepo.EnqueueEvent(ctx, event); err != nil {
+		s.logger.Warn("Failed to enqueue ClickHouse event",
 			zap.Error(err),
 			zap.String("chapter_id", chapterID.String()))
-		// Don't fail the request if analytics queue fails
-	}
-
-	// Also enqueue novel event (NOVEL)
-	novelEvent := &domain.ViewEvent{
-		EventTime:  eventTime,
-		EntityType: "novel",
-		EntityID:   chapter.NovelID,
-		NovelID:    chapter.NovelID,
-		ChapterID:  &chapterID, // Track which chapter triggered the novel view
-		UserID:     userID,
-		IPAddress:  ipAddress,
-		ViewCount:  1,
-	}
-
-	if err := s.viewTrackingRepo.EnqueueEvent(ctx, novelEvent); err != nil {
-		s.logger.Warn("Failed to enqueue novel ClickHouse event",
-			zap.Error(err),
-			zap.String("novel_id", chapter.NovelID.String()))
 	}
 
 	s.logger.Debug("Chapter view tracked successfully",
