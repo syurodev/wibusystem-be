@@ -1,1 +1,2 @@
 scripts/seed_admin_and_clients.sql
+.env
