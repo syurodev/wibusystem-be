@@ -36,6 +36,9 @@ COPY --from=builder /app/main .
 COPY --from=builder /app/configs ./configs
 COPY --from=builder /app/internal/platform/i18n/locales ./internal/platform/i18n/locales
 
+# Copy web templates and static files
+COPY --from=builder /app/web ./web
+
 # Expose port
 EXPOSE 8080
 
