@@ -4,6 +4,12 @@ on:
   push:
     branches:
       - beta
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version tag (e.g., 1.0.0)"
+        required: false
+        default: ""
 
 env:
   DOCKER_IMAGE: ${{ secrets.DOCKERHUB_USERNAME }}/wibusystem-be
@@ -17,6 +23,17 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Get version
+        id: version
+        run: |
+          if [ -n "${{ github.event.inputs.version }}" ]; then
+            echo "VERSION=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+          elif [ -f VERSION ]; then
+            echo "VERSION=$(cat VERSION)" >> $GITHUB_OUTPUT
+          else
+            echo "VERSION=0.1.0" >> $GITHUB_OUTPUT
+          fi
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -35,6 +52,7 @@ jobs:
           tags: |
             ${{ env.DOCKER_IMAGE }}:latest
             ${{ env.DOCKER_IMAGE }}:${{ github.sha }}
+            ${{ env.DOCKER_IMAGE }}:v${{ steps.version.outputs.VERSION }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
