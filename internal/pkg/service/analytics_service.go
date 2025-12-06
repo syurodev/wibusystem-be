@@ -204,7 +204,7 @@ func (s *AnalyticsService) mapNovelToMediaSeries(n *domain.Novel, views uint64) 
 		"created_at": n.CreatedAt,
 		"updated_at": n.UpdatedAt,
 		
-		// Optional fields
-		"synopsis": []any{}, // Placeholder
+		// Synopsis - JSONB content from database
+		"synopsis": n.Synopsis,
 	}
 }

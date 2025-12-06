@@ -14,7 +14,6 @@ type UpdateGenreRequest struct {
 	Name         string  `json:"name" binding:"required,min=1,max=100"`
 	Description  string  `json:"description" binding:"max=1000"`
 	ParentID     *string `json:"parent_id,omitempty"` // UUID as string
-	DisplayOrder int     `json:"display_order" binding:"min=0"`
 	IsActive     bool    `json:"is_active"`
 }
 
@@ -56,7 +55,7 @@ type ListGenresRequest struct {
 	Page       int    `form:"page" binding:"omitempty,min=1"`
 	Limit      int    `form:"limit" binding:"omitempty,min=1,max=100"`
 	Search     string `form:"search" binding:"omitempty,max=100"`                         // Tìm kiếm theo tên
-	SortBy     string `form:"sort_by" binding:"omitempty,oneof=name views series created updated"` // name, views, series, created, updated
+	SortBy     string `form:"sort_by" binding:"omitempty,oneof=name views series created updated readers"` // name, views, series, created, updated, readers
 	SortOrder  string `form:"sort_order" binding:"omitempty,oneof=asc desc"`             // asc hoặc desc
 	ActiveOnly bool   `form:"active_only"`
 }
@@ -68,7 +67,6 @@ type GenreDetailResponse struct {
 	Slug         string  `json:"slug"`
 	Description  *string `json:"description,omitempty"`
 	ParentID     *string `json:"parent_id,omitempty"`
-	DisplayOrder int     `json:"display_order"`
 	IsActive     bool    `json:"is_active"`
 
 	// Statistics

@@ -125,31 +125,27 @@ func (s *NovelService) CreateNovel(
 	}
 
 	// Link Genres
-	validGenreIDs := make([]uuid.UUID, 0, len(genreIDs))
-	increments := make(map[uuid.UUID]int)
+	// Validate genres presence first if needed, but for performance we might skip or do a bulk check.
+	// Here we just proceed with batch insert. Valid foreign keys will enforce correctness if DB constraints exist,
+	// but usually better to let repo handle valid constraint errors or check beforehand.
+	// For now, replacing the loop as requested.
 	
-	for i, genreID := range genreIDs {
-		// Validate genre existence (optional, but good practice)
-		if _, err := s.genreRepo.GetByID(ctx, genreID); err != nil {
-			// Log error or ignore? For now, we ignore invalid IDs to proceed
-			continue
-		}
-		if err := s.genreRepo.AddNovelGenre(ctx, id, genreID, ownerID, i); err != nil {
-			// Log error
-			fmt.Printf("Failed to add genre %s: %v\n", genreID, err)
+	if len(genreIDs) > 0 {
+		if err := s.genreRepo.AddNovelGenres(ctx, id, genreIDs, ownerID); err != nil {
+			fmt.Printf("Failed to add genres: %v\n", err)
 		} else {
-			validGenreIDs = append(validGenreIDs, genreID)
-			increments[genreID] = 1
-		}
+             // For increments, we assume all succeeded.
+             // We need to build the map for BatchIncrementNovelCount
+             increments := make(map[uuid.UUID]int)
+             for _, gid := range genreIDs {
+                 increments[gid] = 1
+             }
+             if err := s.genreRepo.BatchIncrementNovelCount(ctx, increments); err != nil {
+                 fmt.Printf("Failed to increment genre novel count: %v\n", err)
+             }
+        }
 	}
 
-	// Increment novel count for genres
-	if len(increments) > 0 {
-		if err := s.genreRepo.BatchIncrementNovelCount(ctx, increments); err != nil {
-			// Log error but don't fail the request since novel is created
-			fmt.Printf("Failed to increment genre novel count: %v\n", err)
-		}
-	}
 
 	// Link Authors
 	for i, authorID := range authorIDs {

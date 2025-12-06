@@ -18,14 +18,16 @@ type Genre struct {
 	ParentID *uuid.UUID
 	Parent   *Genre `db:"-"` // Optional: được load bởi JOIN query
 
-	// Display
-	DisplayOrder int
+	// Display (removed display_order)
 	IsActive     bool
 
 	// Statistics (auto-updated by application)
 	NovelCount    int
+	AnimeCount    int
+	MangaCount    int
 	ActiveReaders int64
 	TotalViews    int64
+	Trend         Trend `db:"-"` // Calculated field (not in DB)
 
 	// Audit
 	CreatedBy *uuid.UUID
@@ -33,6 +35,15 @@ type Genre struct {
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }
+
+// Trend định nghĩa xu hướng của genre
+type Trend string
+
+const (
+	TrendRising  Trend = "rising"
+	TrendStable  Trend = "stable"
+	TrendFalling Trend = "falling"
+)
 
 // GenreRepository định nghĩa interface cho việc truy cập dữ liệu genre
 type GenreRepository interface {
@@ -70,7 +81,10 @@ type GenreRepository interface {
 	GetNovelGenres(ctx context.Context, novelID uuid.UUID) ([]*Genre, error)
 
 	// AddNovelGenre thêm genre cho novel
-	AddNovelGenre(ctx context.Context, novelID, genreID, createdBy uuid.UUID, displayOrder int) error
+	AddNovelGenre(ctx context.Context, novelID, genreID, createdBy uuid.UUID) error
+	
+	// AddNovelGenres thêm nhiều genres cho novel (Batch Insert)
+	AddNovelGenres(ctx context.Context, novelID uuid.UUID, genreIDs []uuid.UUID, createdBy uuid.UUID) error
 
 	// RemoveNovelGenre xóa genre khỏi novel
 	RemoveNovelGenre(ctx context.Context, novelID, genreID uuid.UUID) error

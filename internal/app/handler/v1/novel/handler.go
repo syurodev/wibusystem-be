@@ -503,7 +503,7 @@ func mapToNovelResponse(novel *domain.Novel) NovelResponse {
 		OriginalLanguage: novel.OriginalLanguage,
 
 		// Content fields
-		Synopsis:    make([]map[string]any, 0), // Empty for list view
+		Synopsis:    json.RawMessage("[]"), // Empty array if synopsis not in list view
 		CoverURL:    novel.CoverImageURL,
 
 		// Type và status

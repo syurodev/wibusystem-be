@@ -1,0 +1,9 @@
+-- Revert changes
+ALTER TABLE catalog.genres 
+DROP COLUMN IF EXISTS anime_count,
+DROP COLUMN IF EXISTS manga_count;
+
+ALTER TABLE catalog.genres 
+ADD COLUMN IF NOT EXISTS display_order INTEGER NOT NULL DEFAULT 0,
+ADD COLUMN IF NOT EXISTS icon VARCHAR(255),
+ADD COLUMN IF NOT EXISTS color VARCHAR(50);

@@ -24,7 +24,7 @@ func NewGenreRepository(pool *pgxpool.Pool) domain.GenreRepository {
 
 const genreColumns = `
 	id, name, slug, description, parent_id,
-	display_order, is_active, novel_count, active_readers, total_views,
+	is_active, novel_count, anime_count, manga_count, active_readers, total_views,
 	created_by, updated_by, created_at, updated_at
 `
 
@@ -82,7 +82,7 @@ func (r *genreRepository) GetAll(ctx context.Context, activeOnly bool) ([]*domai
 		query += " AND is_active = true"
 	}
 
-	query += " ORDER BY display_order ASC, name ASC"
+	query += " ORDER BY name ASC"
 
 	rows, err := r.pool.Query(ctx, query)
 	if err != nil {
@@ -130,7 +130,7 @@ func (r *genreRepository) List(ctx context.Context, offset, limit int, search, s
 	}
 
 	// Build ORDER BY clause
-	orderClause := "display_order ASC, name ASC" // Default sort
+	orderClause := "name ASC" // Default sort
 	if sortBy != "" {
 		orderField := ""
 		switch sortBy {
@@ -139,13 +139,15 @@ func (r *genreRepository) List(ctx context.Context, offset, limit int, search, s
 		case "views":
 			orderField = "total_views"
 		case "series":
-			orderField = "novel_count"
+			orderField = "(novel_count + anime_count + manga_count)"
 		case "created":
 			orderField = "created_at"
 		case "updated":
 			orderField = "updated_at"
+		case "readers":
+			orderField = "active_readers"
 		default:
-			orderField = "display_order, name"
+			orderField = "name"
 		}
 
 		if orderField != "" {
@@ -249,7 +251,7 @@ func (r *genreRepository) GetByParentID(ctx context.Context, parentID uuid.UUID)
 		SELECT %s
 		FROM catalog.genres
 		WHERE parent_id = $1 AND deleted_at IS NULL
-		ORDER BY display_order ASC, name ASC
+		ORDER BY name ASC
 	`, genreColumns)
 
 	rows, err := r.pool.Query(ctx, query, parentID)
@@ -271,7 +273,7 @@ func (r *genreRepository) GetRootGenres(ctx context.Context) ([]*domain.Genre, e
 		SELECT %s
 		FROM catalog.genres
 		WHERE parent_id IS NULL AND deleted_at IS NULL
-		ORDER BY display_order ASC, name ASC
+		ORDER BY name ASC
 	`, genreColumns)
 
 	rows, err := r.pool.Query(ctx, query)
@@ -291,9 +293,10 @@ func (r *genreRepository) GetRootGenres(ctx context.Context) ([]*domain.Genre, e
 func (r *genreRepository) Create(ctx context.Context, genre *domain.Genre) error {
 	query := `
 		INSERT INTO catalog.genres (
-			id, name, slug, description, parent_id, display_order,
-			is_active, created_by, created_at, updated_at
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())
+			id, name, slug, description, parent_id,
+			is_active, created_by, created_at, updated_at,
+			anime_count, manga_count
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW(), 0, 0)
 	`
 
 	_, err := r.pool.Exec(ctx, query,
@@ -302,7 +305,6 @@ func (r *genreRepository) Create(ctx context.Context, genre *domain.Genre) error
 		genre.Slug,
 		genre.Description,
 		genre.ParentID,
-		genre.DisplayOrder,
 		genre.IsActive,
 		genre.CreatedBy,
 	)
@@ -318,9 +320,8 @@ func (r *genreRepository) Update(ctx context.Context, genre *domain.Genre) error
 		    slug = $3,
 		    description = $4,
 		    parent_id = $5,
-		    display_order = $6,
-		    is_active = $7,
-		    updated_by = $8,
+		    is_active = $6,
+		    updated_by = $7,
 		    updated_at = NOW()
 		WHERE id = $1 AND deleted_at IS NULL
 	`
@@ -331,7 +332,6 @@ func (r *genreRepository) Update(ctx context.Context, genre *domain.Genre) error
 		genre.Slug,
 		genre.Description,
 		genre.ParentID,
-		genre.DisplayOrder,
 		genre.IsActive,
 		genre.UpdatedBy,
 	)
@@ -392,16 +392,16 @@ func (r *genreRepository) GetNovelGenres(ctx context.Context, novelID uuid.UUID)
 }
 
 // AddNovelGenre thêm genre cho novel
-func (r *genreRepository) AddNovelGenre(ctx context.Context, novelID, genreID, createdBy uuid.UUID, displayOrder int) error {
+func (r *genreRepository) AddNovelGenre(ctx context.Context, novelID, genreID, createdBy uuid.UUID) error {
 	query := `
 		INSERT INTO catalog.novel_genres (id, novel_id, genre_id, display_order, created_by, created_at)
-		VALUES (gen_random_uuid(), $1, $2, $3, $4, NOW())
+		VALUES (gen_random_uuid(), $1, $2, 0, $3, NOW())
 		ON CONFLICT (novel_id, genre_id) DO UPDATE
 		SET display_order = EXCLUDED.display_order
 	`
 
 	db := db.GetDB(ctx, r.pool)
-	_, err := db.Exec(ctx, query, novelID, genreID, displayOrder, createdBy)
+	_, err := db.Exec(ctx, query, novelID, genreID, createdBy)
 	return err
 }
 
@@ -416,24 +416,21 @@ func (r *genreRepository) AddNovelGenres(ctx context.Context, novelID uuid.UUID,
 	var args []any
 	var values []string
 
+	args = append(args, novelID, createdBy) // $1, $2
+
 	for i, genreID := range genreIDs {
-		// $1, $2, $3, $4, $5, $6...
-		// novelID is constant, createdBy is constant
-		// genreID varies, displayOrder varies (i)
-		
-		// Param indices:
+		// Indices:
 		// novelID: $1
 		// createdBy: $2
 		// genreID: $3 + i
 		
-		// Actually simpler to just append all args
-		base := i * 4
-		values = append(values, fmt.Sprintf("(gen_random_uuid(), $%d, $%d, $%d, $%d, NOW())", base+1, base+2, base+3, base+4))
-		args = append(args, novelID, genreID, i, createdBy)
+		paramIdx := 3 + i
+		values = append(values, fmt.Sprintf("(gen_random_uuid(), $1, $%d, 0, $2, NOW())", paramIdx))
+		args = append(args, genreID)
 	}
 
 	query += strings.Join(values, ",")
-	query += " ON CONFLICT (novel_id, genre_id) DO UPDATE SET display_order = EXCLUDED.display_order"
+	query += " ON CONFLICT (novel_id, genre_id) DO UPDATE SET display_order = 0"
 
 	db := db.GetDB(ctx, r.pool)
 	_, err := db.Exec(ctx, query, args...)

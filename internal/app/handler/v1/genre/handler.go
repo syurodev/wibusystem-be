@@ -150,7 +150,7 @@ func (h *Handler) UpdateGenre(c *gin.Context) {
 	}
 
 	// Update genre
-	genre, err := h.genreService.UpdateGenre(c.Request.Context(), id, req.Name, req.Description, parentID, req.DisplayOrder, req.IsActive, userID)
+	genre, err := h.genreService.UpdateGenre(c.Request.Context(), id, req.Name, req.Description, parentID, req.IsActive, userID)
 	if err != nil {
 		if errors.Is(err, pkgerrors.ErrGenreNotFound) {
 			response.Error(c, http.StatusNotFound, "GENRE_NOT_FOUND", i18nkeys.GenreNotFound, nil)
@@ -363,7 +363,6 @@ func mapToGenreDetailResponse(genre *domain.Genre, trend string) GenreDetailResp
 		Name:          genre.Name,
 		Slug:          genre.Slug,
 		Description:   genre.Description,
-		DisplayOrder:  genre.DisplayOrder,
 		IsActive:      genre.IsActive,
 		SeriesCount:   genre.NovelCount,
 		ActiveReaders: genre.ActiveReaders,

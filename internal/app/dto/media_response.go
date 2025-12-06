@@ -1,5 +1,7 @@
 package dto
 
+import "encoding/json"
+
 // MediaSeriesResponse matches the frontend MediaSeriesSchema
 // This is a unified response for Novel, Manga, and Anime lists.
 type MediaSeriesResponse struct {
@@ -11,8 +13,8 @@ type MediaSeriesResponse struct {
 	OriginalLanguage *string `json:"original_language,omitempty"`
 	
 	// Content fields
-	Synopsis    []map[string]any `json:"synopsis"` // TNode[]
-	CoverURL    *string          `json:"cover_url,omitempty"`
+	Synopsis    json.RawMessage `json:"synopsis"` // TNode[] as raw JSON
+	CoverURL    *string         `json:"cover_url,omitempty"`
 	
 	// Type and status
 	Type   string `json:"type"`   // "novel", "manga", "anime"

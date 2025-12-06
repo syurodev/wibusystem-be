@@ -27,19 +27,13 @@ func NewGenreService(genreRepo domain.GenreRepository) *GenreService {
 	}
 }
 
-// GenreTrend định nghĩa kiểu trend
-type GenreTrend string
-
-const (
-	TrendRising  GenreTrend = "rising"
-	TrendStable  GenreTrend = "stable"
-	TrendFalling GenreTrend = "falling"
-)
+// Use domain.Trend instead of local type
+// Removed local GenreTrend definition
 
 // GenreWithTrend là genre kèm theo trend
 type GenreWithTrend struct {
 	*domain.Genre
-	Trend GenreTrend
+	Trend domain.Trend
 }
 
 // CreateGenre tạo genre mới
@@ -79,7 +73,6 @@ func (s *GenreService) CreateGenre(ctx context.Context, name, description string
 		Slug:          genreSlug,
 		Description:   &description,
 		ParentID:      parentID,
-		DisplayOrder:  0,
 		IsActive:      true,
 		NovelCount:    0,
 		ActiveReaders: 0,
@@ -97,7 +90,7 @@ func (s *GenreService) CreateGenre(ctx context.Context, name, description string
 }
 
 // UpdateGenre cập nhật genre
-func (s *GenreService) UpdateGenre(ctx context.Context, id uuid.UUID, name, description string, parentID *uuid.UUID, displayOrder int, isActive bool, userID uuid.UUID) (*domain.Genre, error) {
+func (s *GenreService) UpdateGenre(ctx context.Context, id uuid.UUID, name, description string, parentID *uuid.UUID, isActive bool, userID uuid.UUID) (*domain.Genre, error) {
 	// Get existing genre
 	genre, err := s.genreRepo.GetByID(ctx, id)
 	if err != nil {
@@ -146,7 +139,6 @@ func (s *GenreService) UpdateGenre(ctx context.Context, id uuid.UUID, name, desc
 	genre.Name = name
 	genre.Description = &description
 	genre.ParentID = parentID
-	genre.DisplayOrder = displayOrder
 	genre.IsActive = isActive
 	genre.UpdatedBy = &userID
 	genre.UpdatedAt = time.Now()
@@ -232,6 +224,7 @@ func (s *GenreService) ListGenres(ctx context.Context, page, limit int, search, 
 		"series":  true,
 		"created": true,
 		"updated": true,
+		"readers": true, // Added readers
 	}
 	if sortBy != "" && !validSortFields[sortBy] {
 		sortBy = "" // Reset to default if invalid
@@ -300,22 +293,24 @@ func (s *GenreService) GetGenreChildren(ctx context.Context, parentID uuid.UUID)
 
 // calculateTrend tính toán trend của genre dựa trên metrics
 // Đây là một implementation đơn giản, có thể nâng cấp sau
-func (s *GenreService) calculateTrend(genre *domain.Genre) GenreTrend {
+// calculateTrend tính toán trend của genre dựa trên metrics
+// Đây là một implementation đơn giản, có thể nâng cấp sau
+func (s *GenreService) calculateTrend(genre *domain.Genre) domain.Trend {
 	// Simple heuristic based on activity metrics
 	// In a real implementation, this would compare current metrics with historical data
 
 	// If genre has high activity (active readers > 1000 or high views)
 	if genre.ActiveReaders > 1000 || genre.TotalViews > 100000 {
-		return TrendRising
+		return domain.TrendRising
 	}
 
 	// If genre has moderate activity
 	if genre.ActiveReaders > 100 || genre.TotalViews > 10000 {
-		return TrendStable
+		return domain.TrendStable
 	}
 
 	// If genre has low activity
-	return TrendFalling
+	return domain.TrendFalling
 }
 
 // MergeGenres gộp nhiều genres thành một
