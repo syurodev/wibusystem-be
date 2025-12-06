@@ -18,5 +18,9 @@ func (h *Handler) RegisterRoutes(router *gin.RouterGroup, requireAuth gin.Handle
 		protected.POST("", h.CreateAuthor)       // POST /api/v1/authors
 		protected.PUT("/:id", h.UpdateAuthor)    // PUT /api/v1/authors/:id
 		protected.DELETE("/:id", h.DeleteAuthor) // DELETE /api/v1/authors/:id
+
+		// Merge routes
+		protected.POST("/merge", h.MergeAuthor)          // POST /api/v1/authors/merge
+		protected.POST("/merge/preview", h.PreviewMergeAuthor) // POST /api/v1/authors/merge/preview
 	}
 }

@@ -432,3 +432,130 @@ func (r *authorRepository) UpdateStatistics(ctx context.Context, id uuid.UUID, s
 	_, err := r.pool.Exec(ctx, query, args...)
 	return err
 }
+
+// Merge gộp nhiều authors (sources) thành một author (target)
+func (r *authorRepository) Merge(ctx context.Context, targetID uuid.UUID, sourceIDs []uuid.UUID, mergedBy uuid.UUID) error {
+	if len(sourceIDs) == 0 {
+		return nil
+	}
+
+	// Start transaction
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	// Convert UUIDs to strings for pgx array compatibility
+	sourceIDStrings := make([]string, len(sourceIDs))
+	for i, id := range sourceIDs {
+		sourceIDStrings[i] = id.String()
+	}
+
+	// 1. Move novels from source authors to target author
+	queryMove := `
+		UPDATE catalog.novel_authors
+		SET author_id = $1
+		WHERE author_id = ANY($2::uuid[])
+		AND novel_id NOT IN (
+			SELECT novel_id FROM catalog.novel_authors WHERE author_id = $1
+		)
+	`
+	_, err = tx.Exec(ctx, queryMove, targetID, sourceIDStrings)
+	if err != nil {
+		return err
+	}
+
+	// 2. Remove all source author assignments (duplicates that weren't moved)
+	queryRemove := `
+		DELETE FROM catalog.novel_authors
+		WHERE author_id = ANY($1::uuid[])
+	`
+	_, err = tx.Exec(ctx, queryRemove, sourceIDStrings)
+	if err != nil {
+		return err
+	}
+
+	// 3. Update target author stats
+	queryUpdateStats := `
+		UPDATE catalog.authors
+		SET total_views = total_views + (
+				SELECT COALESCE(SUM(total_views), 0) FROM catalog.authors WHERE id = ANY($2::uuid[])
+			),
+			novel_count = (SELECT COUNT(*) FROM catalog.novel_authors WHERE author_id = $1),
+			updated_by = $3,
+			updated_at = NOW()
+		WHERE id = $1
+	`
+	_, err = tx.Exec(ctx, queryUpdateStats, targetID, sourceIDStrings, mergedBy)
+	if err != nil {
+		return err
+	}
+
+	// 4. Soft delete source authors
+	queryDelete := `
+		UPDATE catalog.authors
+		SET deleted_at = NOW(),
+			deleted_by = $2
+		WHERE id = ANY($1::uuid[])
+	`
+	_, err = tx.Exec(ctx, queryDelete, sourceIDStrings, mergedBy)
+	if err != nil {
+		return err
+	}
+
+	return tx.Commit(ctx)
+}
+
+// GetMergePreview lấy danh sách các novel sẽ bị ảnh hưởng khi merge
+func (r *authorRepository) GetMergePreview(ctx context.Context, targetID uuid.UUID, sourceIDs []uuid.UUID) ([]*domain.Novel, error) {
+	if len(sourceIDs) == 0 {
+		return []*domain.Novel{}, nil
+	}
+
+	query := `
+		SELECT DISTINCT n.id, n.title, n.slug, n.cover_image_url
+		FROM catalog.novels n
+		JOIN catalog.novel_authors na ON n.id = na.novel_id
+		WHERE na.author_id = ANY($1::uuid[])
+		AND n.deleted_at IS NULL
+		ORDER BY n.title ASC
+	`
+
+	// Convert UUIDs to strings for pgx array compatibility
+	sourceIDStrings := make([]string, len(sourceIDs))
+	for i, id := range sourceIDs {
+		sourceIDStrings[i] = id.String()
+	}
+
+	rows, err := r.pool.Query(ctx, query, sourceIDStrings)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var novels []*domain.Novel
+	for rows.Next() {
+		novel := &domain.Novel{}
+		var id uuid.UUID
+		var title, slug string
+		var coverImageURL *string
+
+		if err := rows.Scan(&id, &title, &slug, &coverImageURL); err != nil {
+			return nil, err
+		}
+
+		novel.ID = id
+		novel.Title = title
+		novel.Slug = slug
+		novel.CoverImageURL = coverImageURL
+
+		novels = append(novels, novel)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return novels, nil
+}

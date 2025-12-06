@@ -125,6 +125,9 @@ func (s *NovelService) CreateNovel(
 	}
 
 	// Link Genres
+	validGenreIDs := make([]uuid.UUID, 0, len(genreIDs))
+	increments := make(map[uuid.UUID]int)
+	
 	for i, genreID := range genreIDs {
 		// Validate genre existence (optional, but good practice)
 		if _, err := s.genreRepo.GetByID(ctx, genreID); err != nil {
@@ -134,6 +137,17 @@ func (s *NovelService) CreateNovel(
 		if err := s.genreRepo.AddNovelGenre(ctx, id, genreID, ownerID, i); err != nil {
 			// Log error
 			fmt.Printf("Failed to add genre %s: %v\n", genreID, err)
+		} else {
+			validGenreIDs = append(validGenreIDs, genreID)
+			increments[genreID] = 1
+		}
+	}
+
+	// Increment novel count for genres
+	if len(increments) > 0 {
+		if err := s.genreRepo.BatchIncrementNovelCount(ctx, increments); err != nil {
+			// Log error but don't fail the request since novel is created
+			fmt.Printf("Failed to increment genre novel count: %v\n", err)
 		}
 	}
 
@@ -243,7 +257,29 @@ func (s *NovelService) DeleteNovel(ctx context.Context, id uuid.UUID) error {
 	// TODO: Check if novel has volumes/chapters and prevent deletion if needed
 	// For now, we allow deletion regardless
 
-	return s.novelRepo.Delete(ctx, id)
+	// Get novel genres to decrement count
+	genres, err := s.genreRepo.GetNovelGenres(ctx, id)
+	if err != nil {
+		// Log error but proceed with deletion
+		fmt.Printf("Failed to get novel genres for deletion: %v\n", err)
+	}
+
+	if err := s.novelRepo.Delete(ctx, id); err != nil {
+		return err
+	}
+
+	// Decrement novel count for genres
+	if len(genres) > 0 {
+		increments := make(map[uuid.UUID]int)
+		for _, genre := range genres {
+			increments[genre.ID] = -1
+		}
+		if err := s.genreRepo.BatchIncrementNovelCount(ctx, increments); err != nil {
+			fmt.Printf("Failed to decrement genre novel count: %v\n", err)
+		}
+	}
+
+	return nil
 }
 
 // GetNovelByID lấy thông tin novel theo ID

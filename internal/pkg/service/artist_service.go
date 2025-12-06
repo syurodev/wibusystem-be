@@ -230,3 +230,47 @@ func (s *ArtistService) ListSelection(ctx context.Context, page, limit int, sear
 	offset := (page - 1) * limit
 	return s.artistRepo.ListSelection(ctx, offset, limit, search)
 }
+// MergeArtists gộp nhiều artists thành một
+func (s *ArtistService) MergeArtists(ctx context.Context, targetID uuid.UUID, sourceIDs []uuid.UUID, mergedBy uuid.UUID) error {
+	// Validate input
+	if len(sourceIDs) == 0 {
+		return pkgerrors.ErrInvalidInput
+	}
+
+	// Check if target exists
+	_, err := s.artistRepo.GetByID(ctx, targetID)
+	if err != nil {
+		return pkgerrors.ErrArtistNotFound
+	}
+
+	// Validate: Ensure target is not in sources (prevent self-merge)
+	for _, id := range sourceIDs {
+		if id == targetID {
+			return pkgerrors.ErrInvalidInput
+		}
+	}
+
+	return s.artistRepo.Merge(ctx, targetID, sourceIDs, mergedBy)
+}
+
+// PreviewMergeArtists xem trước kết quả gộp artists
+func (s *ArtistService) PreviewMergeArtists(ctx context.Context, targetID uuid.UUID, sourceIDs []uuid.UUID) ([]*domain.Novel, error) {
+	// Check if target exists
+	_, err := s.artistRepo.GetByID(ctx, targetID)
+	if err != nil {
+		return nil, pkgerrors.ErrArtistNotFound
+	}
+
+	if len(sourceIDs) == 0 {
+		return []*domain.Novel{}, nil
+	}
+
+	// Validate: Ensure target is not in sources
+	for _, id := range sourceIDs {
+		if id == targetID {
+			return nil, pkgerrors.ErrInvalidInput
+		}
+	}
+
+	return s.artistRepo.GetMergePreview(ctx, targetID, sourceIDs)
+}

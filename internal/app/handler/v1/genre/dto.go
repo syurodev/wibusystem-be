@@ -1,5 +1,7 @@
 package genre
 
+import "github.com/gofrs/uuid/v5"
+
 // CreateGenreRequest là DTO cho việc tạo genre mới
 type CreateGenreRequest struct {
 	Name        string  `json:"name" binding:"required,min=1,max=100"`
@@ -14,6 +16,24 @@ type UpdateGenreRequest struct {
 	ParentID     *string `json:"parent_id,omitempty"` // UUID as string
 	DisplayOrder int     `json:"display_order" binding:"min=0"`
 	IsActive     bool    `json:"is_active"`
+}
+
+// MergeGenreRequest là DTO cho việc gộp genres
+type MergeGenreRequest struct {
+	TargetID  uuid.UUID   `json:"target_id" binding:"required"`
+	SourceIDs []uuid.UUID `json:"source_ids" binding:"required,min=1"`
+}
+
+type PreviewMergeGenreResponse struct {
+	AffectedNovels []AffectedNovel `json:"affected_novels"`
+	SourceGenres   []string        `json:"source_genres"`
+}
+
+type AffectedNovel struct {
+	ID            uuid.UUID `json:"id"`
+	Title         string    `json:"title"`
+	Slug          string    `json:"slug"`
+	CoverImageURL *string   `json:"cover_image_url"`
 }
 
 // GenreResponse là DTO cho response genre

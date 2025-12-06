@@ -225,3 +225,39 @@ func (r *viewAnalyticsClickHouseRepo) GetTopTrending(ctx context.Context, mediaT
 
 	return results, nil
 }
+
+// GetGenreActiveReaders retrieves the count of active readers per genre for the last N days.
+// Active reader = distinct user (or IP if anonymous) who viewed any content in that genre.
+func (r *viewAnalyticsClickHouseRepo) GetGenreActiveReaders(ctx context.Context, days int) (map[uuid.UUID]int64, error) {
+	// Query to count distinct users/IPs per genre
+	// We use array join because genre_ids is an array column
+	query := fmt.Sprintf(`
+		SELECT
+			genre_id,
+			uniqExact(if(user_id != '00000000-0000-0000-0000-000000000000', toString(user_id), ip_address)) as active_readers
+		FROM view_events
+		ARRAY JOIN genre_ids AS genre_id
+		WHERE event_time >= now() - INTERVAL %d DAY
+		GROUP BY genre_id
+	`, days)
+
+	rows, err := r.ch.Conn.Query(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query active readers: %w", err)
+	}
+	defer rows.Close()
+
+	results := make(map[uuid.UUID]int64)
+	for rows.Next() {
+		var (
+			genreID uuid.UUID
+			count   uint64
+		)
+		if err := rows.Scan(&genreID, &count); err != nil {
+			return nil, fmt.Errorf("failed to scan row: %w", err)
+		}
+		results[genreID] = int64(count)
+	}
+
+	return results, nil
+}

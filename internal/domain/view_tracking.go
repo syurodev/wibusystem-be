@@ -175,5 +175,27 @@ type ViewAnalyticsRepository interface {
 	// Returns:
 	//   - []map[string]any: List of trending items
 	//   - error: Error if any
+	// GetTopTrending retrieves top trending entities based on view counts.
+	//
+	// Parameters:
+	//   - ctx: Context
+	//   - mediaType: Optional filter by media type (novel, manga, anime). Empty string for all.
+	//   - timeRange: Time range for trending (e.g. "1 day", "7 days", "30 days")
+	//   - limit: Number of items to return
+	//
+	// Returns:
+	//   - []map[string]any: List of trending items
+	//   - error: Error if any
 	GetTopTrending(ctx context.Context, mediaType string, timeRange string, limit int) ([]map[string]any, error)
+
+	// GetGenreActiveReaders retrieves the count of active readers per genre for the last N days.
+	//
+	// Parameters:
+	//   - ctx: Context
+	//   - days: Number of days to look back
+	//
+	// Returns:
+	//   - map[uuid.UUID]int64: Map of genre ID to active readers count
+	//   - error: Error if any
+	GetGenreActiveReaders(ctx context.Context, days int) (map[uuid.UUID]int64, error)
 }

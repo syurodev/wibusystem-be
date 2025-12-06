@@ -397,4 +397,105 @@ func (h *Handler) ListSelection(c *gin.Context) {
 	response.Success(c, http.StatusOK, "artist.list_success", selectionResponses, meta)
 }
 
+// MergeArtist gộp artists
+// @Summary Merge artists
+// @Tags Artists
+// @Accept json
+// @Produce json
+// @Param request body MergeArtistRequest true "Merge Artist Request"
+// @Success 200 {object} response.StandardResponse
+// @Failure 400 {object} response.StandardResponse
+// @Failure 404 {object} response.StandardResponse
+// @Failure 500 {object} response.StandardResponse
+// @Router /api/v1/artists/merge [post]
+func (h *Handler) MergeArtist(c *gin.Context) {
+	var req MergeArtistRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, "VALIDATION_FAILED", "validation.failed", err.Error())
+		return
+	}
+
+	// Get user ID from token
+	userIDStr, exists := middleware.GetUserID(c)
+	if !exists {
+		response.Error(c, http.StatusUnauthorized, "UNAUTHORIZED", i18nkeys.AuthUnauthorized, nil)
+		return
+	}
+
+	userID, err := uuid.FromString(userIDStr)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "INVALID_USER_ID", i18nkeys.AuthInvalidUserID, nil)
+		return
+	}
+
+	err = h.artistService.MergeArtists(c.Request.Context(), req.TargetID, req.SourceIDs, userID)
+	if err != nil {
+		if errors.Is(err, pkgerrors.ErrArtistNotFound) {
+			response.Error(c, http.StatusNotFound, "ARTIST_NOT_FOUND", i18nkeys.ArtistNotFound, nil)
+			return
+		}
+		if errors.Is(err, pkgerrors.ErrInvalidInput) {
+			response.Error(c, http.StatusBadRequest, "INVALID_INPUT", i18nkeys.ValidationFailed, err.Error())
+			return
+		}
+		
+		response.Error(c, http.StatusInternalServerError, "MERGE_FAILED", "artist.merge_failed", err.Error())
+		return
+	}
+
+	response.Success(c, http.StatusOK, "artist.merge_success", nil, nil)
+}
+
+// PreviewMergeArtist xem trước kết quả gộp artists
+// @Summary Preview merge artists
+// @Tags Artists
+// @Accept json
+// @Produce json
+// @Param request body MergeArtistRequest true "Merge Artist Request"
+// @Success 200 {object} response.StandardResponse{data=PreviewMergeArtistResponse}
+// @Failure 400 {object} response.StandardResponse
+// @Failure 404 {object} response.StandardResponse
+// @Failure 500 {object} response.StandardResponse
+// @Router /api/v1/artists/merge/preview [post]
+func (h *Handler) PreviewMergeArtist(c *gin.Context) {
+	var req MergeArtistRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, "VALIDATION_FAILED", "validation.failed", err.Error())
+		return
+	}
+
+	preview, err := h.artistService.PreviewMergeArtists(c.Request.Context(), req.TargetID, req.SourceIDs)
+	if err != nil {
+		if errors.Is(err, pkgerrors.ErrArtistNotFound) {
+			response.Error(c, http.StatusNotFound, "ARTIST_NOT_FOUND", i18nkeys.ArtistNotFound, nil)
+			return
+		}
+		if errors.Is(err, pkgerrors.ErrInvalidInput) {
+			response.Error(c, http.StatusBadRequest, "INVALID_INPUT", i18nkeys.ValidationFailed, err.Error())
+			return
+		}
+		
+		response.Error(c, http.StatusInternalServerError, "PREVIEW_FAILED", "artist.preview_failed", err.Error())
+		return
+	}
+
+	// Transform to response DTO
+	affectedNovels := make([]AffectedNovel, len(preview))
+	for i, novel := range preview {
+		affectedNovels[i] = AffectedNovel{
+			ID:            novel.ID,
+			Title:         novel.Title,
+			Slug:          novel.Slug,
+			CoverImageURL: novel.CoverImageURL,
+		}
+	}
+
+	resp := PreviewMergeArtistResponse{
+		AffectedNovels: affectedNovels,
+		SourceArtists:  nil, // Optional
+	}
+
+	response.Success(c, http.StatusOK, "artist.preview_success", resp, nil)
+}
+
 

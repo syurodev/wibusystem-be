@@ -1,5 +1,7 @@
 package author
 
+import "github.com/gofrs/uuid/v5"
+
 // CreateAuthorRequest là DTO cho việc tạo author mới
 type CreateAuthorRequest struct {
 	Name        string  `json:"name" binding:"required,min=1,max=200"`
@@ -52,4 +54,22 @@ type AuthorDetailResponse struct {
 	IsVerified    bool    `json:"is_verified"`
 	CreatedAt     string  `json:"created_at"`
 	UpdatedAt     string  `json:"updated_at"`
+}
+
+// MergeAuthorRequest là DTO cho việc gộp authors
+type MergeAuthorRequest struct {
+	TargetID  uuid.UUID   `json:"target_id" binding:"required"`
+	SourceIDs []uuid.UUID `json:"source_ids" binding:"required,min=1"`
+}
+
+type PreviewMergeAuthorResponse struct {
+	AffectedNovels []AffectedNovel `json:"affected_novels"`
+	SourceAuthors   []string       `json:"source_authors"`
+}
+
+type AffectedNovel struct {
+	ID            uuid.UUID `json:"id"`
+	Title         string    `json:"title"`
+	Slug          string    `json:"slug"`
+	CoverImageURL *string   `json:"cover_image_url"`
 }

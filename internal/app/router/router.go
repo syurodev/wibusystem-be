@@ -1,7 +1,6 @@
 package router
 
 import (
-	"context"
 	"html/template"
 	"io/fs"
 	"net/http"
@@ -22,6 +21,7 @@ import (
 	"system/internal/app/handler/v1/oauth2_admin"
 	"system/internal/app/handler/v1/user"
 	"system/internal/app/middleware"
+	"system/internal/app/worker"
 	"system/internal/oauth2"
 	fosite_storage "system/internal/oauth2/storage"
 	txdb "system/internal/pkg/db"
@@ -193,36 +193,11 @@ func NewRouter(cfg *configs.Config, i18nInstance *i18n.I18n, zapLogger *zap.Logg
 	novelService := service.NewNovelService(novelRepo, volumeRepo, genreRepo, authorRepo, artistRepo, txManager)
 	volumeService := service.NewVolumeService(volumeRepo, volumeHistoryRepo)
 	chapterService := service.NewChapterService(chapterRepo, volumeRepo, chapterHistoryRepo)
-	viewTrackingService := service.NewViewTrackingService(viewTrackingRepo, viewAnalyticsRepo, chapterRepo, novelRepo, zapLogger, &cfg.ViewTracking)
+	viewTrackingService := service.NewViewTrackingService(viewTrackingRepo, viewAnalyticsRepo, chapterRepo, novelRepo, genreRepo, zapLogger, &cfg.ViewTracking)
 	analyticsService := service.NewAnalyticsService(viewAnalyticsRepo, novelRepo, zapLogger)
 
 	// Start View Tracking Workers
-	if cfg.ViewTracking.WorkerEnabled {
-		// Worker 1: Sync buffers from Redis to Postgres
-		go func() {
-			ticker := time.NewTicker(time.Duration(cfg.ViewTracking.SyncIntervalMinutes) * time.Minute)
-			defer ticker.Stop()
-
-			for range ticker.C {
-				if err := viewTrackingService.SyncBuffersToPostgreSQL(context.Background()); err != nil {
-					zapLogger.Error("Failed to sync view buffers to PostgreSQL", zap.Error(err))
-				}
-			}
-		}()
-
-		// Worker 2: Sync events from Redis to ClickHouse
-		go func() {
-			// Sync frequently for near real-time analytics (e.g., every 10 seconds)
-			ticker := time.NewTicker(10 * time.Second)
-			defer ticker.Stop()
-
-			for range ticker.C {
-				if err := viewTrackingService.SyncEventsToClickHouse(context.Background()); err != nil {
-					zapLogger.Error("Failed to sync view events to ClickHouse", zap.Error(err))
-				}
-			}
-		}()
-	}
+	worker.StartViewTrackingWorkers(&cfg.ViewTracking, viewTrackingService, zapLogger)
 
 	webauthnService, err := service.NewWebAuthnService(
 		cfg.WebAuthn,

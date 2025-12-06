@@ -1,5 +1,7 @@
 package artist
 
+import "github.com/gofrs/uuid/v5"
+
 // CreateArtistRequest là DTO cho việc tạo artist mới
 type CreateArtistRequest struct {
 	Name           string  `json:"name" binding:"required,min=1,max=200"`
@@ -55,4 +57,22 @@ type ArtistDetailResponse struct {
 	IsVerified     bool    `json:"is_verified"`
 	CreatedAt      string  `json:"created_at"`
 	UpdatedAt      string  `json:"updated_at"`
+}
+
+// MergeArtistRequest là DTO cho việc gộp artists
+type MergeArtistRequest struct {
+	TargetID  uuid.UUID   `json:"target_id" binding:"required"`
+	SourceIDs []uuid.UUID `json:"source_ids" binding:"required,min=1"`
+}
+
+type PreviewMergeArtistResponse struct {
+	AffectedNovels []AffectedNovel `json:"affected_novels"`
+	SourceArtists   []string       `json:"source_artists"`
+}
+
+type AffectedNovel struct {
+	ID            uuid.UUID `json:"id"`
+	Title         string    `json:"title"`
+	Slug          string    `json:"slug"`
+	CoverImageURL *string   `json:"cover_image_url"`
 }

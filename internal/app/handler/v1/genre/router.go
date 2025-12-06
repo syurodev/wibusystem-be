@@ -18,6 +18,8 @@ func (h *Handler) RegisterRoutes(router *gin.RouterGroup, authMiddleware gin.Han
 		protected.Use(authMiddleware)
 	}
 	protected.POST("", h.CreateGenre)      // POST /api/v1/genres
+	protected.POST("/merge", h.MergeGenre) // POST /api/v1/genres/merge
+	protected.POST("/merge/preview", h.PreviewMergeGenre) // POST /api/v1/genres/merge/preview
 	protected.PUT("/:id", h.UpdateGenre)   // PUT /api/v1/genres/:id
 	protected.DELETE("/:id", h.DeleteGenre) // DELETE /api/v1/genres/:id
 }

@@ -446,4 +446,106 @@ func (h *Handler) ListSelection(c *gin.Context) {
 	response.Success(c, http.StatusOK, "genre.list_success", selectionResponses, meta)
 }
 
+// MergeGenre gộp genres thành một
+// @Summary Merge genres
+// @Tags Genres
+// @Accept json
+// @Produce json
+// @Param request body MergeGenreRequest true "Merge Genre Request"
+// @Success 200 {object} response.StandardResponse
+// @Failure 400 {object} response.StandardResponse
+// @Failure 500 {object} response.StandardResponse
+// @Router /api/v1/genres/merge [post]
+func (h *Handler) MergeGenre(c *gin.Context) {
+	var req MergeGenreRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, "VALIDATION_FAILED", i18nkeys.ValidationFailed, err.Error())
+		return
+	}
+
+	// Get user ID
+	userIDStr, exists := middleware.GetUserID(c)
+	if !exists {
+		response.Error(c, http.StatusUnauthorized, "UNAUTHORIZED", i18nkeys.AuthUnauthorized, nil)
+		return
+	}
+
+	userID, err := uuid.FromString(userIDStr)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "INVALID_USER_ID", i18nkeys.AuthInvalidUserID, nil)
+		return
+	}
+
+	// Call service - req.TargetID and req.SourceIDs are already uuid.UUID
+	err = h.genreService.MergeGenres(c.Request.Context(), req.TargetID, req.SourceIDs, userID)
+	if err != nil {
+		// Handle specific errors
+		if errors.Is(err, pkgerrors.ErrGenreNotFound) {
+			response.Error(c, http.StatusNotFound, "GENRE_NOT_FOUND", i18nkeys.GenreNotFound, nil)
+			return
+		}
+		if errors.Is(err, pkgerrors.ErrInvalidInput) {
+			response.Error(c, http.StatusBadRequest, "INVALID_INPUT", i18nkeys.GenreInvalidInput, nil)
+			return
+		}
+		
+		h.logger.Error("Failed to merge genres", zap.Error(err))
+		response.Error(c, http.StatusInternalServerError, "MERGE_FAILED", "genre.merge_failed", nil)
+		return
+	}
+
+	response.Success(c, http.StatusOK, "genre.merge_success", nil, nil)
+}
+
+// PreviewMergeGenre godoc
+// @Summary Preview merger genres
+// @Description Xem trước kết quả gộp thể loại
+// @Tags genres
+// @Accept json
+// @Produce json
+// @Param body body MergeGenreRequest true "Merge Genre Request"
+// @Success 200 {object} response.StandardResponse{data=PreviewMergeGenreResponse}
+// @Failure 400 {object} response.StandardResponse
+// @Failure 500 {object} response.StandardResponse
+// @Router /genres/merge/preview [post]
+func (h *Handler) PreviewMergeGenre(c *gin.Context) {
+	var req MergeGenreRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, "VALIDATION_FAILED", i18nkeys.ValidationFailed, err.Error())
+		return
+	}
+
+	preview, err := h.genreService.PreviewMergeGenres(c.Request.Context(), req.TargetID, req.SourceIDs)
+	if err != nil {
+		if errors.Is(err, pkgerrors.ErrGenreNotFound) {
+			response.Error(c, http.StatusNotFound, "GENRE_NOT_FOUND", i18nkeys.GenreNotFound, nil)
+			return
+		}
+		if errors.Is(err, pkgerrors.ErrInvalidInput) {
+			response.Error(c, http.StatusBadRequest, "INVALID_INPUT", i18nkeys.ValidationFailed, err.Error())
+			return
+		}
+		
+		response.Error(c, http.StatusInternalServerError, "PREVIEW_FAILED", "genre.preview_failed", err.Error())
+		return
+	}
+
+	// Transform domain novels to DTO
+	affectedNovels := make([]AffectedNovel, len(preview))
+	for i, n := range preview {
+		affectedNovels[i] = AffectedNovel{
+			ID:            n.ID,
+			Title:         n.Title,
+			Slug:          n.Slug,
+			CoverImageURL: n.CoverImageURL,
+		}
+	}
+
+	responsePayload := PreviewMergeGenreResponse{
+		AffectedNovels: affectedNovels,
+	}
+
+	response.Success(c, http.StatusOK, "genre.preview_success", responsePayload, nil)
+}
+
 

@@ -317,3 +317,63 @@ func (s *GenreService) calculateTrend(genre *domain.Genre) GenreTrend {
 	// If genre has low activity
 	return TrendFalling
 }
+
+// MergeGenres gộp nhiều genres thành một
+func (s *GenreService) MergeGenres(ctx context.Context, targetID uuid.UUID, sourceIDs []uuid.UUID, mergedBy uuid.UUID) error {
+	// Validate request
+	if targetID == uuid.Nil {
+		return pkgerrors.ErrInvalidInput
+	}
+	if len(sourceIDs) == 0 {
+		return nil // Nothing to do
+	}
+
+	// Check if duplicate ID in sources same as target
+	for _, id := range sourceIDs {
+		if id == targetID {
+			return pkgerrors.ErrInvalidInput // Cannot merge into itself
+		}
+	}
+
+	// Check target exists
+	target, err := s.genreRepo.GetByID(ctx, targetID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return pkgerrors.ErrGenreNotFound
+		}
+		return fmt.Errorf("failed to get target genre: %w", err)
+	}
+
+	// Call repo
+	if err := s.genreRepo.Merge(ctx, target.ID, sourceIDs, mergedBy); err != nil {
+		return fmt.Errorf("failed to merge genres: %w", err)
+	}
+
+	return nil
+}
+
+// PreviewMergeGenres trả về thông tin xem trước khi gộp
+func (s *GenreService) PreviewMergeGenres(ctx context.Context, targetID uuid.UUID, sourceIDs []uuid.UUID) ([]*domain.Novel, error) {
+	// Validate target
+	target, err := s.genreRepo.GetByID(ctx, targetID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, pkgerrors.ErrGenreNotFound
+		}
+		return nil, fmt.Errorf("failed to get target genre: %w", err)
+	}
+
+	// Validate sources
+	if len(sourceIDs) == 0 {
+		return nil, nil
+	}
+
+	// Check self-merge
+	for _, id := range sourceIDs {
+		if id == targetID {
+			return nil, pkgerrors.ErrInvalidInput
+		}
+	}
+
+	return s.genreRepo.GetMergePreview(ctx, target.ID, sourceIDs)
+}

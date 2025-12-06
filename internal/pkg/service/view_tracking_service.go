@@ -23,6 +23,7 @@ type ViewTrackingService struct {
 	viewAnalyticsRepo domain.ViewAnalyticsRepository
 	chapterRepo       domain.ChapterRepository
 	novelRepo         domain.NovelRepository
+	genreRepo         domain.GenreRepository
 	logger            *zap.Logger
 	config            *configs.ViewTrackingConfig
 }
@@ -44,6 +45,7 @@ func NewViewTrackingService(
 	viewAnalyticsRepo domain.ViewAnalyticsRepository,
 	chapterRepo domain.ChapterRepository,
 	novelRepo domain.NovelRepository,
+	genreRepo domain.GenreRepository,
 	logger *zap.Logger,
 	config *configs.ViewTrackingConfig,
 ) *ViewTrackingService {
@@ -52,6 +54,7 @@ func NewViewTrackingService(
 		viewAnalyticsRepo: viewAnalyticsRepo,
 		chapterRepo:       chapterRepo,
 		novelRepo:         novelRepo,
+		genreRepo:         genreRepo,
 		logger:            logger,
 		config:            config,
 	}
@@ -292,6 +295,39 @@ func (s *ViewTrackingService) SyncBuffersToPostgreSQL(ctx context.Context) error
 		}
 		s.logger.Info("Updated novel view counts",
 			zap.Int("novel_count", len(novelIncrements)))
+
+		// 5. Update genre view counts based on updated novels
+		novelIDs := make([]uuid.UUID, 0, len(novelIncrements))
+		for id := range novelIncrements {
+			novelIDs = append(novelIDs, id)
+		}
+
+		// Fetch genres for these novels
+		novelGenres, err := s.genreRepo.GetGenresByNovelIDs(ctx, novelIDs)
+		if err != nil {
+			s.logger.Error("Failed to get genres for view count update", zap.Error(err))
+			// Continue, don't break the whole sync
+		} else {
+			// Aggregate view increments by genre
+			genreIncrements := make(map[uuid.UUID]int64)
+			for novelID, count := range novelIncrements {
+				if gIDs, ok := novelGenres[novelID]; ok {
+					for _, gID := range gIDs {
+						genreIncrements[gID] += count
+					}
+				}
+			}
+
+			// Batch update genres
+			if len(genreIncrements) > 0 {
+				if err := s.genreRepo.BatchIncrementTotalViews(ctx, genreIncrements); err != nil {
+					s.logger.Error("Failed to batch update genre view counts", zap.Error(err))
+				} else {
+					s.logger.Info("Updated genre view counts",
+						zap.Int("genre_count", len(genreIncrements)))
+				}
+			}
+		}
 	}
 
 	s.logger.Info("Buffer sync to PostgreSQL completed successfully",
@@ -338,6 +374,37 @@ func (s *ViewTrackingService) SyncEventsToClickHouse(ctx context.Context) error 
 
 	s.logger.Info("Successfully synced events to ClickHouse",
 		zap.Int("event_count", len(events)))
+
+	return nil
+}
+
+// SyncActiveReaders synchronizes active reader counts from ClickHouse to PostgreSQL.
+// Calculates active readers (distinct users/IPs) for each genre in the last 30 days.
+func (s *ViewTrackingService) SyncActiveReaders(ctx context.Context) error {
+	s.logger.Info("Starting active readers sync...")
+
+	// 1. Get active readers count from ClickHouse (last 30 days)
+	limitDays := 30
+	activeReaders, err := s.viewAnalyticsRepo.GetGenreActiveReaders(ctx, limitDays)
+	if err != nil {
+		return fmt.Errorf("failed to get active readers from ClickHouse: %w", err)
+	}
+
+	if len(activeReaders) == 0 {
+		s.logger.Info("No active readers data found")
+		return nil
+	}
+
+	s.logger.Info("Fetched active readers data from ClickHouse",
+		zap.Int("genre_count", len(activeReaders)))
+
+	// 2. Update PostgreSQL
+	if err := s.genreRepo.BatchUpdateActiveReaders(ctx, activeReaders); err != nil {
+		return fmt.Errorf("failed to update active readers in PostgreSQL: %w", err)
+	}
+
+	s.logger.Info("Successfully synced active readers to PostgreSQL",
+		zap.Int("genre_count", len(activeReaders)))
 
 	return nil
 }

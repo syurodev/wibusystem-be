@@ -229,3 +229,47 @@ func (s *AuthorService) ListSelection(ctx context.Context, page, limit int, sear
 	return s.authorRepo.ListSelection(ctx, offset, limit, search)
 }
 
+// MergeAuthors gộp nhiều authors thành một
+func (s *AuthorService) MergeAuthors(ctx context.Context, targetID uuid.UUID, sourceIDs []uuid.UUID, mergedBy uuid.UUID) error {
+	// Validate input
+	if len(sourceIDs) == 0 {
+		return pkgerrors.ErrInvalidInput
+	}
+
+	// Check if target exists
+	_, err := s.authorRepo.GetByID(ctx, targetID)
+	if err != nil {
+		return pkgerrors.ErrAuthorNotFound
+	}
+
+	// Validate: Ensure target is not in sources (prevent self-merge)
+	for _, id := range sourceIDs {
+		if id == targetID {
+			return pkgerrors.ErrInvalidInput
+		}
+	}
+
+	return s.authorRepo.Merge(ctx, targetID, sourceIDs, mergedBy)
+}
+
+// PreviewMergeAuthors xem trước kết quả gộp authors
+func (s *AuthorService) PreviewMergeAuthors(ctx context.Context, targetID uuid.UUID, sourceIDs []uuid.UUID) ([]*domain.Novel, error) {
+	// Check if target exists
+	_, err := s.authorRepo.GetByID(ctx, targetID)
+	if err != nil {
+		return nil, pkgerrors.ErrAuthorNotFound
+	}
+
+	if len(sourceIDs) == 0 {
+		return []*domain.Novel{}, nil
+	}
+
+	// Validate: Ensure target is not in sources
+	for _, id := range sourceIDs {
+		if id == targetID {
+			return nil, pkgerrors.ErrInvalidInput
+		}
+	}
+
+	return s.authorRepo.GetMergePreview(ctx, targetID, sourceIDs)
+}

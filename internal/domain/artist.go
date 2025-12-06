@@ -76,6 +76,12 @@ type ArtistRepository interface {
 
 	// UpdateStatistics cập nhật thống kê
 	UpdateStatistics(ctx context.Context, id uuid.UUID, stats ArtistStatistics) error
+
+	// Merge gộp nhiều artists thành một
+	Merge(ctx context.Context, targetID uuid.UUID, sourceIDs []uuid.UUID, mergedBy uuid.UUID) error
+
+	// GetMergePreview lấy danh sách các novel sẽ bị ảnh hưởng khi merge
+	GetMergePreview(ctx context.Context, targetID uuid.UUID, sourceIDs []uuid.UUID) ([]*Novel, error)
 }
 
 // ArtistFilter định nghĩa các filter cho việc query artists

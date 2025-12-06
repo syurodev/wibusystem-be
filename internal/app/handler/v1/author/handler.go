@@ -436,4 +436,105 @@ func (h *Handler) ListSelection(c *gin.Context) {
 	response.Success(c, http.StatusOK, i18nkeys.AuthorListSuccess, selectionResponses, meta)
 }
 
+// MergeAuthor gộp authors
+// @Summary Merge authors
+// @Tags Authors
+// @Accept json
+// @Produce json
+// @Param request body MergeAuthorRequest true "Merge Author Request"
+// @Success 200 {object} response.StandardResponse
+// @Failure 400 {object} response.StandardResponse
+// @Failure 404 {object} response.StandardResponse
+// @Failure 500 {object} response.StandardResponse
+// @Router /api/v1/authors/merge [post]
+func (h *Handler) MergeAuthor(c *gin.Context) {
+	var req MergeAuthorRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, "VALIDATION_FAILED", i18nkeys.ValidationFailed, err.Error())
+		return
+	}
+
+	// Get user ID from token
+	userIDStr, exists := middleware.GetUserID(c)
+	if !exists {
+		response.Error(c, http.StatusUnauthorized, "UNAUTHORIZED", i18nkeys.AuthUnauthorized, nil)
+		return
+	}
+
+	userID, err := uuid.FromString(userIDStr)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "INVALID_USER_ID", i18nkeys.AuthInvalidUserID, nil)
+		return
+	}
+
+	err = h.authorService.MergeAuthors(c.Request.Context(), req.TargetID, req.SourceIDs, userID)
+	if err != nil {
+		if errors.Is(err, pkgerrors.ErrAuthorNotFound) {
+			response.Error(c, http.StatusNotFound, "AUTHOR_NOT_FOUND", i18nkeys.AuthorNotFound, nil)
+			return
+		}
+		if errors.Is(err, pkgerrors.ErrInvalidInput) {
+			response.Error(c, http.StatusBadRequest, "INVALID_INPUT", i18nkeys.ValidationFailed, err.Error())
+			return
+		}
+
+		response.Error(c, http.StatusInternalServerError, "MERGE_FAILED", "author.merge_failed", err.Error())
+		return
+	}
+
+	response.Success(c, http.StatusOK, "author.merge_success", nil, nil)
+}
+
+// PreviewMergeAuthor xem trước kết quả gộp authors
+// @Summary Preview merge authors
+// @Tags Authors
+// @Accept json
+// @Produce json
+// @Param request body MergeAuthorRequest true "Merge Author Request"
+// @Success 200 {object} response.StandardResponse{data=PreviewMergeAuthorResponse}
+// @Failure 400 {object} response.StandardResponse
+// @Failure 404 {object} response.StandardResponse
+// @Failure 500 {object} response.StandardResponse
+// @Router /api/v1/authors/merge/preview [post]
+func (h *Handler) PreviewMergeAuthor(c *gin.Context) {
+	var req MergeAuthorRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, "VALIDATION_FAILED", i18nkeys.ValidationFailed, err.Error())
+		return
+	}
+
+	preview, err := h.authorService.PreviewMergeAuthors(c.Request.Context(), req.TargetID, req.SourceIDs)
+	if err != nil {
+		if errors.Is(err, pkgerrors.ErrAuthorNotFound) {
+			response.Error(c, http.StatusNotFound, "AUTHOR_NOT_FOUND", i18nkeys.AuthorNotFound, nil)
+			return
+		}
+		if errors.Is(err, pkgerrors.ErrInvalidInput) {
+			response.Error(c, http.StatusBadRequest, "INVALID_INPUT", i18nkeys.ValidationFailed, err.Error())
+			return
+		}
+
+		response.Error(c, http.StatusInternalServerError, "PREVIEW_FAILED", "author.preview_failed", err.Error())
+		return
+	}
+
+	// Transform to response DTO
+	affectedNovels := make([]AffectedNovel, len(preview))
+	for i, novel := range preview {
+		affectedNovels[i] = AffectedNovel{
+			ID:            novel.ID,
+			Title:         novel.Title,
+			Slug:          novel.Slug,
+			CoverImageURL: novel.CoverImageURL,
+		}
+	}
+
+	resp := PreviewMergeAuthorResponse{
+		AffectedNovels: affectedNovels,
+		SourceAuthors:  nil, // Optional: could populate with source author names if needed
+	}
+
+	response.Success(c, http.StatusOK, "author.preview_success", resp, nil)
+}
+
 

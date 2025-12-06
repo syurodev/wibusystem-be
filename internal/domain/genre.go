@@ -77,6 +77,24 @@ type GenreRepository interface {
 
 	// UpdateNovelGenres cập nhật toàn bộ genres của novel
 	UpdateNovelGenres(ctx context.Context, novelID uuid.UUID, genreIDs []uuid.UUID, createdBy uuid.UUID) error
+
+	// BatchIncrementNovelCount tăng số lượng novel cho nhiều genres
+	BatchIncrementNovelCount(ctx context.Context, increments map[uuid.UUID]int) error
+
+	// BatchIncrementTotalViews tăng total views cho nhiều genres
+	BatchIncrementTotalViews(ctx context.Context, increments map[uuid.UUID]int64) error
+
+	// GetGenresByNovelIDs lấy genre IDs cho danh sách novel IDs
+	GetGenresByNovelIDs(ctx context.Context, novelIDs []uuid.UUID) (map[uuid.UUID][]uuid.UUID, error)
+
+	// BatchUpdateActiveReaders cập nhật số lượng active readers cho nhiều genres
+	BatchUpdateActiveReaders(ctx context.Context, updates map[uuid.UUID]int64) error
+
+	// Merge gộp nhiều genres (sources) thành một genre (target)
+	Merge(ctx context.Context, targetID uuid.UUID, sourceIDs []uuid.UUID, mergedBy uuid.UUID) error
+
+	// GetMergePreview lấy thông tin preview trước khi merge
+	GetMergePreview(ctx context.Context, targetID uuid.UUID, sourceIDs []uuid.UUID) ([]*Novel, error)
 }
 
 // GenreTree là cấu trúc phân cấp của genres
