@@ -543,7 +543,12 @@
 
           <!-- Step 3: Password -->
           <div x-show="step === 'password'" x-transition style="display: none">
-            <form method="POST" action="/oauth2/login" @submit="loading = true">
+            <form
+              hx-post="/oauth2/login"
+              hx-swap="none"
+              @htmx:before-request="loading = true; error = ''"
+              @htmx:after-request="handleLogin($event)"
+            >
               <input type="hidden" name="request_id" value="{{ .RequestID }}" />
               <input type="hidden" name="email" :value="email" />
 
@@ -658,19 +663,27 @@
           },
 
           handleLogin(event) {
+            this.loading = false;
             if (event.detail.successful) {
-              const xhr = event.detail.xhr;
-              if (xhr.status === 200 || xhr.status === 302) {
-                globalThis.window.location.href =
-                  "/oauth2/auth?request_id={{ .RequestID }}";
-              }
-            } else {
               try {
                 const data = JSON.parse(event.detail.xhr.responseText);
-                this.error = data.message || "Invalid email or password";
+                if (data.success && data.redirect_url) {
+                  globalThis.window.location.href = data.redirect_url;
+                  return;
+                }
               } catch {
-                this.error = "An error occurred. Please try again.";
+                // If parsing fails, try default redirect
+                globalThis.window.location.href =
+                  "/oauth2/auth?request_id={{ .RequestID }}";
+                return;
               }
+            }
+            // Handle error
+            try {
+              const data = JSON.parse(event.detail.xhr.responseText);
+              this.error = data.message || "Invalid email or password";
+            } catch {
+              this.error = "An error occurred. Please try again.";
             }
           },
 

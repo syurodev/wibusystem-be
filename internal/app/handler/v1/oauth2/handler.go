@@ -74,8 +74,29 @@ func NewHandler(
 }
 
 // writeOAuth2Error ghi OAuth2 error response theo RFC 6749
+// Nếu request từ browser (Accept: text/html), hiển thị error page
+// Nếu request từ API client (Accept: application/json), trả JSON
 func writeOAuth2Error(c *gin.Context, err error) {
 	fositeErr := fosite.ErrorToRFC6749Error(err)
+
+	// Check if browser request (Accept header contains text/html)
+	acceptHeader := c.GetHeader("Accept")
+	isHtmlRequest := strings.Contains(acceptHeader, "text/html")
+	isHtmxRequest := c.GetHeader("HX-Request") == "true"
+
+	// For browser requests (not HTMX), show HTML error page
+	if isHtmlRequest && !isHtmxRequest {
+		c.HTML(fositeErr.CodeField, "oauth2/error.html", gin.H{
+			"Error":            fositeErr.ErrorField,
+			"ErrorDescription": fositeErr.DescriptionField,
+			"Hint":             fositeErr.HintField,
+			"RedirectURI":      c.Query("redirect_uri"),
+			"ClientID":         c.Query("client_id"),
+		})
+		return
+	}
+
+	// For API/HTMX requests, return JSON
 	c.JSON(fositeErr.CodeField, fositeErr)
 }
 
@@ -746,11 +767,17 @@ func (h *Handler) LoginSubmit(c *gin.Context) {
 		zap.String("user_id", user.ID.String()),
 		zap.String("redirect_url", redirectURL),
 	)
-	h.logger.Info("Login successful, redirecting to authorization endpoint",
-		zap.String("request_id", requestID),
-		zap.String("user_id", user.ID.String()),
-		zap.String("redirect_url", redirectURL),
-	)
+
+	// Check if request is from HTMX - return JSON response for client-side redirect
+	if c.GetHeader("HX-Request") == "true" {
+		c.JSON(http.StatusOK, gin.H{
+			"success":      true,
+			"redirect_url": redirectURL,
+		})
+		return
+	}
+
+	// Regular form submit - do server-side redirect
 	c.Redirect(http.StatusFound, redirectURL)
 }
 
