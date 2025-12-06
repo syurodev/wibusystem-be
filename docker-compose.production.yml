@@ -9,7 +9,7 @@ services:
     container_name: wibusystem-be
     restart: unless-stopped
     ports:
-      - "8080:8080"
+      - "80:8080"
     environment:
       - ENVIRONMENT=${ENVIRONMENT:-production}
       - SERVER_PORT=8080
@@ -73,7 +73,7 @@ services:
 
   # PostgreSQL Database
   system_prod:
-    image: postgres:16-alpine
+    image: postgres:18.1-alpine
     container_name: system_prod
     restart: unless-stopped
     environment:
@@ -81,7 +81,9 @@ services:
       POSTGRES_USER: ${DB_USER:-wibusystem}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql
+    ports:
+      - "5432:5432"
     networks:
       - wibusystem_network
     healthcheck:
@@ -108,6 +110,9 @@ services:
       - CLICKHOUSE_USER=${CLICKHOUSE_USER:-wibusystem}
       - CLICKHOUSE_PASSWORD=${CLICKHOUSE_PASSWORD}
       - CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT=1
+    ports:
+      - "8123:8123"
+      - "9000:9000"
     volumes:
       - clickhouse_data:/var/lib/clickhouse
       - ./clickhouse-config.xml:/etc/clickhouse-server/config.d/custom.xml:ro
@@ -132,7 +137,7 @@ services:
 
   # Redis Cache
   redis:
-    image: redis:7-alpine
+    image: redis:8.4.0-alpine
     container_name: redis
     restart: unless-stopped
     command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}

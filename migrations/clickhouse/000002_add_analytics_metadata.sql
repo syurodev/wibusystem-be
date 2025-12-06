@@ -76,7 +76,7 @@ PARTITION BY toYYYYMM(event_date)
 ORDER BY (event_date, group_id)
 AS SELECT
     toDate(event_time) AS event_date,
-    group_id,
+    assumeNotNull(group_id) AS group_id,
     sum(view_count) AS total_views,
     uniqExact(user_id) AS unique_users
 FROM view_events
@@ -90,7 +90,7 @@ PARTITION BY toYYYYMM(event_date)
 ORDER BY (event_date, studio_id)
 AS SELECT
     toDate(event_time) AS event_date,
-    studio_id,
+    assumeNotNull(studio_id) AS studio_id,
     sum(view_count) AS total_views,
     uniqExact(user_id) AS unique_users
 FROM view_events
