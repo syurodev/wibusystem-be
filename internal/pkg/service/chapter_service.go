@@ -20,6 +20,7 @@ type ChapterService struct {
 	chapterRepo domain.ChapterRepository
 	volumeRepo  domain.VolumeRepository
 	historyRepo ChapterHistoryRepository
+	creatorRepo domain.CreatorRepository
 }
 
 // ChapterHistoryRepository interface for logging chapter history
@@ -31,11 +32,12 @@ type ChapterHistoryRepository interface {
 }
 
 // NewChapterService creates a new instance of ChapterService
-func NewChapterService(chapterRepo domain.ChapterRepository, volumeRepo domain.VolumeRepository, historyRepo ChapterHistoryRepository) *ChapterService {
+func NewChapterService(chapterRepo domain.ChapterRepository, volumeRepo domain.VolumeRepository, historyRepo ChapterHistoryRepository, creatorRepo domain.CreatorRepository) *ChapterService {
 	return &ChapterService{
 		chapterRepo: chapterRepo,
 		volumeRepo:  volumeRepo,
 		historyRepo: historyRepo,
+		creatorRepo: creatorRepo,
 	}
 }
 
@@ -169,6 +171,12 @@ func (s *ChapterService) CreateChapter(
 		// Log error but don't fail the creation
 		// TODO: Add proper logging
 		_ = err
+	}
+
+	// Update user's last content updated at
+	if err := s.creatorRepo.UpdateLastContentUpdatedAt(ctx, createdBy); err != nil {
+		fmt.Printf("Failed to update last content updated at for user %s: %v\n", createdBy, err)
+		// Non-blocking error, log and continue
 	}
 
 	// Retrieve the created chapter to get timestamps

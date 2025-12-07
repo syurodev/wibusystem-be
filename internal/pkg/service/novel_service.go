@@ -21,6 +21,7 @@ type NovelService struct {
 	genreRepo  domain.GenreRepository
 	authorRepo domain.AuthorRepository
 	artistRepo domain.ArtistRepository
+	creatorRepo domain.CreatorRepository
 	txManager  db.TransactionManager
 }
 
@@ -31,15 +32,17 @@ func NewNovelService(
 	genreRepo domain.GenreRepository,
 	authorRepo domain.AuthorRepository,
 	artistRepo domain.ArtistRepository,
+	creatorRepo domain.CreatorRepository,
 	txManager db.TransactionManager,
 ) *NovelService {
 	return &NovelService{
-		novelRepo:  novelRepo,
-		volumeRepo: volumeRepo,
-		genreRepo:  genreRepo,
-		authorRepo: authorRepo,
-		artistRepo: artistRepo,
-		txManager:  txManager,
+		novelRepo:   novelRepo,
+		volumeRepo:  volumeRepo,
+		genreRepo:   genreRepo,
+		authorRepo:  authorRepo,
+		artistRepo:  artistRepo,
+		creatorRepo: creatorRepo,
+		txManager:   txManager,
 	}
 }
 
@@ -169,6 +172,15 @@ func (s *NovelService) CreateNovel(
 		}
 	}
 
+	// Increment works count for owner if it's a user
+	if ownerType == "user" {
+		// We assume ownerID is the user ID
+		if err := s.creatorRepo.IncrementWorksCount(ctx, ownerID); err != nil {
+			fmt.Printf("Failed to increment works count for user %s: %v\n", ownerID, err)
+			// Non-blocking error, log and continue
+		}
+	}
+
 	return s.novelRepo.GetByID(ctx, id)
 }
 
@@ -245,7 +257,7 @@ func (s *NovelService) UpdateNovel(ctx context.Context, id uuid.UUID, title stri
 // DeleteNovel xóa novel (soft delete)
 func (s *NovelService) DeleteNovel(ctx context.Context, id uuid.UUID) error {
 	// Check if novel exists
-	_, err := s.novelRepo.GetByID(ctx, id)
+	novel, err := s.novelRepo.GetByID(ctx, id)
 	if err != nil {
 		return pkgerrors.ErrNovelNotFound
 	}
@@ -272,6 +284,13 @@ func (s *NovelService) DeleteNovel(ctx context.Context, id uuid.UUID) error {
 		}
 		if err := s.genreRepo.BatchIncrementNovelCount(ctx, increments); err != nil {
 			fmt.Printf("Failed to decrement genre novel count: %v\n", err)
+		}
+	}
+
+	// Decrement works count for owner if it's a user
+	if novel.OwnerType == "user" {
+		if err := s.creatorRepo.DecrementWorksCount(ctx, novel.OwnerID); err != nil {
+			fmt.Printf("Failed to decrement works count for user %s: %v\n", novel.OwnerID, err)
 		}
 	}
 
