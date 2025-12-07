@@ -20,6 +20,7 @@ import (
 	volume_chapter "system/internal/app/handler/v1/novel/volume/chapter"
 	oauth2_handler "system/internal/app/handler/v1/oauth2"
 	"system/internal/app/handler/v1/oauth2_admin"
+	"system/internal/app/handler/v1/public"
 	"system/internal/app/handler/v1/user"
 	"system/internal/app/middleware"
 	"system/internal/app/worker"
@@ -199,6 +200,10 @@ func NewRouter(cfg *configs.Config, i18nInstance *i18n.I18n, zapLogger *zap.Logg
 	analyticsService := service.NewAnalyticsService(viewAnalyticsRepo, novelRepo, zapLogger)
 	creatorService := service.NewCreatorService(creatorRepo, viewAnalyticsRepo, novelRepo, zapLogger)
 
+	// Cache and Public services
+	cacheService := service.NewCacheService(rdb, zapLogger)
+	publicService := service.NewPublicService(analyticsService, creatorService, genreService, cacheService, zapLogger)
+
 	// Start View Tracking Workers
 	worker.StartViewTrackingWorkers(&cfg.ViewTracking, viewTrackingService, zapLogger)
 
@@ -236,6 +241,7 @@ func NewRouter(cfg *configs.Config, i18nInstance *i18n.I18n, zapLogger *zap.Logg
 	userHandler := user.NewHandler(userRepo, sessionRepo)
 	analyticsHandler := analytics.NewHandler(analyticsService)
 	creatorHandler := creator.NewHandler(creatorService)
+	publicHandler := public.NewHandler(publicService)
 
 	// --- Đăng ký Routes ---
 	apiV1 := router.Group("/api/v1")
@@ -323,6 +329,12 @@ func NewRouter(cfg *configs.Config, i18nInstance *i18n.I18n, zapLogger *zap.Logg
 
 		// Creator routes (public)
 		apiV1.GET("/creators", creatorHandler.ListCreators)
+
+		// Public routes (home page data)
+		publicGroup := apiV1.Group("/public")
+		{
+			publicHandler.RegisterRoutes(publicGroup)
+		}
 	}
 
 	wellKnownGroup := router.Group("/.well-known")
