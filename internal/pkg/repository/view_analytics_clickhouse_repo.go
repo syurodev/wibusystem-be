@@ -192,8 +192,8 @@ func (r *viewAnalyticsClickHouseRepo) GetTopTrending(ctx context.Context, mediaT
 		WHERE event_date >= now() - INTERVAL %s
 	`, interval)
 
-	// Add media type filter if provided
-	if mediaType != "" {
+	// Add media type filter if provided (skip "all" as it means no filter)
+	if mediaType != "" && mediaType != "all" {
 		query += " AND media_type = ?"
 		args = append(args, mediaType)
 	}
