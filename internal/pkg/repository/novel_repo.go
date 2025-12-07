@@ -247,8 +247,13 @@ func (r *novelRepository) List(ctx context.Context, filter domain.NovelFilter) (
 
 	// Filter by specific IDs
 	if len(filter.IDs) > 0 {
-		whereClauses = append(whereClauses, fmt.Sprintf("n.id = ANY($%d)", argIdx))
-		args = append(args, filter.IDs)
+		whereClauses = append(whereClauses, fmt.Sprintf("n.id = ANY($%d::uuid[])", argIdx))
+		// Convert []uuid.UUID to []string for pgx text array encoding
+		idStrings := make([]string, len(filter.IDs))
+		for i, id := range filter.IDs {
+			idStrings[i] = id.String()
+		}
+		args = append(args, idStrings)
 		argIdx++
 	}
 
@@ -281,34 +286,35 @@ func (r *novelRepository) List(ctx context.Context, filter domain.NovelFilter) (
 	}
 
 	// Filter by author ID (via junction table)
-	var joins []string
 	if filter.AuthorID != nil {
-		joins = append(joins, "INNER JOIN catalog.novel_authors na ON n.id = na.novel_id")
-		whereClauses = append(whereClauses, fmt.Sprintf("na.author_id = $%d", argIdx))
+		whereClauses = append(whereClauses, fmt.Sprintf("EXISTS (SELECT 1 FROM catalog.novel_authors na WHERE na.novel_id = n.id AND na.author_id = $%d)", argIdx))
 		args = append(args, *filter.AuthorID)
 		argIdx++
 	}
 
 	// Filter by translator ID (via junction table)
 	if filter.TranslatorID != nil {
-		joins = append(joins, "INNER JOIN catalog.novel_translators nt ON n.id = nt.novel_id")
-		whereClauses = append(whereClauses, fmt.Sprintf("nt.translator_id = $%d", argIdx))
+		whereClauses = append(whereClauses, fmt.Sprintf("EXISTS (SELECT 1 FROM catalog.novel_translators nt WHERE nt.novel_id = n.id AND nt.translator_id = $%d)", argIdx))
 		args = append(args, *filter.TranslatorID)
 		argIdx++
 	}
 
 	// Filter by genre IDs (via junction table)
 	if len(filter.GenreIDs) > 0 {
-		joins = append(joins, "INNER JOIN catalog.novel_genres ng ON n.id = ng.novel_id")
-		whereClauses = append(whereClauses, fmt.Sprintf("ng.genre_id = ANY($%d)", argIdx))
-		args = append(args, filter.GenreIDs)
+		whereClauses = append(whereClauses, fmt.Sprintf("EXISTS (SELECT 1 FROM catalog.novel_genres ng WHERE ng.novel_id = n.id AND ng.genre_id = ANY($%d::uuid[]))", argIdx))
+		// Convert []uuid.UUID to []string for pgx text array encoding
+		genreIDStrings := make([]string, len(filter.GenreIDs))
+		for i, id := range filter.GenreIDs {
+			genreIDStrings[i] = id.String()
+		}
+		args = append(args, genreIDStrings)
 		argIdx++
 	}
 
 	joinClause := ""
-	if len(joins) > 0 {
-		joinClause = strings.Join(joins, " ")
-	}
+	// joinClause is now empty as we moved filter joins to EXISTS clauses
+	// If there are other joins needed in future, we can add them here
+
 
 	whereClause := strings.Join(whereClauses, " AND ")
 

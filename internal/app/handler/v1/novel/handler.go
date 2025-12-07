@@ -340,6 +340,7 @@ func (h *Handler) ListNovels(c *gin.Context) {
 		req.SortOrder,
 	)
 	if err != nil {
+		fmt.Printf("❌ [Handler] ListNovels Error: %v\n", err)
 		response.Error(c, http.StatusInternalServerError, "LIST_FAILED", "novel.list_failed", nil)
 		return
 	}
