@@ -42,41 +42,60 @@ func main() {
 
 	appLogger.Info("Connected to ClickHouse successfully")
 
-	// 4. Read migration file
-	migrationPath := "migrations/clickhouse/000001_create_view_events.sql"
-	sqlBytes, err := os.ReadFile(migrationPath)
+	// 4. Read migration files
+	migrationDir := "migrations/clickhouse"
+	files, err := os.ReadDir(migrationDir)
 	if err != nil {
-		appLogger.Fatal("Failed to read migration file",
-			zap.String("path", migrationPath),
-			zap.Error(err))
+		appLogger.Fatal("Failed to read migration directory", zap.Error(err))
 	}
 
-	appLogger.Info("Read migration file", zap.String("path", migrationPath))
-
-	// 5. Execute migration
-	appLogger.Info("Executing migration...")
-	
-	// Split statements by semicolon
-	// Note: This is a simple split and might break if semicolons are inside strings/comments
-	// For production, use a proper SQL parser or migration tool
-	statements := strings.Split(string(sqlBytes), ";")
-
-	for i, stmt := range statements {
-		stmt = strings.TrimSpace(stmt)
-		if stmt == "" {
-			continue
+	// Filter for .sql files
+	var migrationFiles []string
+	for _, file := range files {
+		if !file.IsDir() && strings.HasSuffix(file.Name(), ".sql") {
+			migrationFiles = append(migrationFiles, file.Name())
 		}
+	}
 
-		appLogger.Info("Executing statement", zap.Int("index", i))
-		if err := ch.Conn.Exec(ctx, stmt); err != nil {
-			appLogger.Fatal("Failed to execute statement", 
-				zap.Int("index", i),
-				zap.String("statement", stmt),
+	appLogger.Info("Found migration files", zap.Int("count", len(migrationFiles)))
+
+	// 5. Execute migrations
+	for _, fileName := range migrationFiles {
+		migrationPath := migrationDir + "/" + fileName
+		appLogger.Info("Processing migration file", zap.String("path", migrationPath))
+
+		sqlBytes, err := os.ReadFile(migrationPath)
+		if err != nil {
+			appLogger.Fatal("Failed to read migration file",
+				zap.String("path", migrationPath),
 				zap.Error(err))
 		}
+
+		// Split statements by semicolon
+		// Note: This is a simple split and might break if semicolons are inside strings/comments
+		// For production, use a proper SQL parser or migration tool
+		statements := strings.Split(string(sqlBytes), ";")
+
+		for i, stmt := range statements {
+			stmt = strings.TrimSpace(stmt)
+			if stmt == "" {
+				continue
+			}
+
+			// Detailed logging for debugging
+			// appLogger.Info("Executing statement", zap.Int("index", i))
+			if err := ch.Conn.Exec(ctx, stmt); err != nil {
+				appLogger.Fatal("Failed to execute statement",
+					zap.String("file", fileName),
+					zap.Int("index", i),
+					zap.String("statement", stmt),
+					zap.Error(err))
+			}
+		}
+		appLogger.Info("Successfully executed migration file", zap.String("file", fileName))
 	}
 
-	appLogger.Info("Migration executed successfully")
+	appLogger.Info("All migrations executed successfully")
 
 	// 6. Verify tables created
 	var count uint64
