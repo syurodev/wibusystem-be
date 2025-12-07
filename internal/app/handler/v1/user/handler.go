@@ -11,12 +11,14 @@ import (
 )
 
 type Handler struct {
-	userRepo domain.UserRepository
+	userRepo    domain.UserRepository
+	sessionRepo domain.SessionRepository
 }
 
-func NewHandler(userRepo domain.UserRepository) *Handler {
+func NewHandler(userRepo domain.UserRepository, sessionRepo domain.SessionRepository) *Handler {
 	return &Handler{
-		userRepo: userRepo,
+		userRepo:    userRepo,
+		sessionRepo: sessionRepo,
 	}
 }
 

@@ -78,7 +78,13 @@ func (h *Handler) Register(c *gin.Context) {
 	}
 
 	// Auto-login: Create session for the new user
-	sessionID, err := h.oauth2Service.CreateUserSession(c.Request.Context(), user.ID, 7*24*time.Hour)
+	sessionID, err := h.oauth2Service.CreateUserSession(
+		c.Request.Context(),
+		user.ID,
+		7*24*time.Hour,
+		c.Request.UserAgent(),
+		c.ClientIP(),
+	)
 	if err != nil {
 		zap.L().Error("Failed to create session after registration", zap.Error(err))
 		// Still return success but without auto-login

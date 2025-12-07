@@ -233,7 +233,7 @@ func NewRouter(cfg *configs.Config, i18nInstance *i18n.I18n, zapLogger *zap.Logg
 	volumeHandler := novel_volume.NewHandler(volumeService, novelService)
 
 	chapterHandler := volume_chapter.NewHandler(chapterService, volumeService, viewTrackingService, novelService)
-	userHandler := user.NewHandler(userRepo)
+	userHandler := user.NewHandler(userRepo, sessionRepo)
 	analyticsHandler := analytics.NewHandler(analyticsService)
 	creatorHandler := creator.NewHandler(creatorService)
 

@@ -72,15 +72,25 @@ func (s *OAuth2Service) AuthenticateUser(ctx context.Context, identifier, passwo
 
 // CreateUserSession tạo session mới cho user.
 // Trả về sessionID.
-func (s *OAuth2Service) CreateUserSession(ctx context.Context, userID uuid.UUID, ttl time.Duration) (string, error) {
+func (s *OAuth2Service) CreateUserSession(ctx context.Context, userID uuid.UUID, ttl time.Duration, userAgent, ip string) (string, error) {
 	// Generate secure random session ID
 	sessionID, err := random.GenerateSessionID()
 	if err != nil {
 		return "", err
 	}
 
+	session := &domain.UserSession{
+		SessionID:  sessionID,
+		UserID:     userID.String(),
+		UserAgent:  userAgent,
+		IP:         ip,
+		CreatedAt:  time.Now(),
+		ExpiresAt:  time.Now().Add(ttl),
+		LastActive: time.Now(),
+	}
+
 	// Store session in Redis
-	err = s.sessionRepo.CreateSession(ctx, sessionID, userID.String(), ttl)
+	err = s.sessionRepo.CreateSession(ctx, session, ttl)
 	if err != nil {
 		return "", err
 	}
@@ -95,7 +105,11 @@ func (s *OAuth2Service) CreateUserSession(ctx context.Context, userID uuid.UUID,
 
 // GetUserSession lấy userID từ sessionID.
 func (s *OAuth2Service) GetUserSession(ctx context.Context, sessionID string) (string, error) {
-	return s.sessionRepo.GetSession(ctx, sessionID)
+	session, err := s.sessionRepo.GetSession(ctx, sessionID)
+	if err != nil {
+		return "", err
+	}
+	return session.UserID, nil
 }
 
 // DeleteUserSession xóa session.
@@ -146,7 +160,7 @@ func (s *OAuth2Service) GetUserConsents(ctx context.Context, userID uuid.UUID, i
 // LogoutUser thực hiện logout hoàn toàn: xóa session và optionally revoke tokens.
 func (s *OAuth2Service) LogoutUser(ctx context.Context, sessionID string, revokeTokens bool) error {
 	// Get userID từ session trước khi xóa
-	userID, err := s.sessionRepo.GetSession(ctx, sessionID)
+	userID, err := s.GetUserSession(ctx, sessionID)
 	if err != nil {
 		// Session không tồn tại hoặc đã expired - không coi là lỗi
 		return nil

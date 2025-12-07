@@ -1,0 +1,19 @@
+{
+  "profile_fetched_success": "Profile fetched successfully",
+  "profile_updated_success": "Profile updated successfully",
+  "password_changed_success": "Password changed successfully",
+  "sessions_fetched_success": "Sessions fetched successfully",
+  "session_deleted_success": "Session revoked successfully",
+  "invalid_user_id": "Invalid User ID",
+  "fetch_user_error": "Failed to fetch user profile",
+  "invalid_request": "Invalid request body",
+  "username_length_invalid": "Username must be between 3 and 30 characters",
+  "username_taken": "Username is already taken",
+  "username_immutable": "Username cannot be changed once set",
+  "update_profile_error": "Failed to update profile",
+  "hash_error": "Failed to process password",
+  "update_password_error": "Failed to update password",
+  "fetch_sessions_error": "Failed to fetch sessions",
+  "invalid_session_id": "Invalid Session ID",
+  "delete_session_error": "Failed to revoke session"
+}

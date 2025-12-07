@@ -15,4 +15,11 @@ func (h *Handler) RegisterRoutes(rg *gin.RouterGroup) {
 	
 	rg.GET("/settings", h.GetSettings)
 	rg.PATCH("/settings", h.UpdateSettings)
+
+	// Account management
+	rg.GET("/profile", h.GetProfile)
+	rg.PUT("/profile", h.UpdateProfile)
+	rg.PUT("/security/password", h.ChangePassword)
+	rg.GET("/sessions", h.GetSessions)
+	rg.DELETE("/sessions/:id", h.DeleteSession)
 }

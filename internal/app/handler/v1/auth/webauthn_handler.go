@@ -233,7 +233,13 @@ func (h *Handler) PasskeyAuthenticateFinish(c *gin.Context) {
 	c.SetCookie("webauthn_session", "", -1, "/", "", false, true)
 
 	// Create OAuth2 session
-	sessionID, err := h.oauth2Service.CreateUserSession(c.Request.Context(), user.ID, time.Hour)
+	sessionID, err := h.oauth2Service.CreateUserSession(
+		c.Request.Context(),
+		user.ID,
+		time.Hour,
+		c.Request.UserAgent(),
+		c.ClientIP(),
+	)
 	if err != nil {
 		zap.L().Error("Failed to create OAuth2 session after passkey auth", zap.Error(err))
 		response.Error(c, http.StatusInternalServerError, "SESSION_CREATION_FAILED", "auth.session_creation_failed", nil)

@@ -26,7 +26,7 @@ import (
 // OAuth2Service interface định nghĩa business logic cho OAuth2
 type OAuth2Service interface {
 	AuthenticateUser(ctx context.Context, identifier, password string) (*domain.User, error)
-	CreateUserSession(ctx context.Context, userID uuid.UUID, ttl time.Duration) (string, error)
+	CreateUserSession(ctx context.Context, userID uuid.UUID, ttl time.Duration, userAgent, ip string) (string, error)
 	GetUserSession(ctx context.Context, sessionID string) (string, error)
 	GetUserByID(ctx context.Context, userID uuid.UUID) (*domain.User, error)
 	CheckUserConsent(ctx context.Context, userID, clientID uuid.UUID) (bool, error)
@@ -720,7 +720,13 @@ func (h *Handler) LoginSubmit(c *gin.Context) {
 	}
 
 	// Create session in Redis thông qua service
-	sessionID, err := h.oauth2Service.CreateUserSession(c.Request.Context(), user.ID, time.Hour)
+	sessionID, err := h.oauth2Service.CreateUserSession(
+		c.Request.Context(),
+		user.ID,
+		time.Hour,
+		c.Request.UserAgent(),
+		c.ClientIP(),
+	)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create session", "message": "Failed to create session"})
 		return

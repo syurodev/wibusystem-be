@@ -1,0 +1,19 @@
+{
+  "profile_fetched_success": "Lấy thông tin hồ sơ thành công",
+  "profile_updated_success": "Cập nhật hồ sơ thành công",
+  "password_changed_success": "Đổi mật khẩu thành công",
+  "sessions_fetched_success": "Lấy danh sách phiên đăng nhập thành công",
+  "session_deleted_success": "Đã thu hồi phiên đăng nhập",
+  "invalid_user_id": "ID người dùng không hợp lệ",
+  "fetch_user_error": "Không thể lấy thông tin người dùng",
+  "invalid_request": "Dữ liệu yêu cầu không hợp lệ",
+  "username_length_invalid": "Tên đăng nhập phải từ 3 đến 30 ký tự",
+  "username_taken": "Tên đăng nhập đã được sử dụng",
+  "username_immutable": "Tên đăng nhập không được phép thay đổi sau khi đã đặt",
+  "update_profile_error": "Cập nhật hồ sơ thất bại",
+  "hash_error": "Xử lý mật khẩu thất bại",
+  "update_password_error": "Cập nhật mật khẩu thất bại",
+  "fetch_sessions_error": "Lấy danh sách phiên thất bại",
+  "invalid_session_id": "ID phiên không hợp lệ",
+  "delete_session_error": "Thu hồi phiên thất bại"
+}
