@@ -183,6 +183,7 @@
         font-size: 0.875rem;
       }
 
+      input[type="text"],
       input[type="email"],
       input[type="password"] {
         width: 100%;
@@ -195,6 +196,7 @@
         color: var(--card-foreground);
       }
 
+      input[type="text"]:focus,
       input[type="email"]:focus,
       input[type="password"]:focus {
         outline: none;
@@ -450,15 +452,15 @@
             >
               <input type="hidden" name="request_id" value="{{ .RequestID }}" />
               <div class="form-group">
-                <label for="email">Email address</label>
+                <label for="email">Email or Username</label>
                 <input
-                  type="email"
+                  type="text"
                   id="email"
                   name="email"
                   x-model="email"
                   required
-                  autocomplete="email"
-                  placeholder="your@email.com"
+                  autocomplete="username"
+                  placeholder="your@email.com or username"
                   autofocus
                 />
               </div>

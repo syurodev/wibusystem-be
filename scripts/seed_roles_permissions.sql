@@ -160,6 +160,7 @@ INSERT INTO identify.roles (name, slug, scope, description, is_system) VALUES
     ('SUPER_ADMIN', 'super-admin', 'global', 'Super Administrator with full system access', TRUE),
     ('ADMIN', 'admin', 'global', 'Administrator with system management access', TRUE),
     ('MODERATOR', 'moderator', 'global', 'Moderator for content and user management', TRUE),
+    ('CREATOR', 'creator', 'global', 'Content creator with publishing permissions', TRUE),
     ('USER', 'user', 'global', 'Regular user with standard permissions', TRUE),
     ('GUEST', 'guest', 'global', 'Guest user with view-only permissions', TRUE)
 ON CONFLICT (name) DO UPDATE SET
@@ -259,6 +260,38 @@ WHERE scope = 'global'
         -- Master data viewing
         'character:view', 'character:contribute', 'character:contribute_update_self',
         'creator:view', 'genre:view', 'relation:view'
+    )
+ON CONFLICT DO NOTHING;
+
+-- CREATOR: User permissions + creator:create/update
+INSERT INTO identify.role_permissions (role_id, permission_id)
+SELECT
+    (SELECT id FROM identify.roles WHERE name = 'CREATOR'),
+    id
+FROM identify.permissions
+WHERE scope = 'global'
+    AND name IN (
+        -- Auth
+        'auth:login', 'auth:logout', 'auth:refresh_token',
+        -- User self-management
+        'user:view_self', 'user:update_self', 'user:delete_self',
+        'user:change_password', 'user:two_fa_manage',
+        -- Social / Community
+        'comment:create', 'comment:update_self', 'comment:delete_self', 'comment:report',
+        'reaction:add',
+        'review:create', 'review:update_self', 'review:delete_self',
+        'follow:content', 'follow:user',
+        'translation:submit', 'translation:update_self', 'translation:vote',
+        'subtitle:contribute',
+        'report:content',
+        -- Content viewing
+        'content:view_public', 'content:view_purchased',
+        'content:stream_anime', 'content:read_manga', 'content:read_novel',
+        -- Master data viewing + contribute
+        'character:view', 'character:contribute', 'character:contribute_update_self',
+        'creator:view', 'genre:view', 'relation:view',
+        -- Creator specific
+        'creator:create', 'creator:update'
     )
 ON CONFLICT DO NOTHING;
 

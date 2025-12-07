@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/gofrs/uuid/v5"
@@ -257,6 +258,104 @@ func (r *viewAnalyticsClickHouseRepo) GetGenreActiveReaders(ctx context.Context,
 			return nil, fmt.Errorf("failed to scan row: %w", err)
 		}
 		results[genreID] = int64(count)
+	}
+
+	return results, nil
+}
+
+// GetCreatorViewStats retrieves view statistics for multiple creators (by owner_id).
+func (r *viewAnalyticsClickHouseRepo) GetCreatorViewStats(ctx context.Context, ownerIDs []uuid.UUID, timeRange string) (map[uuid.UUID]domain.CreatorViewStats, error) {
+	if len(ownerIDs) == 0 {
+		return make(map[uuid.UUID]domain.CreatorViewStats), nil
+	}
+
+	// Determine date filter based on timeRange
+	var dateFilter string
+	switch timeRange {
+	case "day":
+		dateFilter = "event_time >= now() - INTERVAL 1 DAY"
+	case "week":
+		dateFilter = "event_time >= now() - INTERVAL 7 DAY"
+	case "month":
+		dateFilter = "event_time >= now() - INTERVAL 30 DAY"
+	case "year":
+		dateFilter = "event_time >= now() - INTERVAL 365 DAY"
+	default: // "all" or empty
+		dateFilter = "1=1"
+	}
+
+	// Build owner IDs placeholder
+	ownerIDStrs := make([]string, len(ownerIDs))
+	for i, id := range ownerIDs {
+		ownerIDStrs[i] = fmt.Sprintf("'%s'", id.String())
+	}
+	ownerIDList := strings.Join(ownerIDStrs, ",")
+
+	// Query for total views per owner
+	totalViewsQuery := fmt.Sprintf(`
+		SELECT 
+			owner_id,
+			sum(view_count) as total_views
+		FROM view_events
+		WHERE owner_id IN (%s) AND %s
+		GROUP BY owner_id
+	`, ownerIDList, dateFilter)
+
+	rows, err := r.ch.Conn.Query(ctx, totalViewsQuery)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query total views: %w", err)
+	}
+
+	results := make(map[uuid.UUID]domain.CreatorViewStats)
+	for rows.Next() {
+		var ownerID uuid.UUID
+		var totalViews uint64
+		if err := rows.Scan(&ownerID, &totalViews); err != nil {
+			rows.Close()
+			return nil, fmt.Errorf("failed to scan total views: %w", err)
+		}
+		results[ownerID] = domain.CreatorViewStats{
+			TotalViews: int64(totalViews),
+		}
+	}
+	rows.Close()
+
+	// Query for popular work per owner (work with most views in the period)
+	popularWorkQuery := fmt.Sprintf(`
+		SELECT 
+			owner_id,
+			media_id,
+			media_type,
+			sum(view_count) as views
+		FROM view_events
+		WHERE owner_id IN (%s) AND %s
+		GROUP BY owner_id, media_id, media_type
+		ORDER BY owner_id, views DESC
+	`, ownerIDList, dateFilter)
+
+	rows2, err := r.ch.Conn.Query(ctx, popularWorkQuery)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query popular works: %w", err)
+	}
+	defer rows2.Close()
+
+	// Track which owners we've already set popular work for (take first = highest views)
+	seenOwners := make(map[uuid.UUID]bool)
+	for rows2.Next() {
+		var ownerID, mediaID uuid.UUID
+		var mediaType string
+		var views uint64
+		if err := rows2.Scan(&ownerID, &mediaID, &mediaType, &views); err != nil {
+			return nil, fmt.Errorf("failed to scan popular work: %w", err)
+		}
+
+		if !seenOwners[ownerID] {
+			seenOwners[ownerID] = true
+			stats := results[ownerID]
+			stats.PopularWorkID = &mediaID
+			stats.PopularWorkType = mediaType
+			results[ownerID] = stats
+		}
 	}
 
 	return results, nil

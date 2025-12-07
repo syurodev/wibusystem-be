@@ -18,6 +18,7 @@ const (
 	RoleSuperAdmin Role = "SUPER_ADMIN"
 	RoleAdmin      Role = "ADMIN"
 	RoleModerator  Role = "MODERATOR"
+	RoleCreator    Role = "CREATOR"
 	RoleUser       Role = "USER"
 	RoleGuest      Role = "GUEST"
 )
@@ -30,7 +31,7 @@ func (r Role) String() string {
 // IsValid checks if the role is a valid global role
 func (r Role) IsValid() bool {
 	switch r {
-	case RoleSuperAdmin, RoleAdmin, RoleModerator, RoleUser, RoleGuest:
+	case RoleSuperAdmin, RoleAdmin, RoleModerator, RoleCreator, RoleUser, RoleGuest:
 		return true
 	default:
 		return false

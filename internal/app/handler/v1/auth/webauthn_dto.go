@@ -45,7 +45,7 @@ type RegistrationFinishResponse struct {
 
 // AuthenticationBeginRequest là DTO cho việc bắt đầu authentication flow
 type AuthenticationBeginRequest struct {
-	Email string `json:"email" binding:"required,email"`
+	Email string `json:"email" binding:"required"` // Can be email or username
 }
 
 // AuthenticationBeginResponse là DTO cho response của authentication begin

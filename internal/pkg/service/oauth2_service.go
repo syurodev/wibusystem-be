@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"strings"
 	"system/internal/domain"
 	pkgerrors "system/pkg/errors"
 	"system/pkg/util/crypto"
@@ -40,11 +41,22 @@ func NewOAuth2Service(
 	}
 }
 
-// AuthenticateUser xác thực user với email và password.
+// AuthenticateUser xác thực user với email/username và password.
+// Nếu identifier chứa '@' sẽ tìm theo email, ngược lại tìm theo username.
 // Trả về user nếu thành công, business error nếu thất bại.
-func (s *OAuth2Service) AuthenticateUser(ctx context.Context, email, password string) (*domain.User, error) {
-	// Get user từ database
-	user, err := s.userRepo.GetByEmail(ctx, email)
+func (s *OAuth2Service) AuthenticateUser(ctx context.Context, identifier, password string) (*domain.User, error) {
+	var user *domain.User
+	var err error
+
+	// Detect email vs username
+	if strings.Contains(identifier, "@") {
+		// Tìm theo email
+		user, err = s.userRepo.GetByEmail(ctx, identifier)
+	} else {
+		// Tìm theo username
+		user, err = s.userRepo.GetByUsername(ctx, identifier)
+	}
+
 	if err != nil {
 		// Convert technical error to business error
 		return nil, pkgerrors.ErrInvalidCredentials
@@ -169,6 +181,15 @@ func (s *OAuth2Service) GetClientInfo(ctx context.Context, clientID uuid.UUID) (
 // GetUserByEmail lấy thông tin user theo email.
 func (s *OAuth2Service) GetUserByEmail(ctx context.Context, email string) (*domain.User, error) {
 	return s.userRepo.GetByEmail(ctx, email)
+}
+
+// GetUserByIdentifier lấy thông tin user theo email hoặc username.
+// Nếu identifier chứa '@' sẽ tìm theo email, ngược lại tìm theo username.
+func (s *OAuth2Service) GetUserByIdentifier(ctx context.Context, identifier string) (*domain.User, error) {
+	if strings.Contains(identifier, "@") {
+		return s.userRepo.GetByEmail(ctx, identifier)
+	}
+	return s.userRepo.GetByUsername(ctx, identifier)
 }
 
 // GetGlobalPermissions lấy danh sách global permissions của user.

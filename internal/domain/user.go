@@ -18,18 +18,26 @@ const (
 
 // User là domain model cho người dùng trong hệ thống
 type User struct {
-	ID            uuid.UUID
-	Email         string
-	EmailVerified bool
-	PasswordHash  string
-	FullName      *string
-	AvatarURL     *string
-	Phone         *string
-	Status        UserStatus
-	CreatedAt     time.Time
-	UpdatedAt     time.Time
-	LastLoginAt   *time.Time
-	Settings      map[string]any
+	ID                   uuid.UUID
+	Email                string
+	EmailVerified        bool
+	PasswordHash         string
+	FullName             *string
+	AvatarURL            *string
+	Phone                *string
+	Status               UserStatus
+	CreatedAt            time.Time
+	UpdatedAt            time.Time
+	LastLoginAt          *time.Time
+	Settings             map[string]any
+	// Creator fields
+	DisplayName          *string
+	Username             *string
+	Bio                  []any // JSONB array (platejs TNode[])
+	IsVerified           bool
+	FollowerCount        int
+	WorksCount           int
+	LastContentUpdatedAt *time.Time
 }
 
 // UserRepository định nghĩa interface cho việc truy cập dữ liệu user
@@ -39,6 +47,9 @@ type UserRepository interface {
 
 	// GetByEmail lấy user theo email
 	GetByEmail(ctx context.Context, email string) (*User, error)
+
+	// GetByUsername lấy user theo username
+	GetByUsername(ctx context.Context, username string) (*User, error)
 
 	// Create tạo user mới
 	Create(ctx context.Context, user *User) error

@@ -289,3 +289,8 @@ func (s *AuthService) ResetPassword(ctx context.Context, tokenStr, newPassword s
 func (s *AuthService) GetUserByEmail(ctx context.Context, email string) (*domain.User, error) {
 	return s.userRepo.GetByEmail(ctx, email)
 }
+
+// GetUserByUsername lấy user theo username
+func (s *AuthService) GetUserByUsername(ctx context.Context, username string) (*domain.User, error) {
+	return s.userRepo.GetByUsername(ctx, username)
+}

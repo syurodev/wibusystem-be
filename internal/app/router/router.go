@@ -13,6 +13,7 @@ import (
 	"system/internal/app/handler/v1/artist"
 	"system/internal/app/handler/v1/auth"
 	"system/internal/app/handler/v1/author"
+	"system/internal/app/handler/v1/creator"
 	"system/internal/app/handler/v1/genre"
 	"system/internal/app/handler/v1/novel"
 	novel_volume "system/internal/app/handler/v1/novel/volume"
@@ -157,6 +158,7 @@ func NewRouter(cfg *configs.Config, i18nInstance *i18n.I18n, zapLogger *zap.Logg
 	viewAnalyticsRepo := repository.NewViewAnalyticsClickHouseRepository(ch)
 	viewTrackingRepo := repository.NewViewTrackingRedisRepository(rdb)
 	roleRepo := repository.NewRoleRepository(db.Pool)
+	creatorRepo := repository.NewCreatorRepository(db.Pool)
 
 	// Fosite Storage
 	sqlStore := fosite_storage.NewSQLStore(oauth2ClientRepo, oauth2SessionRepo)
@@ -195,6 +197,7 @@ func NewRouter(cfg *configs.Config, i18nInstance *i18n.I18n, zapLogger *zap.Logg
 	chapterService := service.NewChapterService(chapterRepo, volumeRepo, chapterHistoryRepo)
 	viewTrackingService := service.NewViewTrackingService(viewTrackingRepo, viewAnalyticsRepo, chapterRepo, novelRepo, genreRepo, zapLogger, &cfg.ViewTracking)
 	analyticsService := service.NewAnalyticsService(viewAnalyticsRepo, novelRepo, zapLogger)
+	creatorService := service.NewCreatorService(creatorRepo, viewAnalyticsRepo, novelRepo, zapLogger)
 
 	// Start View Tracking Workers
 	worker.StartViewTrackingWorkers(&cfg.ViewTracking, viewTrackingService, zapLogger)
@@ -232,6 +235,7 @@ func NewRouter(cfg *configs.Config, i18nInstance *i18n.I18n, zapLogger *zap.Logg
 	chapterHandler := volume_chapter.NewHandler(chapterService, volumeService, viewTrackingService, novelService)
 	userHandler := user.NewHandler(userRepo)
 	analyticsHandler := analytics.NewHandler(analyticsService)
+	creatorHandler := creator.NewHandler(creatorService)
 
 	// --- Đăng ký Routes ---
 	apiV1 := router.Group("/api/v1")
@@ -316,6 +320,9 @@ func NewRouter(cfg *configs.Config, i18nInstance *i18n.I18n, zapLogger *zap.Logg
 		{
 			analyticsGroup.GET("/trending", analyticsHandler.GetTrending)
 		}
+
+		// Creator routes (public)
+		apiV1.GET("/creators", creatorHandler.ListCreators)
 	}
 
 	wellKnownGroup := router.Group("/.well-known")

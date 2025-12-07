@@ -3,6 +3,7 @@ package auth
 import (
 	"errors"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -10,6 +11,7 @@ import (
 	"github.com/gofrs/uuid/v5"
 	"go.uber.org/zap"
 
+	"system/internal/domain"
 	pkgerrors "system/pkg/errors"
 	"system/pkg/util/response"
 	webauthnutil "system/pkg/util/webauthn"
@@ -142,8 +144,17 @@ func (h *Handler) PasskeyAuthenticateBegin(c *gin.Context) {
 		return
 	}
 
-	// Get user by email
-	user, err := h.authService.GetUserByEmail(c.Request.Context(), normalizeEmail(req.Email))
+	// Get user by email or username
+	identifier := strings.TrimSpace(req.Email)
+	var user *domain.User
+	var err error
+
+	if strings.Contains(identifier, "@") {
+		user, err = h.authService.GetUserByEmail(c.Request.Context(), strings.ToLower(identifier))
+	} else {
+		user, err = h.authService.GetUserByUsername(c.Request.Context(), identifier)
+	}
+
 	if err != nil {
 		// Don't reveal if user exists or not
 		response.Error(c, http.StatusUnauthorized, "AUTHENTICATION_FAILED", "auth.authentication_failed", nil)

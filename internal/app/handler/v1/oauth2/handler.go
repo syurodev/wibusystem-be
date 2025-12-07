@@ -25,7 +25,7 @@ import (
 
 // OAuth2Service interface định nghĩa business logic cho OAuth2
 type OAuth2Service interface {
-	AuthenticateUser(ctx context.Context, email, password string) (*domain.User, error)
+	AuthenticateUser(ctx context.Context, identifier, password string) (*domain.User, error)
 	CreateUserSession(ctx context.Context, userID uuid.UUID, ttl time.Duration) (string, error)
 	GetUserSession(ctx context.Context, sessionID string) (string, error)
 	GetUserByID(ctx context.Context, userID uuid.UUID) (*domain.User, error)
@@ -35,6 +35,7 @@ type OAuth2Service interface {
 	RevokeUserTokens(ctx context.Context, userID uuid.UUID) error
 	GetClientInfo(ctx context.Context, clientID uuid.UUID) (*domain.OAuth2Client, error)
 	GetUserByEmail(ctx context.Context, email string) (*domain.User, error)
+	GetUserByIdentifier(ctx context.Context, identifier string) (*domain.User, error)
 	GetGlobalPermissions(ctx context.Context, userID uuid.UUID) ([]string, error)
 	GetOrganizationPermissions(ctx context.Context, userID, organizationID uuid.UUID) ([]string, error)
 	GetGlobalRoles(ctx context.Context, userID uuid.UUID) ([]string, error)
@@ -709,6 +710,11 @@ func (h *Handler) LoginSubmit(c *gin.Context) {
 	// Authenticate user thông qua service
 	user, err := h.oauth2Service.AuthenticateUser(c.Request.Context(), email, password)
 	if err != nil {
+		h.logger.Warn("Login authentication failed",
+			zap.String("email", email),
+			zap.String("request_id", requestID),
+			zap.Error(err),
+		)
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid email or password", "message": "Invalid email or password"})
 		return
 	}
@@ -781,19 +787,18 @@ func (h *Handler) LoginSubmit(c *gin.Context) {
 	c.Redirect(http.StatusFound, redirectURL)
 }
 
-// LoginCheck kiểm tra email và trạng thái passkey của user
+// LoginCheck kiểm tra email/username và trạng thái passkey của user
 func (h *Handler) LoginCheck(c *gin.Context) {
-	email := c.PostForm("email")
-	if email == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Email is required"})
+	identifier := c.PostForm("email") // form field still named 'email' for compatibility
+	if identifier == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Email or username is required"})
 		return
 	}
 
-	// Check if user exists
-	user, err := h.oauth2Service.GetUserByEmail(c.Request.Context(), email)
+	// Check if user exists by email or username
+	user, err := h.oauth2Service.GetUserByIdentifier(c.Request.Context(), identifier)
 	if err != nil {
-		// User not found - return generic response to avoid enumeration (or handle as per requirements)
-		// For this flow, we'll just say no passkeys
+		// User not found - return generic response to avoid enumeration
 		c.JSON(http.StatusOK, gin.H{
 			"exists":       false,
 			"has_passkeys": false,

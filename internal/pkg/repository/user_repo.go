@@ -24,7 +24,8 @@ func NewUserRepository(pool *pgxpool.Pool) domain.UserRepository {
 func (r *userRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.User, error) {
 	query := `
 		SELECT id, email, email_verified, password_hash, full_name, avatar_url,
-		       phone, status, created_at, updated_at, last_login_at, settings
+		       phone, status, created_at, updated_at, last_login_at, settings,
+		       display_name, username, bio, is_verified, follower_count, works_count, last_content_updated_at
 		FROM identify.users
 		WHERE id = $1 AND status != 'deleted'
 	`
@@ -46,12 +47,36 @@ func (r *userRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.Use
 func (r *userRepository) GetByEmail(ctx context.Context, email string) (*domain.User, error) {
 	query := `
 		SELECT id, email, email_verified, password_hash, full_name, avatar_url,
-		       phone, status, created_at, updated_at, last_login_at, settings
+		       phone, status, created_at, updated_at, last_login_at, settings,
+		       display_name, username, bio, is_verified, follower_count, works_count, last_content_updated_at
 		FROM identify.users
 		WHERE email = $1 AND status != 'deleted'
 	`
 
 	rows, err := r.pool.Query(ctx, query, email)
+	if err != nil {
+		return nil, err
+	}
+
+	user, err := pgx.CollectOneRow(rows, pgx.RowToStructByName[domain.User])
+	if err != nil {
+		return nil, err
+	}
+
+	return &user, nil
+}
+
+// GetByUsername lấy user từ database theo username
+func (r *userRepository) GetByUsername(ctx context.Context, username string) (*domain.User, error) {
+	query := `
+		SELECT id, email, email_verified, password_hash, full_name, avatar_url,
+		       phone, status, created_at, updated_at, last_login_at, settings,
+		       display_name, username, bio, is_verified, follower_count, works_count, last_content_updated_at
+		FROM identify.users
+		WHERE LOWER(username) = LOWER($1) AND status != 'deleted'
+	`
+
+	rows, err := r.pool.Query(ctx, query, username)
 	if err != nil {
 		return nil, err
 	}

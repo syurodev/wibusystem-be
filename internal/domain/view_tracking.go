@@ -198,4 +198,23 @@ type ViewAnalyticsRepository interface {
 	//   - map[uuid.UUID]int64: Map of genre ID to active readers count
 	//   - error: Error if any
 	GetGenreActiveReaders(ctx context.Context, days int) (map[uuid.UUID]int64, error)
+
+	// GetCreatorViewStats retrieves view statistics for multiple creators (by owner_id).
+	//
+	// Parameters:
+	//   - ctx: Context
+	//   - ownerIDs: List of owner/creator user IDs
+	//   - timeRange: Time range (day, week, month, year, all)
+	//
+	// Returns:
+	//   - map[uuid.UUID]CreatorViewStats: Map of owner ID to their view stats
+	//   - error: Error if any
+	GetCreatorViewStats(ctx context.Context, ownerIDs []uuid.UUID, timeRange string) (map[uuid.UUID]CreatorViewStats, error)
+}
+
+// CreatorViewStats represents aggregated view stats for a creator
+type CreatorViewStats struct {
+	TotalViews          int64
+	PopularWorkID       *uuid.UUID
+	PopularWorkType     string // novel, manga, anime
 }
