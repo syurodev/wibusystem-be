@@ -115,6 +115,7 @@ func (s *NovelService) CreateNovel(
 		CoverImageURL:    coverImageURL,
 		ThumbnailURL:     thumbnailURL,
 		Status:           domain.NovelStatus(*status),
+		IsOneshot:        isOneshot,
 		OriginalLanguage: originalLanguage,
 		OriginalTitle:    originalTitle,
 		Metadata:         metadata,
@@ -185,7 +186,7 @@ func (s *NovelService) CreateNovel(
 }
 
 // UpdateNovel cập nhật thông tin novel
-func (s *NovelService) UpdateNovel(ctx context.Context, id uuid.UUID, title string, synopsis json.RawMessage, coverImageURL, thumbnailURL *string, status, originalLanguage, originalTitle *string, metadataJSON *string) (*domain.Novel, error) {
+func (s *NovelService) UpdateNovel(ctx context.Context, id uuid.UUID, title string, synopsis json.RawMessage, coverImageURL, thumbnailURL *string, status, originalLanguage, originalTitle *string, metadataJSON *string, isOneshot bool) (*domain.Novel, error) {
 	// Validate input
 	if title == "" {
 		return nil, pkgerrors.ErrInvalidInput
@@ -218,6 +219,7 @@ func (s *NovelService) UpdateNovel(ctx context.Context, id uuid.UUID, title stri
 	novel.CoverImageURL = coverImageURL
 	novel.ThumbnailURL = thumbnailURL
 	novel.Status = domain.NovelStatus(*status)
+	novel.IsOneshot = isOneshot
 	novel.OriginalLanguage = originalLanguage
 	novel.OriginalTitle = originalTitle
 
@@ -392,4 +394,34 @@ func isValidNovelStatus(status string) bool {
 		"dropped":   true,
 	}
 	return validStatuses[status]
+}
+
+// GetNovelGenres lấy danh sách genre IDs của novel
+func (s *NovelService) GetNovelGenres(ctx context.Context, novelID uuid.UUID) ([]uuid.UUID, error) {
+	return s.novelRepo.GetGenres(ctx, novelID)
+}
+
+// GetNovelAuthors lấy danh sách author IDs của novel
+func (s *NovelService) GetNovelAuthors(ctx context.Context, novelID uuid.UUID) ([]uuid.UUID, error) {
+	return s.novelRepo.GetAuthors(ctx, novelID)
+}
+
+// GetNovelArtists lấy danh sách artist IDs của novel
+func (s *NovelService) GetNovelArtists(ctx context.Context, novelID uuid.UUID) ([]uuid.UUID, error) {
+	return s.novelRepo.GetArtists(ctx, novelID)
+}
+
+// GetNovelGenresDetails lấy danh sách genre (chi tiết) của novel
+func (s *NovelService) GetNovelGenresDetails(ctx context.Context, novelID uuid.UUID) ([]*domain.Genre, error) {
+	return s.genreRepo.GetNovelGenres(ctx, novelID)
+}
+
+// GetNovelAuthorsDetails lấy danh sách author (chi tiết) của novel
+func (s *NovelService) GetNovelAuthorsDetails(ctx context.Context, novelID uuid.UUID) ([]*domain.NovelAuthor, error) {
+	return s.authorRepo.GetNovelAuthors(ctx, novelID)
+}
+
+// GetNovelArtistsDetails lấy danh sách artist (chi tiết) của novel
+func (s *NovelService) GetNovelArtistsDetails(ctx context.Context, novelID uuid.UUID) ([]*domain.NovelArtist, error) {
+	return s.artistRepo.GetNovelArtists(ctx, novelID)
 }

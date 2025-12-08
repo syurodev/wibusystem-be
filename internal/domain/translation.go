@@ -45,9 +45,9 @@ type ChapterTranslation struct {
 	// Translator notes
 	TranslatorNotes json.RawMessage
 
-	// Primary translator
-	TranslatorID *uuid.UUID
-	Translator   *Translator // Optional: được load bởi JOIN query
+	// Organization (nhóm dịch, nullable nếu cá nhân dịch)
+	OrganizationID *uuid.UUID
+	Organization   *Organization // Optional: được load bởi JOIN query
 
 	// Version tracking
 	Version int
@@ -58,17 +58,28 @@ type ChapterTranslation struct {
 	// Quality metrics
 	WordCount      int
 	CharacterCount int
+	QualityScore   float64
+	ReviewerRating float64
 
 	// Thống kê
-	ViewCount     int64
-	LikeCount     int
-	RatingAverage float64
-	RatingCount   int
+	ViewCount         int64
+	LikeCount         int
+	CommentCount      int
+	ContributionCount int
+
+	// Review tracking
+	ReviewedBy  *uuid.UUID
+	ReviewNotes *string
+	ReviewedAt  *time.Time
 
 	// Publishing
 	PublishedAt *time.Time
 
 	// Audit
+	CreatedBy uuid.UUID
+	Creator   *User // Optional: được load bởi JOIN query
+	UpdatedBy *uuid.UUID
+	DeletedBy *uuid.UUID
 	CreatedAt time.Time
 	UpdatedAt time.Time
 	DeletedAt *time.Time
@@ -85,8 +96,11 @@ type ChapterTranslationRepository interface {
 	// GetByChapterID lấy tất cả translations của một chapter
 	GetByChapterID(ctx context.Context, chapterID uuid.UUID) ([]*ChapterTranslation, error)
 
-	// GetByTranslatorID lấy danh sách translations của translator
-	GetByTranslatorID(ctx context.Context, translatorID uuid.UUID, filter TranslationFilter) ([]*ChapterTranslation, error)
+	// GetByOrganizationID lấy danh sách translations của organization
+	GetByOrganizationID(ctx context.Context, organizationID uuid.UUID, filter TranslationFilter) ([]*ChapterTranslation, error)
+
+	// GetByCreatorID lấy danh sách translations của người tạo
+	GetByCreatorID(ctx context.Context, creatorID uuid.UUID, filter TranslationFilter) ([]*ChapterTranslation, error)
 
 	// Create tạo translation mới
 	Create(ctx context.Context, translation *ChapterTranslation) error

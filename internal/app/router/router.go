@@ -234,7 +234,7 @@ func NewRouter(cfg *configs.Config, i18nInstance *i18n.I18n, zapLogger *zap.Logg
 	genreHandler := genre.NewHandler(genreService, zapLogger)
 	authorHandler := author.NewHandler(authorService, zapLogger)
 	artistHandler := artist.NewHandler(artistService)
-	novelHandler := novel.NewHandler(novelService)
+	novelHandler := novel.NewHandler(novelService, volumeService, chapterService)
 	volumeHandler := novel_volume.NewHandler(volumeService, novelService)
 
 	chapterHandler := volume_chapter.NewHandler(chapterService, volumeService, viewTrackingService, novelService)

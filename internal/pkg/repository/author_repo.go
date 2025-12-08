@@ -297,7 +297,7 @@ func (r *authorRepository) GetNovelAuthors(ctx context.Context, novelID uuid.UUI
 		SELECT a.id, a.user_id, a.name, a.slug, a.biography, a.avatar_url, a.social_links,
 		       a.novel_count, a.total_chapters, a.total_views, a.follower_count,
 		       a.is_verified, a.created_by, a.updated_by, a.created_at, a.updated_at, a.deleted_at, a.deleted_by,
-		       na.role, na.display_order
+		       na.display_order
 		FROM catalog.authors a
 		INNER JOIN catalog.novel_authors na ON a.id = na.author_id
 		WHERE na.novel_id = $1 AND a.deleted_at IS NULL
@@ -313,7 +313,6 @@ func (r *authorRepository) GetNovelAuthors(ctx context.Context, novelID uuid.UUI
 	var novelAuthors []*domain.NovelAuthor
 	for rows.Next() {
 		var author domain.Author
-		var role string
 		var displayOrder int
 
 		err := rows.Scan(
@@ -321,7 +320,7 @@ func (r *authorRepository) GetNovelAuthors(ctx context.Context, novelID uuid.UUI
 			&author.Biography, &author.AvatarURL, &author.SocialLinks,
 			&author.NovelCount, &author.TotalChapters, &author.TotalViews, &author.FollowerCount,
 			&author.IsVerified, &author.CreatedBy, &author.UpdatedBy, &author.CreatedAt, &author.UpdatedAt, &author.DeletedAt, &author.DeletedBy,
-			&role, &displayOrder,
+			&displayOrder,
 		)
 		if err != nil {
 			return nil, err
@@ -329,7 +328,7 @@ func (r *authorRepository) GetNovelAuthors(ctx context.Context, novelID uuid.UUI
 
 		novelAuthors = append(novelAuthors, &domain.NovelAuthor{
 			Author:       &author,
-			Role:         role,
+			Role:         "",
 			DisplayOrder: displayOrder,
 		})
 	}

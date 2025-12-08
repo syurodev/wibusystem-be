@@ -25,7 +25,8 @@ func NewNovelRepository(pool *pgxpool.Pool) domain.NovelRepository {
 
 const novelColumns = `
 	id, title, slug, synopsis, cover_image_url, thumbnail_url,
-	status, original_language, original_title,
+	status, is_oneshot, original_language, original_title,
+	owner_id, owner_type,
 	owner_id, owner_type,
 	total_volumes, total_chapters, total_words, view_count,
 	favorite_count, rating_average, rating_count, metadata,
@@ -38,7 +39,7 @@ const novelColumns = `
 func (r *novelRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.Novel, error) {
 	query := `
 		SELECT n.id, n.title, n.slug, n.synopsis, n.cover_image_url, n.thumbnail_url,
-		       n.status, n.original_language, n.original_title,
+		       n.status, n.is_oneshot, n.original_language, n.original_title,
 		       n.owner_id, n.owner_type,
 		       COALESCE(u.full_name, '') as owner_display_name,
 		       COALESCE(u.email, '') as owner_username,
@@ -70,7 +71,7 @@ func (r *novelRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.No
 func (r *novelRepository) GetBySlug(ctx context.Context, slug string) (*domain.Novel, error) {
 	query := `
 		SELECT n.id, n.title, n.slug, n.synopsis, n.cover_image_url, n.thumbnail_url,
-		       n.status, n.original_language, n.original_title,
+		       n.status, n.is_oneshot, n.original_language, n.original_title,
 		       n.owner_id, n.owner_type,
 		       COALESCE(u.full_name, '') as owner_display_name,
 		       COALESCE(u.email, '') as owner_username,
@@ -102,7 +103,7 @@ func (r *novelRepository) GetBySlug(ctx context.Context, slug string) (*domain.N
 func (r *novelRepository) GetByAuthorID(ctx context.Context, authorID uuid.UUID, limit, offset int) ([]*domain.Novel, error) {
 	query := `
 		SELECT n.id, n.title, n.slug, n.synopsis, n.cover_image_url, n.thumbnail_url,
-		       n.status, n.original_language, n.original_title,
+		       n.status, n.is_oneshot, n.original_language, n.original_title,
 		       n.owner_id, n.owner_type,
 		       COALESCE(u.full_name, '') as owner_display_name,
 		       COALESCE(u.email, '') as owner_username,
@@ -138,10 +139,10 @@ func (r *novelRepository) Create(ctx context.Context, novel *domain.Novel) error
 	query := `
 		INSERT INTO catalog.novels (
 			id, title, slug, synopsis, cover_image_url, thumbnail_url,
-			status, original_language, original_title, metadata,
+			status, is_oneshot, original_language, original_title, metadata,
 			owner_id, owner_type,
 			created_by, created_at, updated_at
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NOW(), NOW())
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, NOW(), NOW())
 	`
 
 	// Đảm bảo metadata không null
@@ -163,6 +164,7 @@ func (r *novelRepository) Create(ctx context.Context, novel *domain.Novel) error
 		novel.CoverImageURL,
 		novel.ThumbnailURL,
 		novel.Status,
+		novel.IsOneshot,
 		novel.OriginalLanguage,
 		novel.OriginalTitle,
 		novel.Metadata,
@@ -184,12 +186,13 @@ func (r *novelRepository) Update(ctx context.Context, novel *domain.Novel) error
 		    cover_image_url = $5,
 		    thumbnail_url = $6,
 		    status = $7,
-		    original_language = $8,
-		    original_title = $9,
-		    metadata = $10,
-		    first_published_at = $11,
-		    completed_at = $12,
-		    updated_by = $13,
+		    is_oneshot = $8,
+		    original_language = $9,
+		    original_title = $10,
+		    metadata = $11,
+		    first_published_at = $12,
+		    completed_at = $13,
+		    updated_by = $14,
 		    updated_at = NOW()
 		WHERE id = $1 AND deleted_at IS NULL
 	`
@@ -202,6 +205,7 @@ func (r *novelRepository) Update(ctx context.Context, novel *domain.Novel) error
 		novel.CoverImageURL,
 		novel.ThumbnailURL,
 		novel.Status,
+		novel.IsOneshot,
 		novel.OriginalLanguage,
 		novel.OriginalTitle,
 		novel.Metadata,
@@ -351,7 +355,7 @@ func (r *novelRepository) List(ctx context.Context, filter domain.NovelFilter) (
 	// Note: We select n.* columns individually + owner info từ LEFT JOIN users
 	query := fmt.Sprintf(`
 		SELECT n.id, n.title, n.slug, n.synopsis, n.cover_image_url, n.thumbnail_url,
-		       n.status, n.original_language, n.original_title,
+		       n.status, n.is_oneshot, n.original_language, n.original_title,
 		       n.owner_id, n.owner_type,
 		       COALESCE(u.full_name, '') as owner_display_name,
 		       COALESCE(u.email, '') as owner_username,

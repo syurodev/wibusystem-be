@@ -26,9 +26,10 @@ func NewChapterTranslationRepository(pool *pgxpool.Pool) domain.ChapterTranslati
 func (r *chapterTranslationRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.ChapterTranslation, error) {
 	query := `
 		SELECT id, chapter_id, language, title, content, translator_notes,
-		       translator_id, version, status, word_count, character_count,
-		       view_count, like_count, rating_average, rating_count,
-		       published_at, created_at, updated_at, deleted_at
+		       organization_id, version, status, word_count, character_count,
+		       quality_score, reviewer_rating, view_count, like_count,
+		       comment_count, contribution_count, reviewed_by, review_notes, reviewed_at,
+		       published_at, created_by, updated_by, deleted_by, created_at, updated_at, deleted_at
 		FROM catalog.novel_chapter_translations
 		WHERE id = $1 AND deleted_at IS NULL
 	`
@@ -50,9 +51,10 @@ func (r *chapterTranslationRepository) GetByID(ctx context.Context, id uuid.UUID
 func (r *chapterTranslationRepository) GetByChapterAndLanguage(ctx context.Context, chapterID uuid.UUID, language string) (*domain.ChapterTranslation, error) {
 	query := `
 		SELECT id, chapter_id, language, title, content, translator_notes,
-		       translator_id, version, status, word_count, character_count,
-		       view_count, like_count, rating_average, rating_count,
-		       published_at, created_at, updated_at, deleted_at
+		       organization_id, version, status, word_count, character_count,
+		       quality_score, reviewer_rating, view_count, like_count,
+		       comment_count, contribution_count, reviewed_by, review_notes, reviewed_at,
+		       published_at, created_by, updated_by, deleted_by, created_at, updated_at, deleted_at
 		FROM catalog.novel_chapter_translations
 		WHERE chapter_id = $1 AND language = $2 AND deleted_at IS NULL
 	`
@@ -74,9 +76,10 @@ func (r *chapterTranslationRepository) GetByChapterAndLanguage(ctx context.Conte
 func (r *chapterTranslationRepository) GetByChapterID(ctx context.Context, chapterID uuid.UUID) ([]*domain.ChapterTranslation, error) {
 	query := `
 		SELECT id, chapter_id, language, title, content, translator_notes,
-		       translator_id, version, status, word_count, character_count,
-		       view_count, like_count, rating_average, rating_count,
-		       published_at, created_at, updated_at, deleted_at
+		       organization_id, version, status, word_count, character_count,
+		       quality_score, reviewer_rating, view_count, like_count,
+		       comment_count, contribution_count, reviewed_by, review_notes, reviewed_at,
+		       published_at, created_by, updated_by, deleted_by, created_at, updated_at, deleted_at
 		FROM catalog.novel_chapter_translations
 		WHERE chapter_id = $1 AND deleted_at IS NULL
 		ORDER BY language ASC
@@ -95,15 +98,15 @@ func (r *chapterTranslationRepository) GetByChapterID(ctx context.Context, chapt
 	return translations, nil
 }
 
-// GetByTranslatorID lấy danh sách translations của translator
-func (r *chapterTranslationRepository) GetByTranslatorID(ctx context.Context, translatorID uuid.UUID, filter domain.TranslationFilter) ([]*domain.ChapterTranslation, error) {
+// GetByOrganizationID lấy danh sách translations của organization
+func (r *chapterTranslationRepository) GetByOrganizationID(ctx context.Context, organizationID uuid.UUID, filter domain.TranslationFilter) ([]*domain.ChapterTranslation, error) {
 	var whereClauses []string
 	var args []any
 	argIdx := 2
 
-	whereClauses = append(whereClauses, "translator_id = $1")
+	whereClauses = append(whereClauses, "organization_id = $1")
 	whereClauses = append(whereClauses, "deleted_at IS NULL")
-	args = append(args, translatorID)
+	args = append(args, organizationID)
 
 	if filter.Language != nil {
 		whereClauses = append(whereClauses, fmt.Sprintf("language = $%d", argIdx))
@@ -132,9 +135,80 @@ func (r *chapterTranslationRepository) GetByTranslatorID(ctx context.Context, tr
 
 	query := fmt.Sprintf(`
 		SELECT id, chapter_id, language, title, content, translator_notes,
-		       translator_id, version, status, word_count, character_count,
-		       view_count, like_count, rating_average, rating_count,
-		       published_at, created_at, updated_at, deleted_at
+		       organization_id, version, status, word_count, character_count,
+		       quality_score, reviewer_rating, view_count, like_count,
+		       comment_count, contribution_count, reviewed_by, review_notes, reviewed_at,
+		       published_at, created_by, updated_by, deleted_by, created_at, updated_at, deleted_at
+		FROM catalog.novel_chapter_translations
+		WHERE %s
+		ORDER BY %s
+	`, whereClause, orderBy)
+
+	if filter.Limit > 0 {
+		query += fmt.Sprintf(" LIMIT $%d", argIdx)
+		args = append(args, filter.Limit)
+		argIdx++
+	}
+
+	if filter.Offset > 0 {
+		query += fmt.Sprintf(" OFFSET $%d", argIdx)
+		args = append(args, filter.Offset)
+	}
+
+	rows, err := r.pool.Query(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+
+	translations, err := pgx.CollectRows(rows, pgx.RowToAddrOfStructByName[domain.ChapterTranslation])
+	if err != nil {
+		return nil, err
+	}
+
+	return translations, nil
+}
+
+// GetByCreatorID lấy danh sách translations của người tạo
+func (r *chapterTranslationRepository) GetByCreatorID(ctx context.Context, creatorID uuid.UUID, filter domain.TranslationFilter) ([]*domain.ChapterTranslation, error) {
+	var whereClauses []string
+	var args []any
+	argIdx := 2
+
+	whereClauses = append(whereClauses, "created_by = $1")
+	whereClauses = append(whereClauses, "deleted_at IS NULL")
+	args = append(args, creatorID)
+
+	if filter.Language != nil {
+		whereClauses = append(whereClauses, fmt.Sprintf("language = $%d", argIdx))
+		args = append(args, *filter.Language)
+		argIdx++
+	}
+
+	if filter.Status != nil {
+		whereClauses = append(whereClauses, fmt.Sprintf("status = $%d", argIdx))
+		args = append(args, *filter.Status)
+		argIdx++
+	}
+
+	whereClause := strings.Join(whereClauses, " AND ")
+
+	// Build ORDER BY
+	orderBy := "created_at DESC"
+	if filter.SortBy != "" {
+		orderBy = filter.SortBy
+		if filter.SortOrder == "asc" {
+			orderBy += " ASC"
+		} else {
+			orderBy += " DESC"
+		}
+	}
+
+	query := fmt.Sprintf(`
+		SELECT id, chapter_id, language, title, content, translator_notes,
+		       organization_id, version, status, word_count, character_count,
+		       quality_score, reviewer_rating, view_count, like_count,
+		       comment_count, contribution_count, reviewed_by, review_notes, reviewed_at,
+		       published_at, created_by, updated_by, deleted_by, created_at, updated_at, deleted_at
 		FROM catalog.novel_chapter_translations
 		WHERE %s
 		ORDER BY %s
@@ -169,8 +243,8 @@ func (r *chapterTranslationRepository) Create(ctx context.Context, translation *
 	query := `
 		INSERT INTO catalog.novel_chapter_translations (
 			id, chapter_id, language, title, content, translator_notes,
-			translator_id, version, status, word_count, character_count
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+			organization_id, version, status, word_count, character_count, created_by
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 	`
 
 	_, err := r.pool.Exec(ctx, query,
@@ -180,11 +254,12 @@ func (r *chapterTranslationRepository) Create(ctx context.Context, translation *
 		translation.Title,
 		translation.Content,
 		translation.TranslatorNotes,
-		translation.TranslatorID,
+		translation.OrganizationID,
 		translation.Version,
 		translation.Status,
 		translation.WordCount,
 		translation.CharacterCount,
+		translation.CreatedBy,
 	)
 
 	return err
@@ -198,10 +273,11 @@ func (r *chapterTranslationRepository) Update(ctx context.Context, translation *
 		    title = $3,
 		    content = $4,
 		    translator_notes = $5,
-		    translator_id = $6,
+		    organization_id = $6,
 		    status = $7,
 		    word_count = $8,
-		    character_count = $9
+		    character_count = $9,
+		    updated_by = $10
 		WHERE id = $1 AND deleted_at IS NULL
 	`
 
@@ -211,10 +287,11 @@ func (r *chapterTranslationRepository) Update(ctx context.Context, translation *
 		translation.Title,
 		translation.Content,
 		translation.TranslatorNotes,
-		translation.TranslatorID,
+		translation.OrganizationID,
 		translation.Status,
 		translation.WordCount,
 		translation.CharacterCount,
+		translation.UpdatedBy,
 	)
 
 	return err

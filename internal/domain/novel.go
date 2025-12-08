@@ -43,6 +43,7 @@ type Novel struct {
 	ThumbnailURL  *string
 
 	Status NovelStatus
+	IsOneshot bool
 
 	// Original information
 	OriginalLanguage *string // ISO 639-1 language code

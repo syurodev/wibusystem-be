@@ -307,7 +307,7 @@ func (r *artistRepository) GetNovelArtists(ctx context.Context, novelID uuid.UUI
 		SELECT a.id, a.user_id, a.name, a.slug, a.biography, a.avatar_url, a.social_links,
 		       a.specialization, a.novel_count, a.artwork_count, a.follower_count,
 		       a.is_verified, a.created_by, a.updated_by, a.created_at, a.updated_at, a.deleted_at, a.deleted_by,
-		       na.role, na.display_order
+		       na.display_order
 		FROM catalog.artists a
 		INNER JOIN catalog.novel_artists na ON a.id = na.artist_id
 		WHERE na.novel_id = $1 AND a.deleted_at IS NULL
@@ -323,7 +323,6 @@ func (r *artistRepository) GetNovelArtists(ctx context.Context, novelID uuid.UUI
 	var novelArtists []*domain.NovelArtist
 	for rows.Next() {
 		var artist domain.Artist
-		var role string
 		var displayOrder int
 
 		err := rows.Scan(
@@ -331,7 +330,7 @@ func (r *artistRepository) GetNovelArtists(ctx context.Context, novelID uuid.UUI
 			&artist.Biography, &artist.AvatarURL, &artist.SocialLinks,
 			&artist.Specialization, &artist.NovelCount, &artist.ArtworkCount, &artist.FollowerCount,
 			&artist.IsVerified, &artist.CreatedBy, &artist.UpdatedBy, &artist.CreatedAt, &artist.UpdatedAt, &artist.DeletedAt, &artist.DeletedBy,
-			&role, &displayOrder,
+			&displayOrder,
 		)
 		if err != nil {
 			return nil, err
@@ -339,7 +338,7 @@ func (r *artistRepository) GetNovelArtists(ctx context.Context, novelID uuid.UUI
 
 		novelArtists = append(novelArtists, &domain.NovelArtist{
 			Artist:       &artist,
-			Role:         role,
+			Role:         "",
 			DisplayOrder: displayOrder,
 		})
 	}

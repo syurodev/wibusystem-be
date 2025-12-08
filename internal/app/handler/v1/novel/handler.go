@@ -19,12 +19,20 @@ import (
 )
 
 type Handler struct {
-	novelService *service.NovelService
+	novelService   *service.NovelService
+	volumeService  *service.VolumeService
+	chapterService *service.ChapterService
 }
 
-func NewHandler(novelService *service.NovelService) *Handler {
+func NewHandler(
+	novelService *service.NovelService,
+	volumeService *service.VolumeService,
+	chapterService *service.ChapterService,
+) *Handler {
 	return &Handler{
-		novelService: novelService,
+		novelService:   novelService,
+		volumeService:  volumeService,
+		chapterService: chapterService,
 	}
 }
 
@@ -175,6 +183,7 @@ func (h *Handler) UpdateNovel(c *gin.Context) {
 		req.OriginalLanguage,
 		req.OriginalTitle,
 		req.Metadata,
+		req.IsOneshot,
 	)
 	if err != nil {
 		if errors.Is(err, pkgerrors.ErrNovelNotFound) {
@@ -270,6 +279,84 @@ func (h *Handler) GetNovel(c *gin.Context) {
 
 	// Map to response
 	resp := mapToNovelDetailResponse(novel)
+
+	// Initialize slices to ensure JSON array [] instead of null
+	resp.GenreIDs = make([]string, 0)
+	resp.AuthorIDs = make([]string, 0)
+	resp.ArtistIDs = make([]string, 0)
+	resp.Genres = make([]GenreInfo, 0)
+	resp.Authors = make([]OwnerInfo, 0)
+	resp.Artists = make([]OwnerInfo, 0)
+
+	// Load relations for edit screen
+	genreIDs, err := h.novelService.GetNovelGenres(c.Request.Context(), novel.ID)
+	if err == nil {
+		resp.GenreIDs = make([]string, len(genreIDs))
+		for i, id := range genreIDs {
+			resp.GenreIDs[i] = id.String()
+		}
+	}
+
+	authorIDs, err := h.novelService.GetNovelAuthors(c.Request.Context(), novel.ID)
+	if err == nil {
+		resp.AuthorIDs = make([]string, len(authorIDs))
+		for i, id := range authorIDs {
+			resp.AuthorIDs[i] = id.String()
+		}
+	}
+
+	artistIDs, err := h.novelService.GetNovelArtists(c.Request.Context(), novel.ID)
+	if err == nil {
+		resp.ArtistIDs = make([]string, len(artistIDs))
+		for i, id := range artistIDs {
+			resp.ArtistIDs[i] = id.String()
+		}
+	}
+
+	// Load detailed relations for UI display
+	genres, err := h.novelService.GetNovelGenresDetails(c.Request.Context(), novel.ID)
+	if err == nil {
+		resp.Genres = make([]GenreInfo, len(genres))
+		for i, g := range genres {
+			resp.Genres[i] = GenreInfo{
+				ID:   g.ID.String(),
+				Name: g.Name,
+			}
+		}
+	}
+
+	authors, err := h.novelService.GetNovelAuthorsDetails(c.Request.Context(), novel.ID)
+	if err == nil {
+		fmt.Printf("GetNovelAuthorsDetails found %d authors\n", len(authors))
+		resp.Authors = make([]OwnerInfo, len(authors))
+		for i, na := range authors {
+			if na.Author != nil {
+				resp.Authors[i] = OwnerInfo{
+					ID:          na.Author.ID.String(),
+					DisplayName: na.Author.Name,
+				}
+			}
+		}
+	} else {
+		fmt.Printf("GetNovelAuthorsDetails Error: %v\n", err)
+	}
+
+	artists, err := h.novelService.GetNovelArtistsDetails(c.Request.Context(), novel.ID)
+	if err == nil {
+		fmt.Printf("GetNovelArtistsDetails found %d artists\n", len(artists))
+		resp.Artists = make([]OwnerInfo, len(artists))
+		for i, na := range artists {
+			if na.Artist != nil {
+				resp.Artists[i] = OwnerInfo{
+					ID:          na.Artist.ID.String(),
+					DisplayName: na.Artist.Name,
+				}
+			}
+		}
+	} else {
+		fmt.Printf("GetNovelArtistsDetails Error: %v\n", err)
+	}
+
 
 	response.Success(c, http.StatusOK, "novel.get_success", resp, nil)
 }
@@ -397,10 +484,11 @@ func mapToNovelDetailResponse(novel *domain.Novel) NovelDetailResponse {
 		ID:               novel.ID.String(),
 		Title:            novel.Title,
 		Slug:             novel.Slug,
-		Synopsis:         "",
+		Synopsis:         json.RawMessage("{}"),
 		CoverImageURL:    novel.CoverImageURL,
 		ThumbnailURL:     novel.ThumbnailURL,
 		Status:           string(novel.Status),
+		IsOneshot:        novel.IsOneshot,
 		OriginalLanguage: novel.OriginalLanguage,
 		OriginalTitle:    novel.OriginalTitle,
 		TotalVolumes:     novel.TotalVolumes,
@@ -414,14 +502,11 @@ func mapToNovelDetailResponse(novel *domain.Novel) NovelDetailResponse {
 		UpdatedAt:        novel.UpdatedAt.Format(timeutil.ISO8601Layout),
 	}
 
-	// Extract synopsis from JSON
-	if len(novel.Synopsis) > 0 {
-		var synopsisData map[string]any
-		if err := json.Unmarshal(novel.Synopsis, &synopsisData); err == nil {
-			if content, ok := synopsisData["content"].(string); ok && content != "" {
-				resp.Synopsis = content
-			}
-		}
+	// Return synopsis as JSON object
+	if len(novel.Synopsis) > 0 && string(novel.Synopsis) != "null" {
+		resp.Synopsis = novel.Synopsis
+	} else {
+		resp.Synopsis = json.RawMessage("{}")
 	}
 
 	// Convert metadata to string
@@ -528,5 +613,170 @@ func mapToNovelResponse(novel *domain.Novel) NovelResponse {
 		UpdatedAt: novel.UpdatedAt.Format(timeutil.ISO8601Layout),
 	}
 
+	return resp
+}
+
+// GetNovelFull lấy thông tin đầy đủ novel (public API)
+// @Summary Get full novel details with volumes and chapters
+// @Tags Novels
+// @Produce json
+// @Param slug path string true "Novel Slug"
+// @Success 200 {object} response.StandardResponse{data=NovelFullResponse}
+// @Failure 404 {object} response.StandardResponse
+// @Failure 500 {object} response.StandardResponse
+// @Router /api/v1/novels/{id}/full [get]
+func (h *Handler) GetNovelFull(c *gin.Context) {
+	idOrSlug := c.Param("id")
+
+	var novel *domain.Novel
+	var err error
+
+	// Try to parse as UUID first
+	id, parseErr := uuid.FromString(idOrSlug)
+	if parseErr == nil {
+		novel, err = h.novelService.GetNovelByID(c.Request.Context(), id)
+	} else {
+		novel, err = h.novelService.GetNovelBySlug(c.Request.Context(), idOrSlug)
+	}
+
+	if err != nil {
+		if errors.Is(err, pkgerrors.ErrNovelNotFound) || errors.Is(err, pgx.ErrNoRows) {
+			response.Error(c, http.StatusNotFound, "NOVEL_NOT_FOUND", "novel.not_found", nil)
+			return
+		}
+		response.Error(c, http.StatusInternalServerError, "GET_FAILED", "novel.get_failed", nil)
+		return
+	}
+
+	// Build base response
+	resp := NovelFullResponse{
+		NovelDetailResponse: mapToNovelDetailResponse(novel),
+	}
+
+	// Initialize slices
+	resp.GenreIDs = make([]string, 0)
+	resp.AuthorIDs = make([]string, 0)
+	resp.ArtistIDs = make([]string, 0)
+	resp.Genres = make([]GenreInfo, 0)
+	resp.Authors = make([]OwnerInfo, 0)
+	resp.Artists = make([]OwnerInfo, 0)
+	resp.Volumes = make([]VolumeInfoResponse, 0)
+	resp.Chapters = make([]ChapterSummaryResponse, 0)
+
+	// Set owner info
+	ownerDisplayName := "Unknown Owner"
+	if novel.OwnerDisplayName != nil && *novel.OwnerDisplayName != "" {
+		ownerDisplayName = *novel.OwnerDisplayName
+	}
+	ownerUsername := "unknown"
+	if novel.OwnerUsername != nil && *novel.OwnerUsername != "" {
+		ownerUsername = *novel.OwnerUsername
+	}
+	resp.Owner = OwnerInfo{
+		ID:          novel.OwnerID.String(),
+		DisplayName: ownerDisplayName,
+		Username:    ownerUsername,
+		AvatarURL:   novel.OwnerAvatarURL,
+	}
+
+	// Load genres
+	genres, err := h.novelService.GetNovelGenresDetails(c.Request.Context(), novel.ID)
+	if err == nil {
+		resp.Genres = make([]GenreInfo, len(genres))
+		for i, g := range genres {
+			resp.Genres[i] = GenreInfo{ID: g.ID.String(), Name: g.Name}
+		}
+	}
+
+	// Load authors
+	authors, err := h.novelService.GetNovelAuthorsDetails(c.Request.Context(), novel.ID)
+	if err == nil {
+		resp.Authors = make([]OwnerInfo, len(authors))
+		for i, na := range authors {
+			if na.Author != nil {
+				resp.Authors[i] = OwnerInfo{ID: na.Author.ID.String(), DisplayName: na.Author.Name}
+			}
+		}
+	}
+
+	// Load artists
+	artists, err := h.novelService.GetNovelArtistsDetails(c.Request.Context(), novel.ID)
+	if err == nil {
+		resp.Artists = make([]OwnerInfo, len(artists))
+		for i, na := range artists {
+			if na.Artist != nil {
+				resp.Artists[i] = OwnerInfo{ID: na.Artist.ID.String(), DisplayName: na.Artist.Name}
+			}
+		}
+	}
+
+	// Load published volumes
+	volumes, err := h.volumeService.GetVolumesByNovelID(c.Request.Context(), novel.ID, true)
+	if err == nil {
+		for _, vol := range volumes {
+			volResp := VolumeInfoResponse{
+				ID:            vol.ID.String(),
+				VolumeNumber:  vol.VolumeNumber,
+				Title:         vol.Title,
+				Slug:          vol.Slug,
+				CoverImageURL: vol.CoverImageURL,
+				DisplayOrder:  vol.DisplayOrder,
+				IsPublished:   vol.IsPublished,
+				Chapters:      make([]ChapterSummaryResponse, 0),
+			}
+			if vol.PublishedAt != nil {
+				publishedAt := vol.PublishedAt.Format(timeutil.ISO8601Layout)
+				volResp.PublishedAt = &publishedAt
+			}
+
+			// Load published chapters for this volume
+			chapters, chErr := h.chapterService.GetChaptersByVolumeID(c.Request.Context(), vol.ID, true)
+			if chErr == nil {
+				for _, ch := range chapters {
+					chResp := mapToChapterSummary(ch)
+					volResp.Chapters = append(volResp.Chapters, chResp)
+				}
+			}
+
+			resp.Volumes = append(resp.Volumes, volResp)
+		}
+	}
+
+	// Load published chapters without volume (volume_id = null)
+	filter := domain.ChapterFilter{
+		PublishedOnly: true,
+		SortBy:        "chapter_number",
+		SortOrder:     "asc",
+	}
+	allChapters, err := h.chapterService.GetChaptersByNovelID(c.Request.Context(), novel.ID, filter)
+	if err == nil {
+		for _, ch := range allChapters {
+			if ch.VolumeID == nil {
+				resp.Chapters = append(resp.Chapters, mapToChapterSummary(ch))
+			}
+		}
+	}
+
+	response.Success(c, http.StatusOK, "novel.get_full_success", resp, nil)
+}
+
+// mapToChapterSummary maps domain.Chapter to ChapterSummaryResponse
+func mapToChapterSummary(ch *domain.Chapter) ChapterSummaryResponse {
+	resp := ChapterSummaryResponse{
+		ID:            ch.ID.String(),
+		ChapterNumber: ch.ChapterNumber,
+		Title:         ch.Title,
+		Slug:          ch.Slug,
+		DisplayOrder:  ch.DisplayOrder,
+		Status:        string(ch.Status),
+	}
+	if ch.VolumeID != nil {
+		volIDStr := ch.VolumeID.String()
+		resp.VolumeID = &volIDStr
+	}
+	if ch.PublishedAt != nil {
+		publishedAt := ch.PublishedAt.Format(timeutil.ISO8601Layout)
+		resp.PublishedAt = &publishedAt
+	}
 	return resp
 }

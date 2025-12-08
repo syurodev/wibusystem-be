@@ -9,6 +9,7 @@ func (h *Handler) RegisterRoutes(router *gin.RouterGroup, middlewares ...gin.Han
 	// Public routes (no auth required for reading)
 	router.GET("", h.ListNovels)                   // GET /api/v1/novels
 	router.GET("/:id", h.GetNovel)                 // GET /api/v1/novels/:id (ID or slug)
+	router.GET("/:id/full", h.GetNovelFull)      // GET /api/v1/novels/:id/full (slug or ID)
 	router.POST("/:id/view", h.IncrementViewCount) // POST /api/v1/novels/:id/view
 
 	// Protected routes (require authentication)
