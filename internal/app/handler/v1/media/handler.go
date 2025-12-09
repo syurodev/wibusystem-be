@@ -1,4 +1,4 @@
-package analytics
+package media
 
 import (
 	"encoding/json"
@@ -31,7 +31,7 @@ func NewHandler(analyticsService *service.AnalyticsService) *Handler {
 // @Param range query string false "Time range (day, week, month)"
 // @Param limit query int false "Limit (default 20)"
 // @Success 200 {array} MediaSeriesResponse
-// @Router /api/v1/analytics/trending [get]
+// @Router /api/v1/media/trending [get]
 func (h *Handler) GetTrending(c *gin.Context) {
 	mediaType := c.Query("type")
 	timeRange := c.Query("range")

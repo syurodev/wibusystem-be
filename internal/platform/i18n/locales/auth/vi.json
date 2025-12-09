@@ -55,5 +55,8 @@
   "auth.missing_user_id": "Thiếu thông tin user ID.",
   "auth.invalid_user_id": "User ID không hợp lệ.",
   "auth.invalid_credential_data": "Dữ liệu passkey không hợp lệ.",
+  "auth.invalid_credential_id": "ID credential không hợp lệ.",
+  "auth.session_creation_failed": "Không thể tạo phiên đăng nhập.",
+  "auth.credentials_listed": "Lấy danh sách credentials thành công.",
   "auth.missing_authorization_header": "Thiếu Authorization header."
 }

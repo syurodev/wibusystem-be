@@ -13,6 +13,7 @@ import (
 
 	"system/internal/domain"
 	pkgerrors "system/pkg/errors"
+	"system/pkg/util/i18nkeys"
 	"system/pkg/util/response"
 	webauthnutil "system/pkg/util/webauthn"
 )
@@ -24,13 +25,13 @@ func (h *Handler) PasskeyRegisterBegin(c *gin.Context) {
 	// Get authenticated user ID from context (set by middleware)
 	userIDStr, exists := c.Get("user_id")
 	if !exists {
-		response.Error(c, http.StatusUnauthorized, "UNAUTHORIZED", "auth.unauthorized", nil)
+		response.Error(c, http.StatusUnauthorized, "UNAUTHORIZED", i18nkeys.AuthUnauthorized, nil)
 		return
 	}
 
 	userID, err := uuid.FromString(userIDStr.(string))
 	if err != nil {
-		response.Error(c, http.StatusBadRequest, "INVALID_USER_ID", "auth.invalid_user_id", nil)
+		response.Error(c, http.StatusBadRequest, "INVALID_USER_ID", i18nkeys.AuthInvalidUserID, nil)
 		return
 	}
 
@@ -52,7 +53,7 @@ func (h *Handler) PasskeyRegisterBegin(c *gin.Context) {
 	options, err := h.webauthnService.BeginRegistration(c.Request.Context(), userID, clientOrigin)
 	if err != nil {
 		zap.L().Error("Failed to begin passkey registration", zap.Error(err), zap.String("user_id", userID.String()))
-		response.Error(c, http.StatusInternalServerError, "REGISTRATION_BEGIN_FAILED", "auth.registration_begin_failed", nil)
+		response.Error(c, http.StatusInternalServerError, "REGISTRATION_BEGIN_FAILED", i18nkeys.WebAuthnRegistrationBeginFailed, nil)
 		return
 	}
 
@@ -65,13 +66,13 @@ func (h *Handler) PasskeyRegisterFinish(c *gin.Context) {
 	// Get authenticated user ID from context
 	userIDStr, exists := c.Get("user_id")
 	if !exists {
-		response.Error(c, http.StatusUnauthorized, "UNAUTHORIZED", "auth.unauthorized", nil)
+		response.Error(c, http.StatusUnauthorized, "UNAUTHORIZED", i18nkeys.AuthUnauthorized, nil)
 		return
 	}
 
 	userID, err := uuid.FromString(userIDStr.(string))
 	if err != nil {
-		response.Error(c, http.StatusBadRequest, "INVALID_USER_ID", "auth.invalid_user_id", nil)
+		response.Error(c, http.StatusBadRequest, "INVALID_USER_ID", i18nkeys.AuthInvalidUserID, nil)
 		return
 	}
 
@@ -81,7 +82,7 @@ func (h *Handler) PasskeyRegisterFinish(c *gin.Context) {
 	parsedResponse, err := protocol.ParseCredentialCreationResponseBody(c.Request.Body)
 	if err != nil {
 		zap.L().Error("Failed to parse credential creation response", zap.Error(err))
-		response.Error(c, http.StatusBadRequest, "INVALID_CREDENTIAL_DATA", "auth.invalid_credential_data", nil)
+		response.Error(c, http.StatusBadRequest, "INVALID_CREDENTIAL_DATA", i18nkeys.WebAuthnInvalidCredentialData, nil)
 		return
 	}
 
@@ -109,19 +110,19 @@ func (h *Handler) PasskeyRegisterFinish(c *gin.Context) {
 	credential, err := h.webauthnService.FinishRegistration(c.Request.Context(), userID, parsedResponse, credentialName, clientOrigin)
 	if err != nil {
 		if errors.Is(err, pkgerrors.ErrInvalidOrExpiredSession) {
-			response.Error(c, http.StatusBadRequest, "INVALID_SESSION", "auth.invalid_or_expired_session", nil)
+			response.Error(c, http.StatusBadRequest, "INVALID_SESSION", i18nkeys.WebAuthnInvalidOrExpiredSession, nil)
 			return
 		}
 		if errors.Is(err, pkgerrors.ErrCredentialAlreadyExists) {
-			response.Error(c, http.StatusConflict, "CREDENTIAL_EXISTS", "auth.credential_already_exists", nil)
+			response.Error(c, http.StatusConflict, "CREDENTIAL_EXISTS", i18nkeys.WebAuthnCredentialAlreadyExists, nil)
 			return
 		}
 		if errors.Is(err, pkgerrors.ErrCredentialVerificationFailed) {
-			response.Error(c, http.StatusBadRequest, "VERIFICATION_FAILED", "auth.credential_verification_failed", nil)
+			response.Error(c, http.StatusBadRequest, "VERIFICATION_FAILED", i18nkeys.WebAuthnCredentialVerificationFailed, nil)
 			return
 		}
 		zap.L().Error("Failed to finish passkey registration", zap.Error(err), zap.String("user_id", userID.String()))
-		response.Error(c, http.StatusInternalServerError, "REGISTRATION_FAILED", "auth.registration_failed", nil)
+		response.Error(c, http.StatusInternalServerError, "REGISTRATION_FAILED", i18nkeys.WebAuthnRegistrationFailed, nil)
 		return
 	}
 
@@ -131,7 +132,7 @@ func (h *Handler) PasskeyRegisterFinish(c *gin.Context) {
 		Message:      "Passkey registered successfully",
 	}
 
-	response.Success(c, http.StatusCreated, "auth.passkey_registered", resp, nil)
+	response.Success(c, http.StatusCreated, i18nkeys.WebAuthnPasskeyRegistered, resp, nil)
 }
 
 // ==================== Authentication Handlers ====================
@@ -140,7 +141,7 @@ func (h *Handler) PasskeyRegisterFinish(c *gin.Context) {
 func (h *Handler) PasskeyAuthenticateBegin(c *gin.Context) {
 	var req AuthenticationBeginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Error(c, http.StatusBadRequest, "VALIDATION_FAILED", "validation.failed", err.Error())
+		response.Error(c, http.StatusBadRequest, "VALIDATION_FAILED", i18nkeys.ValidationFailed, err.Error())
 		return
 	}
 
@@ -157,7 +158,7 @@ func (h *Handler) PasskeyAuthenticateBegin(c *gin.Context) {
 
 	if err != nil {
 		// Don't reveal if user exists or not
-		response.Error(c, http.StatusUnauthorized, "AUTHENTICATION_FAILED", "auth.authentication_failed", nil)
+		response.Error(c, http.StatusUnauthorized, "AUTHENTICATION_FAILED", i18nkeys.WebAuthnAuthenticationFailed, nil)
 		return
 	}
 
@@ -165,11 +166,11 @@ func (h *Handler) PasskeyAuthenticateBegin(c *gin.Context) {
 	options, err := h.webauthnService.BeginAuthentication(c.Request.Context(), user.ID)
 	if err != nil {
 		if errors.Is(err, pkgerrors.ErrNoPasskeyRegistered) {
-			response.Error(c, http.StatusNotFound, "NO_PASSKEY", "auth.no_passkey_registered", nil)
+			response.Error(c, http.StatusNotFound, "NO_PASSKEY", i18nkeys.WebAuthnNoPasskeyRegistered, nil)
 			return
 		}
 		zap.L().Error("Failed to begin passkey authentication", zap.Error(err), zap.String("user_id", user.ID.String()))
-		response.Error(c, http.StatusInternalServerError, "AUTHENTICATION_BEGIN_FAILED", "auth.authentication_begin_failed", nil)
+		response.Error(c, http.StatusInternalServerError, "AUTHENTICATION_BEGIN_FAILED", i18nkeys.WebAuthnAuthenticationBeginFailed, nil)
 		return
 	}
 
@@ -195,13 +196,13 @@ func (h *Handler) PasskeyAuthenticateFinish(c *gin.Context) {
 	// Get user_id from request (sent by client from begin response)
 	userIDStr := c.Query("user_id")
 	if userIDStr == "" {
-		response.Error(c, http.StatusBadRequest, "MISSING_USER_ID", "auth.missing_user_id", nil)
+		response.Error(c, http.StatusBadRequest, "MISSING_USER_ID", i18nkeys.WebAuthnMissingUserID, nil)
 		return
 	}
 
 	userID, err := uuid.FromString(userIDStr)
 	if err != nil {
-		response.Error(c, http.StatusBadRequest, "INVALID_USER_ID", "auth.invalid_user_id", nil)
+		response.Error(c, http.StatusBadRequest, "INVALID_USER_ID", i18nkeys.AuthInvalidUserID, nil)
 		return
 	}
 
@@ -209,7 +210,7 @@ func (h *Handler) PasskeyAuthenticateFinish(c *gin.Context) {
 	parsedResponse, err := protocol.ParseCredentialRequestResponseBody(c.Request.Body)
 	if err != nil {
 		zap.L().Error("Failed to parse credential assertion response", zap.Error(err))
-		response.Error(c, http.StatusBadRequest, "INVALID_CREDENTIAL_DATA", "auth.invalid_credential_data", nil)
+		response.Error(c, http.StatusBadRequest, "INVALID_CREDENTIAL_DATA", i18nkeys.WebAuthnInvalidCredentialData, nil)
 		return
 	}
 
@@ -217,15 +218,15 @@ func (h *Handler) PasskeyAuthenticateFinish(c *gin.Context) {
 	user, err := h.webauthnService.FinishAuthentication(c.Request.Context(), userID, parsedResponse)
 	if err != nil {
 		if errors.Is(err, pkgerrors.ErrInvalidOrExpiredSession) {
-			response.Error(c, http.StatusBadRequest, "INVALID_SESSION", "auth.invalid_or_expired_session", nil)
+			response.Error(c, http.StatusBadRequest, "INVALID_SESSION", i18nkeys.WebAuthnInvalidOrExpiredSession, nil)
 			return
 		}
 		if errors.Is(err, pkgerrors.ErrAuthenticationFailed) {
-			response.Error(c, http.StatusUnauthorized, "AUTHENTICATION_FAILED", "auth.authentication_failed", nil)
+			response.Error(c, http.StatusUnauthorized, "AUTHENTICATION_FAILED", i18nkeys.WebAuthnAuthenticationFailed, nil)
 			return
 		}
 		zap.L().Error("Failed to finish passkey authentication", zap.Error(err), zap.String("user_id", userID.String()))
-		response.Error(c, http.StatusInternalServerError, "AUTHENTICATION_FAILED", "auth.authentication_failed", nil)
+		response.Error(c, http.StatusInternalServerError, "AUTHENTICATION_FAILED", i18nkeys.WebAuthnAuthenticationFailed, nil)
 		return
 	}
 
@@ -242,7 +243,7 @@ func (h *Handler) PasskeyAuthenticateFinish(c *gin.Context) {
 	)
 	if err != nil {
 		zap.L().Error("Failed to create OAuth2 session after passkey auth", zap.Error(err))
-		response.Error(c, http.StatusInternalServerError, "SESSION_CREATION_FAILED", "auth.session_creation_failed", nil)
+		response.Error(c, http.StatusInternalServerError, "SESSION_CREATION_FAILED", i18nkeys.WebAuthnSessionCreationFailed, nil)
 		return
 	}
 
@@ -263,7 +264,7 @@ func (h *Handler) PasskeyAuthenticateFinish(c *gin.Context) {
 		Message: "Authentication successful",
 	}
 
-	response.Success(c, http.StatusOK, "auth.authentication_success", resp, nil)
+	response.Success(c, http.StatusOK, i18nkeys.WebAuthnAuthenticationSuccess, resp, nil)
 }
 
 // ==================== Credential Management Handlers ====================
@@ -273,13 +274,13 @@ func (h *Handler) PasskeyListCredentials(c *gin.Context) {
 	// Get authenticated user ID from context
 	userIDStr, exists := c.Get("user_id")
 	if !exists {
-		response.Error(c, http.StatusUnauthorized, "UNAUTHORIZED", "auth.unauthorized", nil)
+		response.Error(c, http.StatusUnauthorized, "UNAUTHORIZED", i18nkeys.AuthUnauthorized, nil)
 		return
 	}
 
 	userID, err := uuid.FromString(userIDStr.(string))
 	if err != nil {
-		response.Error(c, http.StatusBadRequest, "INVALID_USER_ID", "auth.invalid_user_id", nil)
+		response.Error(c, http.StatusBadRequest, "INVALID_USER_ID", i18nkeys.AuthInvalidUserID, nil)
 		return
 	}
 
@@ -287,7 +288,7 @@ func (h *Handler) PasskeyListCredentials(c *gin.Context) {
 	credentials, err := h.webauthnService.ListUserCredentials(c.Request.Context(), userID)
 	if err != nil {
 		zap.L().Error("Failed to list credentials", zap.Error(err), zap.String("user_id", userID.String()))
-		response.Error(c, http.StatusInternalServerError, "LIST_FAILED", "auth.list_credentials_failed", nil)
+		response.Error(c, http.StatusInternalServerError, "LIST_FAILED", i18nkeys.WebAuthnListCredentialsFailed, nil)
 		return
 	}
 
@@ -310,7 +311,7 @@ func (h *Handler) PasskeyListCredentials(c *gin.Context) {
 		Credentials: credInfos,
 	}
 
-	response.Success(c, http.StatusOK, "auth.credentials_listed", resp, nil)
+	response.Success(c, http.StatusOK, i18nkeys.WebAuthnCredentialsListed, resp, nil)
 }
 
 // PasskeyDeleteCredential xóa một passkey
@@ -318,40 +319,40 @@ func (h *Handler) PasskeyDeleteCredential(c *gin.Context) {
 	// Get authenticated user ID from context
 	userIDStr, exists := c.Get("user_id")
 	if !exists {
-		response.Error(c, http.StatusUnauthorized, "UNAUTHORIZED", "auth.unauthorized", nil)
+		response.Error(c, http.StatusUnauthorized, "UNAUTHORIZED", i18nkeys.AuthUnauthorized, nil)
 		return
 	}
 
 	userID, err := uuid.FromString(userIDStr.(string))
 	if err != nil {
-		response.Error(c, http.StatusBadRequest, "INVALID_USER_ID", "auth.invalid_user_id", nil)
+		response.Error(c, http.StatusBadRequest, "INVALID_USER_ID", i18nkeys.AuthInvalidUserID, nil)
 		return
 	}
 
 	var req DeleteCredentialRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Error(c, http.StatusBadRequest, "VALIDATION_FAILED", "validation.failed", err.Error())
+		response.Error(c, http.StatusBadRequest, "VALIDATION_FAILED", i18nkeys.ValidationFailed, err.Error())
 		return
 	}
 
 	credentialID, err := uuid.FromString(req.CredentialID)
 	if err != nil {
-		response.Error(c, http.StatusBadRequest, "INVALID_CREDENTIAL_ID", "auth.invalid_credential_id", nil)
+		response.Error(c, http.StatusBadRequest, "INVALID_CREDENTIAL_ID", i18nkeys.WebAuthnInvalidCredentialID, nil)
 		return
 	}
 
 	// Delete credential
 	if err := h.webauthnService.DeleteCredential(c.Request.Context(), userID, credentialID); err != nil {
 		if errors.Is(err, pkgerrors.ErrCredentialNotFound) {
-			response.Error(c, http.StatusNotFound, "CREDENTIAL_NOT_FOUND", "auth.credential_not_found", nil)
+			response.Error(c, http.StatusNotFound, "CREDENTIAL_NOT_FOUND", i18nkeys.WebAuthnCredentialNotFound, nil)
 			return
 		}
 		zap.L().Error("Failed to delete credential", zap.Error(err), zap.String("user_id", userID.String()))
-		response.Error(c, http.StatusInternalServerError, "DELETE_FAILED", "auth.delete_credential_failed", nil)
+		response.Error(c, http.StatusInternalServerError, "DELETE_FAILED", i18nkeys.WebAuthnDeleteCredentialFailed, nil)
 		return
 	}
 
-	response.Success(c, http.StatusOK, "auth.credential_deleted", nil, nil)
+	response.Success(c, http.StatusOK, i18nkeys.WebAuthnCredentialDeleted, nil, nil)
 }
 
 // PasskeyUpdateCredentialName cập nhật tên của passkey
@@ -359,38 +360,38 @@ func (h *Handler) PasskeyUpdateCredentialName(c *gin.Context) {
 	// Get authenticated user ID from context
 	userIDStr, exists := c.Get("user_id")
 	if !exists {
-		response.Error(c, http.StatusUnauthorized, "UNAUTHORIZED", "auth.unauthorized", nil)
+		response.Error(c, http.StatusUnauthorized, "UNAUTHORIZED", i18nkeys.AuthUnauthorized, nil)
 		return
 	}
 
 	userID, err := uuid.FromString(userIDStr.(string))
 	if err != nil {
-		response.Error(c, http.StatusBadRequest, "INVALID_USER_ID", "auth.invalid_user_id", nil)
+		response.Error(c, http.StatusBadRequest, "INVALID_USER_ID", i18nkeys.AuthInvalidUserID, nil)
 		return
 	}
 
 	var req UpdateCredentialNameRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Error(c, http.StatusBadRequest, "VALIDATION_FAILED", "validation.failed", err.Error())
+		response.Error(c, http.StatusBadRequest, "VALIDATION_FAILED", i18nkeys.ValidationFailed, err.Error())
 		return
 	}
 
 	credentialID, err := uuid.FromString(req.CredentialID)
 	if err != nil {
-		response.Error(c, http.StatusBadRequest, "INVALID_CREDENTIAL_ID", "auth.invalid_credential_id", nil)
+		response.Error(c, http.StatusBadRequest, "INVALID_CREDENTIAL_ID", i18nkeys.WebAuthnInvalidCredentialID, nil)
 		return
 	}
 
 	// Update credential name
 	if err := h.webauthnService.UpdateCredentialName(c.Request.Context(), userID, credentialID, req.CredentialName); err != nil {
 		if errors.Is(err, pkgerrors.ErrCredentialNotFound) {
-			response.Error(c, http.StatusNotFound, "CREDENTIAL_NOT_FOUND", "auth.credential_not_found", nil)
+			response.Error(c, http.StatusNotFound, "CREDENTIAL_NOT_FOUND", i18nkeys.WebAuthnCredentialNotFound, nil)
 			return
 		}
 		zap.L().Error("Failed to update credential name", zap.Error(err), zap.String("user_id", userID.String()))
-		response.Error(c, http.StatusInternalServerError, "UPDATE_FAILED", "auth.update_credential_failed", nil)
+		response.Error(c, http.StatusInternalServerError, "UPDATE_FAILED", i18nkeys.WebAuthnUpdateCredentialFailed, nil)
 		return
 	}
 
-	response.Success(c, http.StatusOK, "auth.credential_updated", nil, nil)
+	response.Success(c, http.StatusOK, i18nkeys.WebAuthnCredentialUpdated, nil, nil)
 }

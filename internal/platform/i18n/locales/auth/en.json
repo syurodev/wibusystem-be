@@ -55,5 +55,8 @@
   "auth.missing_user_id": "Missing user ID.",
   "auth.invalid_user_id": "Invalid user ID.",
   "auth.invalid_credential_data": "Invalid passkey data.",
+  "auth.invalid_credential_id": "Invalid credential ID.",
+  "auth.session_creation_failed": "Failed to create session.",
+  "auth.credentials_listed": "Credentials listed successfully.",
   "auth.missing_authorization_header": "Missing Authorization header."
 }

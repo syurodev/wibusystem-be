@@ -1,4 +1,4 @@
-package analytics
+package media
 
 import "system/internal/app/dto"
 

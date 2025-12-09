@@ -20,15 +20,10 @@ type UpdateArtistRequest struct {
 	Specialization *string `json:"specialization,omitempty" binding:"omitempty,max=100"`
 }
 
-// ArtistResponse là DTO cho response artist (cho danh sách)
-type ArtistResponse struct {
-	ID             string  `json:"id"`
-	Name           string  `json:"name"`
-	Slug           string  `json:"slug"`
-	Description    *string `json:"description,omitempty"` // Biography
-	NovelCount     int     `json:"novel_count"`
-	Specialization *string `json:"specialization,omitempty"`
-	CreatedAt      string  `json:"created_at"` // Ngày tạo
+// MergeArtistRequest là DTO cho việc gộp artists
+type MergeArtistRequest struct {
+	TargetID  uuid.UUID   `json:"target_id" binding:"required"`
+	SourceIDs []uuid.UUID `json:"source_ids" binding:"required,min=1"`
 }
 
 // ListArtistsRequest là DTO cho việc lấy danh sách artists
@@ -40,39 +35,4 @@ type ListArtistsRequest struct {
 	SortOrder      string  `form:"sort_order" binding:"omitempty,oneof=asc desc"`         // asc hoặc desc
 	Specialization *string `form:"specialization"`                                        // Filter theo specialization
 	IsVerified     *bool   `form:"is_verified"`                                           // Filter theo verified status
-}
-
-// ArtistDetailResponse là DTO chi tiết cho artist
-type ArtistDetailResponse struct {
-	ID             string  `json:"id"`
-	Name           string  `json:"name"`
-	Slug           string  `json:"slug"`
-	Description    *string `json:"description,omitempty"` // Biography
-	AvatarURL      *string `json:"avatar_url,omitempty"`
-	SocialLinks    *string `json:"social_links,omitempty"`   // JSON string
-	Specialization *string `json:"specialization,omitempty"` // cover_artist, illustrator, etc.
-	NovelCount     int     `json:"novel_count"`
-	ArtworkCount   int     `json:"artwork_count"`
-	FollowerCount  int     `json:"follower_count"`
-	IsVerified     bool    `json:"is_verified"`
-	CreatedAt      string  `json:"created_at"`
-	UpdatedAt      string  `json:"updated_at"`
-}
-
-// MergeArtistRequest là DTO cho việc gộp artists
-type MergeArtistRequest struct {
-	TargetID  uuid.UUID   `json:"target_id" binding:"required"`
-	SourceIDs []uuid.UUID `json:"source_ids" binding:"required,min=1"`
-}
-
-type PreviewMergeArtistResponse struct {
-	AffectedNovels []AffectedNovel `json:"affected_novels"`
-	SourceArtists   []string       `json:"source_artists"`
-}
-
-type AffectedNovel struct {
-	ID            uuid.UUID `json:"id"`
-	Title         string    `json:"title"`
-	Slug          string    `json:"slug"`
-	CoverImageURL *string   `json:"cover_image_url"`
 }
