@@ -2,6 +2,11 @@ package validator
 
 import pkgerrors "system/pkg/errors"
 
+// I18n keys for validator
+const (
+	I18nWeakPassword = "validation.weak_password"
+)
+
 // ValidatePasswordStrength kiểm tra độ mạnh của password.
 // Password phải có ít nhất 8 ký tự và chứa ít nhất 2 trong 3 loại ký tự:
 // - Chữ hoa (A-Z)
@@ -9,7 +14,7 @@ import pkgerrors "system/pkg/errors"
 // - Số (0-9)
 func ValidatePasswordStrength(password string) error {
 	if len(password) < 8 {
-		return pkgerrors.ErrWeakPassword
+		return pkgerrors.BadRequest(I18nWeakPassword, "password must be at least 8 characters")
 	}
 
 	hasUpper := false
@@ -40,7 +45,7 @@ func ValidatePasswordStrength(password string) error {
 	}
 
 	if conditions < 2 {
-		return pkgerrors.ErrWeakPassword
+		return pkgerrors.BadRequest(I18nWeakPassword, "password must contain at least 2 of: uppercase, lowercase, digit")
 	}
 
 	return nil

@@ -7,11 +7,11 @@ import (
 	"go.uber.org/zap"
 
 	"system/configs"
-	"system/internal/pkg/service"
+	analytics_module "system/internal/modules/analytics"
 )
 
 // StartViewTrackingWorkers khởi động các background worker cho view tracking service.
-func StartViewTrackingWorkers(cfg *configs.ViewTrackingConfig, viewTrackingService *service.ViewTrackingService, zapLogger *zap.Logger) {
+func StartViewTrackingWorkers(cfg *configs.ViewTrackingConfig, viewTrackingService *analytics_module.ViewTrackingService, zapLogger *zap.Logger) {
 	if !cfg.WorkerEnabled {
 		return
 	}

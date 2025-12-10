@@ -1,0 +1,6 @@
+{
+  "analytics.get_trending_success": "Lấy dữ liệu trending thành công",
+  "analytics.get_trending_failed": "Lấy dữ liệu trending thất bại",
+  "analytics.serialization_failed": "Không thể serialize dữ liệu",
+  "analytics.mapping_failed": "Không thể map dữ liệu"
+}

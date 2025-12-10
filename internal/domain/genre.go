@@ -108,7 +108,15 @@ type GenreRepository interface {
 	Merge(ctx context.Context, targetID uuid.UUID, sourceIDs []uuid.UUID, mergedBy uuid.UUID) error
 
 	// GetMergePreview lấy thông tin preview trước khi merge
-	GetMergePreview(ctx context.Context, targetID uuid.UUID, sourceIDs []uuid.UUID) ([]*Novel, error)
+	GetMergePreview(ctx context.Context, targetID uuid.UUID, sourceIDs []uuid.UUID) ([]*AffectedNovel, error)
+}
+
+// AffectedNovel là thông tin novel tối thiểu dùng cho merge preview
+type AffectedNovel struct {
+	ID            uuid.UUID
+	Title         string
+	Slug          string
+	CoverImageURL *string
 }
 
 // GenreTree là cấu trúc phân cấp của genres

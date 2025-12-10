@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"slices"
 	"strings"
-	"system/pkg/util/errcode"
 	"system/pkg/util/response"
 
 	"github.com/gin-gonic/gin"
@@ -41,7 +40,7 @@ func RequireAuth(provider OAuth2Provider, logger *zap.Logger) gin.HandlerFunc {
 
 		if authHeader == "" {
 			logger.Warn("Auth Middleware: Missing Authorization header")
-			response.AbortWithError(c, http.StatusUnauthorized, errcode.AuthMissingAuthHeader.String(), "auth.missing_authorization_header")
+			response.AbortWithError(c, http.StatusUnauthorized, "E4014", "auth.missing_authorization_header")
 			return
 		}
 
@@ -50,7 +49,7 @@ func RequireAuth(provider OAuth2Provider, logger *zap.Logger) gin.HandlerFunc {
 		if token == authHeader {
 			logger.Warn("Auth Middleware: Invalid Authorization format (missing Bearer prefix)")
 			// Header không có "Bearer " prefix
-			response.AbortWithError(c, http.StatusUnauthorized, errcode.AuthInvalidAuthorizationFormat.String(), "auth.invalid_authorization_format")
+			response.AbortWithError(c, http.StatusUnauthorized, "E4012", "auth.invalid_authorization_format")
 			return
 		}
 
@@ -61,7 +60,7 @@ func RequireAuth(provider OAuth2Provider, logger *zap.Logger) gin.HandlerFunc {
 		tokenUse, ar, err := provider.IntrospectToken(c.Request.Context(), token, fosite.AccessToken, session)
 		if err != nil {
 			logger.Error("Auth Middleware: Token introspection failed", zap.Error(err))
-			response.AbortWithError(c, http.StatusUnauthorized, errcode.AuthInvalidToken.String(), "auth.invalid_token")
+			response.AbortWithError(c, http.StatusUnauthorized, "E4011", "auth.invalid_token")
 			return
 		}
 
@@ -94,13 +93,13 @@ func RequireScope(requiredScope string) gin.HandlerFunc {
 		// Lấy scopes từ context (được set bởi RequireAuth)
 		scopesValue, exists := c.Get("oauth2_scopes")
 		if !exists {
-			response.AbortWithError(c, http.StatusInternalServerError, errcode.MiddlewareError.String(), "auth.middleware_error")
+			response.AbortWithError(c, http.StatusInternalServerError, "E5002", "auth.middleware_error")
 			return
 		}
 
 		scopes, ok := scopesValue.([]string)
 		if !ok {
-			response.AbortWithError(c, http.StatusInternalServerError, errcode.ContextDataError.String(), "auth.middleware_error")
+			response.AbortWithError(c, http.StatusInternalServerError, "E5004", "auth.middleware_error")
 			return
 		}
 
@@ -108,7 +107,7 @@ func RequireScope(requiredScope string) gin.HandlerFunc {
 		hasScope := slices.Contains(scopes, requiredScope)
 
 		if !hasScope {
-			response.AbortWithError(c, http.StatusForbidden, errcode.AuthInsufficientScope.String(), "auth.insufficient_scope")
+			response.AbortWithError(c, http.StatusForbidden, "E4031", "auth.insufficient_scope")
 			return
 		}
 
@@ -129,32 +128,27 @@ func RequireAnyScope(requiredScopes ...string) gin.HandlerFunc {
 		// Lấy scopes từ context (được set bởi RequireAuth)
 		scopesValue, exists := c.Get("oauth2_scopes")
 		if !exists {
-			response.AbortWithError(c, http.StatusInternalServerError, errcode.ScopeValidationError.String(), "auth.middleware_error")
+			response.AbortWithError(c, http.StatusInternalServerError, "E5003", "auth.middleware_error")
 			return
 		}
 
 		scopes, ok := scopesValue.([]string)
 		if !ok {
-			response.AbortWithError(c, http.StatusInternalServerError, errcode.ContextDataError.String(), "auth.middleware_error")
+			response.AbortWithError(c, http.StatusInternalServerError, "E5004", "auth.middleware_error")
 			return
 		}
 
 		// Kiểm tra có ít nhất một required scope trong granted scopes không
 		hasAnyScope := false
 		for _, requiredScope := range requiredScopes {
-			for _, scope := range scopes {
-				if scope == requiredScope {
-					hasAnyScope = true
-					break
-				}
-			}
-			if hasAnyScope {
+			if slices.Contains(scopes, requiredScope) {
+				hasAnyScope = true
 				break
 			}
 		}
 
 		if !hasAnyScope {
-			response.AbortWithError(c, http.StatusForbidden, errcode.AuthInsufficientAnyScope.String(), "auth.insufficient_scope")
+			response.AbortWithError(c, http.StatusForbidden, "E4032", "auth.insufficient_scope")
 			return
 		}
 
@@ -201,3 +195,4 @@ func min(a, b int) int {
 	}
 	return b
 }
+

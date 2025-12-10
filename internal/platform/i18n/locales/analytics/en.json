@@ -1,8 +1,0 @@
-{
-  "analytics": {
-    "get_trending_success": "Successfully retrieved trending data",
-    "get_trending_failed": "Failed to retrieve trending data",
-    "serialization_failed": "Failed to serialize response data",
-    "mapping_failed": "Failed to map response data"
-  }
-}

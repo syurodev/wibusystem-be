@@ -9,6 +9,16 @@ import (
 	"github.com/nicksnyder/go-i18n/v2/i18n"
 	"go.uber.org/zap"
 	"golang.org/x/text/language"
+
+	analytics_locale "system/internal/modules/analytics/locale"
+	artist_locale "system/internal/modules/artist/locale"
+	auth_locale "system/internal/modules/auth/locale"
+	author_locale "system/internal/modules/author/locale"
+	creator_locale "system/internal/modules/creator/locale"
+	genre_locale "system/internal/modules/genre/locale"
+	media_locale "system/internal/modules/media/locale"
+	oauth2_locale "system/internal/modules/oauth2/locale"
+	user_locale "system/internal/modules/user/locale"
 )
 
 // Dùng 'embed' để nhúng các file i18n vào binary
@@ -38,7 +48,9 @@ func InitI18n(log *zap.Logger) error {
 		log:    log,
 	}
 
-	domains := []string{"common", "oauth2", "auth", "genre", "author", "artist", "analytics", "creator"}
+	// Load centralized i18n files (shared across modules)
+	// Modules moved to module-level embed: genre, artist, author, user(account), auth, oauth2, creator, analytics, media
+	domains := []string{"common"}
 	languages := []string{"en", "vi"}
 
 	for _, domain := range domains {
@@ -62,6 +74,61 @@ func InitI18n(log *zap.Logger) error {
 			log.Info("Successfully loaded i18n message file", zap.String("path", filePath))
 		}
 	}
+
+	// Register module-level i18n
+	if err := genre_locale.RegisterI18n(bundle); err != nil {
+		log.Error("Failed to register genre i18n", zap.Error(err))
+		return err
+	}
+	log.Info("Successfully loaded genre module i18n")
+
+	if err := artist_locale.RegisterI18n(bundle); err != nil {
+		log.Error("Failed to register artist i18n", zap.Error(err))
+		return err
+	}
+	log.Info("Successfully loaded artist module i18n")
+
+	if err := author_locale.RegisterI18n(bundle); err != nil {
+		log.Error("Failed to register author i18n", zap.Error(err))
+		return err
+	}
+	log.Info("Successfully loaded author module i18n")
+
+	if err := user_locale.RegisterI18n(bundle); err != nil {
+		log.Error("Failed to register user i18n", zap.Error(err))
+		return err
+	}
+	log.Info("Successfully loaded user module i18n")
+
+	if err := auth_locale.RegisterI18n(bundle); err != nil {
+		log.Error("Failed to register auth i18n", zap.Error(err))
+		return err
+	}
+	log.Info("Successfully loaded auth module i18n")
+
+	if err := oauth2_locale.RegisterI18n(bundle); err != nil {
+		log.Error("Failed to register oauth2 i18n", zap.Error(err))
+		return err
+	}
+	log.Info("Successfully loaded oauth2 module i18n")
+
+	if err := creator_locale.RegisterI18n(bundle); err != nil {
+		log.Error("Failed to register creator i18n", zap.Error(err))
+		return err
+	}
+	log.Info("Successfully loaded creator module i18n")
+
+	if err := analytics_locale.RegisterI18n(bundle); err != nil {
+		log.Error("Failed to register analytics i18n", zap.Error(err))
+		return err
+	}
+	log.Info("Successfully loaded analytics module i18n")
+
+	if err := media_locale.RegisterI18n(bundle); err != nil {
+		log.Error("Failed to register media i18n", zap.Error(err))
+		return err
+	}
+	log.Info("Successfully loaded media module i18n")
 
 	return nil
 }

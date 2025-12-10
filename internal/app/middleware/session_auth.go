@@ -1,17 +1,22 @@
 package middleware
 
 import (
+	"context"
 	"net/http"
-	"system/internal/pkg/service"
 	"system/pkg/util/response"
 
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 )
 
+// SessionValidator interface for validating user sessions
+type SessionValidator interface {
+	GetUserSession(ctx context.Context, sessionID string) (string, error)
+}
+
 // RequireSessionAuth là middleware xác thực user dựa trên session cookie.
 // Middleware này được sử dụng cho các internal endpoints (HTMX, frontend) thay vì OAuth2 token.
-func RequireSessionAuth(oauth2Service *service.OAuth2Service, logger *zap.Logger) gin.HandlerFunc {
+func RequireSessionAuth(oauth2Service SessionValidator, logger *zap.Logger) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// 1. Lấy session_id từ cookie
 		sessionID, err := c.Cookie("session_id")
@@ -46,3 +51,4 @@ func RequireSessionAuth(oauth2Service *service.OAuth2Service, logger *zap.Logger
 		c.Next()
 	}
 }
+

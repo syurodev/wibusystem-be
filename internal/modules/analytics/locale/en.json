@@ -1,0 +1,6 @@
+{
+  "analytics.get_trending_success": "Successfully retrieved trending media",
+  "analytics.get_trending_failed": "Failed to retrieve trending media",
+  "analytics.serialization_failed": "Failed to serialize data",
+  "analytics.mapping_failed": "Failed to map data"
+}

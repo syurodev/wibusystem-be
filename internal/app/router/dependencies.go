@@ -2,27 +2,27 @@ package router
 
 import (
 	"system/configs"
-	"system/internal/app/handler/v1/artist"
-	"system/internal/app/handler/v1/auth"
-	"system/internal/app/handler/v1/author"
-	"system/internal/app/handler/v1/creator"
-	"system/internal/app/handler/v1/genre"
-	"system/internal/app/handler/v1/media"
-	"system/internal/app/handler/v1/novel"
-	novel_volume "system/internal/app/handler/v1/novel/volume"
-	volume_chapter "system/internal/app/handler/v1/novel/volume/chapter"
-	oauth2_handler "system/internal/app/handler/v1/oauth2"
-	"system/internal/app/handler/v1/oauth2_admin"
-	"system/internal/app/handler/v1/public"
-	"system/internal/app/handler/v1/user"
 	"system/internal/app/worker"
 	"system/internal/domain"
-	"system/internal/oauth2"
-	fosite_storage "system/internal/oauth2/storage"
-	txdb "system/internal/pkg/db"
-	"system/internal/pkg/repository"
-	"system/internal/pkg/service"
+	analytics_module "system/internal/modules/analytics"
+	artist_module "system/internal/modules/artist"
+	auth_module "system/internal/modules/auth"
+	author_module "system/internal/modules/author"
+	creator_module "system/internal/modules/creator"
+	"system/internal/modules/email"
+	genre_module "system/internal/modules/genre"
+	media_module "system/internal/modules/media"
+	novel_module "system/internal/modules/novel"
+	novel_chapter "system/internal/modules/novel_chapter"
+	novel_volume "system/internal/modules/novel_volume"
+	oauth2_module "system/internal/modules/oauth2"
+	user_module "system/internal/modules/user"
+	"system/internal/platform/cache"
 	"system/internal/platform/database"
+	txdb "system/internal/platform/database"
+	"system/internal/platform/oauth2"
+	fosite_storage "system/internal/platform/oauth2/storage"
+	"system/internal/platform/resend"
 
 	"github.com/ory/fosite"
 	"go.uber.org/zap"
@@ -43,9 +43,9 @@ type Repositories struct {
 	Artist             domain.ArtistRepository
 	Novel              domain.NovelRepository
 	Volume             domain.VolumeRepository
-	VolumeHistory      service.VolumeHistoryRepository
+	VolumeHistory      novel_volume.VolumeHistoryRepository
 	Chapter            domain.ChapterRepository
-	ChapterHistory     service.ChapterHistoryRepository
+	ChapterHistory     novel_chapter.ChapterHistoryRepository
 	WebAuthnCredential domain.WebAuthnCredentialRepository
 	WebAuthnSession    domain.WebAuthnSessionRepository
 	ViewAnalytics      domain.ViewAnalyticsRepository
@@ -56,39 +56,40 @@ type Repositories struct {
 
 // Services chứa tất cả service instances
 type Services struct {
-	OAuth2       *service.OAuth2Service
-	OAuth2Admin  *service.OAuth2AdminService
-	Auth         *service.AuthService
-	Email        *service.EmailService
-	Genre        *service.GenreService
-	Author       *service.AuthorService
-	Artist       *service.ArtistService
-	Novel        *service.NovelService
-	Volume       *service.VolumeService
-	Chapter      *service.ChapterService
-	ViewTracking *service.ViewTrackingService
-	Analytics    *service.AnalyticsService
-	Creator      *service.CreatorService
-	Cache        *service.CacheService
-	Public       *service.PublicService
-	WebAuthn     service.WebAuthnService
+	OAuth2       oauth2_module.OAuth2Service
+	OAuth2Admin  oauth2_module.OAuth2AdminService
+	Auth         auth_module.AuthService
+	Email        email.EmailService // Change from *resend.Service to interface
+	Genre        genre_module.GenreService
+
+	Author       author_module.AuthorService
+	Artist       artist_module.ArtistService
+	Novel        novel_module.NovelService
+	Volume       novel_volume.VolumeService
+	Chapter      novel_chapter.ChapterService
+	ViewTracking *analytics_module.ViewTrackingService
+	Analytics    analytics_module.AnalyticsService
+	Creator      creator_module.CreatorService
+	Cache        *cache.CacheService
+	Media        media_module.MediaService
+	WebAuthn     auth_module.WebAuthnService
+	User         user_module.UserService
 }
 
 // Handlers chứa tất cả handler instances
 type Handlers struct {
-	OAuth2      *oauth2_handler.Handler
-	OAuth2Admin *oauth2_admin.Handler
-	Auth        *auth.Handler
-	Genre       *genre.Handler
-	Author      *author.Handler
-	Artist      *artist.Handler
-	Novel       *novel.Handler
+	OAuth2      *oauth2_module.Handler
+	OAuth2Admin *oauth2_module.AdminHandler
+	Auth        *auth_module.Handler
+	Genre       *genre_module.Handler
+	Author      *author_module.Handler
+	Artist      *artist_module.Handler
+	Novel       *novel_module.Handler
 	Volume      *novel_volume.Handler
-	Chapter     *volume_chapter.Handler
-	User        *user.Handler
-	Media       *media.Handler
-	Creator     *creator.Handler
-	Public      *public.Handler
+	Chapter     *novel_chapter.Handler
+	User        *user_module.Handler
+	Media       *media_module.Handler
+	Creator     *creator_module.Handler
 }
 
 // Dependencies chứa tất cả dependencies của ứng dụng
@@ -138,31 +139,31 @@ func NewDependencies(
 
 // newRepositories khởi tạo tất cả repositories
 func newRepositories(db *database.PostgresDB, rdb *database.RedisClient, ch *database.ClickHouseClient) *Repositories {
-	oauth2ClientRepo := repository.NewOAuth2ClientRepository(db.Pool)
+	oauth2ClientRepo := oauth2_module.NewOAuth2ClientRepository(db.Pool)
 
 	return &Repositories{
 		OAuth2Client:       oauth2ClientRepo,
-		OAuth2Session:      repository.NewOAuth2SessionRepository(db.Pool),
-		User:               repository.NewUserRepository(db.Pool),
-		Session:            repository.NewSessionRepository(rdb),
-		AuthRequest:        repository.NewAuthRequestRepository(rdb, oauth2ClientRepo),
-		Consent:            repository.NewConsentRepository(db.Pool),
-		EmailVerification:  repository.NewEmailVerificationRepository(db.Pool),
-		PasswordReset:      repository.NewPasswordResetRepository(db.Pool),
-		Genre:              repository.NewGenreRepository(db.Pool),
-		Author:             repository.NewAuthorRepository(db.Pool),
-		Artist:             repository.NewArtistRepository(db.Pool),
-		Novel:              repository.NewNovelRepository(db.Pool),
-		Volume:             repository.NewVolumeRepository(db.Pool),
-		VolumeHistory:      repository.NewVolumeHistoryRepository(db.Pool),
-		Chapter:            repository.NewChapterRepository(db.Pool),
-		ChapterHistory:     repository.NewChapterHistoryRepository(db.Pool),
-		WebAuthnCredential: repository.NewWebAuthnCredentialRepository(db.Pool),
-		WebAuthnSession:    repository.NewWebAuthnSessionRepository(db.Pool),
-		ViewAnalytics:      repository.NewViewAnalyticsClickHouseRepository(ch),
-		ViewTracking:       repository.NewViewTrackingRedisRepository(rdb),
-		Role:               repository.NewRoleRepository(db.Pool),
-		Creator:            repository.NewCreatorRepository(db.Pool),
+		OAuth2Session:      oauth2_module.NewOAuth2SessionRepository(db.Pool),
+		User:               user_module.NewUserRepository(db.Pool),
+		Session:            user_module.NewSessionRepository(rdb),
+		AuthRequest:        oauth2_module.NewAuthRequestRepository(rdb, oauth2ClientRepo),
+		Consent:            oauth2_module.NewConsentRepository(db.Pool),
+		EmailVerification:  auth_module.NewEmailVerificationRepository(db.Pool),
+		PasswordReset:      auth_module.NewPasswordResetRepository(db.Pool),
+		Genre:              genre_module.NewGenreRepository(db.Pool),
+		Author:             author_module.NewAuthorRepository(db.Pool),
+		Artist:             artist_module.NewArtistRepository(db.Pool),
+		Novel:              novel_module.NewNovelRepository(db.Pool),
+		Volume:             novel_volume.NewVolumeRepository(db.Pool),
+		VolumeHistory:      novel_volume.NewVolumeHistoryRepository(db.Pool),
+		Chapter:            novel_chapter.NewChapterRepository(db.Pool),
+		ChapterHistory:     novel_chapter.NewChapterHistoryRepository(db.Pool),
+		WebAuthnCredential: auth_module.NewWebAuthnCredentialRepository(db.Pool),
+		WebAuthnSession:    auth_module.NewWebAuthnSessionRepository(db.Pool),
+		ViewAnalytics:      analytics_module.NewViewAnalyticsClickHouseRepository(ch),
+		ViewTracking:       analytics_module.NewViewTrackingRedisRepository(rdb),
+		Role:               user_module.NewRoleRepository(db.Pool),
+		Creator:            creator_module.NewCreatorRepository(db.Pool),
 	}
 }
 
@@ -176,48 +177,65 @@ func newServices(
 ) (*Services, error) {
 	txManager := txdb.NewTransactionManager(db.Pool)
 
-	oauth2Svc := service.NewOAuth2Service(
-		repos.User,
-		repos.Session,
+	// User Service (needed by Auth and OAuth2)
+	userSvc := user_module.NewService(repos.User, repos.Session)
+
+
+	oauth2Svc := oauth2_module.NewService(
+		userSvc,
 		repos.AuthRequest,
 		repos.Consent,
 		repos.OAuth2Session,
 		repos.OAuth2Client,
 	)
 
-	authSvc := service.NewAuthService(
-		repos.User,
+	authSvc := auth_module.NewService(
+		userSvc,
 		repos.EmailVerification,
 		repos.PasswordReset,
 		repos.Role,
 	)
 
-	emailSvc := service.NewEmailService(&cfg.Email, zapLogger)
-	oauth2AdminSvc := service.NewOAuth2AdminService(repos.OAuth2Client)
+	// Email chain
+	resendClient := resend.NewClient(&cfg.Email, zapLogger)
+	emailSvc := email.NewService(resendClient, &cfg.Email)
 
-	genreSvc := service.NewGenreService(repos.Genre)
-	authorSvc := service.NewAuthorService(repos.Author)
-	artistSvc := service.NewArtistService(repos.Artist)
-	novelSvc := service.NewNovelService(
+	oauth2AdminSvc := oauth2_module.NewAdminService(repos.OAuth2Client)
+
+	// Genre module - fully migrated to modules/genre
+	genreRepo := genre_module.NewGenreRepository(db.Pool)
+	genreSvc := genre_module.NewService(genreRepo)
+
+	authorSvc := author_module.NewService(repos.Author)
+	artistSvc := artist_module.NewService(repos.Artist)
+	novelSvc := novel_module.NewService(
 		repos.Novel, repos.Volume, repos.Genre,
 		repos.Author, repos.Artist, repos.Creator, txManager,
 	)
-	volumeSvc := service.NewVolumeService(repos.Volume, repos.VolumeHistory)
-	chapterSvc := service.NewChapterService(
+	volumeSvc := novel_volume.NewService(repos.Volume, repos.VolumeHistory)
+	chapterSvc := novel_chapter.NewService(
 		repos.Chapter, repos.Volume, repos.ChapterHistory, repos.Creator,
 	)
-	viewTrackingSvc := service.NewViewTrackingService(
+	
+	// Analytics & Tracking
+	viewTrackingSvc := analytics_module.NewViewTrackingService(
 		repos.ViewTracking, repos.ViewAnalytics,
 		repos.Chapter, repos.Novel, repos.Genre,
 		zapLogger, &cfg.ViewTracking,
 	)
-	analyticsSvc := service.NewAnalyticsService(repos.ViewAnalytics, repos.Novel, zapLogger)
-	creatorSvc := service.NewCreatorService(repos.Creator, repos.ViewAnalytics, repos.Novel, zapLogger)
+	analyticsSvc := analytics_module.NewService(repos.ViewAnalytics, novelSvc, zapLogger)
+	// Creator
+	creatorSvc := creator_module.NewService(
+		repos.Creator,
+		analyticsSvc,
+		novelSvc,
+		zapLogger,
+	)
 
-	cacheSvc := service.NewCacheService(rdb, zapLogger)
-	publicSvc := service.NewPublicService(analyticsSvc, creatorSvc, genreSvc, cacheSvc, zapLogger)
+	cacheSvc := cache.NewCacheService(rdb, zapLogger)
+	mediaSvc := media_module.NewMediaService(analyticsSvc, creatorSvc, cacheSvc, zapLogger)
 
-	webauthnSvc, err := service.NewWebAuthnService(
+	webauthnSvc, err := auth_module.NewWebAuthnService(
 		cfg.WebAuthn,
 		repos.WebAuthnCredential,
 		repos.WebAuthnSession,
@@ -227,6 +245,8 @@ func newServices(
 	if err != nil {
 		return nil, err
 	}
+
+
 
 	return &Services{
 		OAuth2:       oauth2Svc,
@@ -243,8 +263,9 @@ func newServices(
 		Analytics:    analyticsSvc,
 		Creator:      creatorSvc,
 		Cache:        cacheSvc,
-		Public:       publicSvc,
+		Media:        mediaSvc,
 		WebAuthn:     webauthnSvc,
+		User:         userSvc,
 	}, nil
 }
 
@@ -256,7 +277,7 @@ func newHandlers(
 	oauth2Provider fosite.OAuth2Provider,
 	zapLogger *zap.Logger,
 ) *Handlers {
-	oauth2Handler := oauth2_handler.NewHandler(
+	oauth2Handler := oauth2_module.NewHandler(
 		&cfg.OAuth2,
 		oauth2Provider,
 		services.OAuth2,
@@ -268,17 +289,16 @@ func newHandlers(
 
 	return &Handlers{
 		OAuth2:      oauth2Handler,
-		OAuth2Admin: oauth2_admin.NewHandler(services.OAuth2Admin),
-		Auth:        auth.NewHandler(services.Auth, services.Email, services.WebAuthn, services.OAuth2),
-		Genre:       genre.NewHandler(services.Genre, zapLogger),
-		Author:      author.NewHandler(services.Author, zapLogger),
-		Artist:      artist.NewHandler(services.Artist),
-		Novel:       novel.NewHandler(services.Novel, services.Volume, services.Chapter),
-		Volume:      novel_volume.NewHandler(services.Volume, services.Novel),
-		Chapter:     volume_chapter.NewHandler(services.Chapter, services.Volume, services.ViewTracking, services.Novel),
-		User:        user.NewHandler(repos.User, repos.Session),
-		Media:       media.NewHandler(services.Analytics),
-		Creator:     creator.NewHandler(services.Creator),
-		Public:      public.NewHandler(services.Public),
+		OAuth2Admin: oauth2_module.NewAdminHandler(services.OAuth2Admin),
+		Auth:        auth_module.NewHandler(services.Auth, services.Email, services.WebAuthn, services.OAuth2),
+		Genre:       genre_module.NewHandler(services.Genre, zapLogger),
+		Author:      author_module.NewHandler(services.Author, zapLogger),
+		Artist:      artist_module.NewHandler(services.Artist),
+		Novel:       novel_module.NewHandler(services.Novel, services.Volume, services.Chapter),
+		Volume:      novel_volume.NewHandler(services.Volume),
+		Chapter:     novel_chapter.NewHandler(services.Chapter),
+		User:        user_module.NewHandler(services.User),
+		Media:       media_module.NewHandler(services.Analytics, services.Media),
+		Creator:     creator_module.NewHandler(services.Creator),
 	}
 }

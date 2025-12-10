@@ -1,0 +1,580 @@
+package novel_chapter
+
+import (
+	"errors"
+	"net/http"
+	"time"
+
+	"github.com/gin-gonic/gin"
+	"github.com/gofrs/uuid/v5"
+	"github.com/jackc/pgx/v5"
+
+	"system/internal/app/middleware"
+	"system/internal/domain"
+	pkgerrors "system/pkg/errors"
+	"system/pkg/util/response"
+	"system/pkg/util/timeutil"
+)
+
+// Handler handles chapter-related HTTP requests
+type Handler struct {
+	chapterService ChapterService
+}
+
+// NewHandler creates a new chapter Handler instance
+func NewHandler(chapterService ChapterService) *Handler {
+	return &Handler{
+		chapterService: chapterService,
+	}
+}
+
+// CreateChapter creates a new chapter
+func (h *Handler) CreateChapter(c *gin.Context) {
+	volumeIDStr := c.Param("id")
+	volumeIDVal, err := uuid.FromString(volumeIDStr)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "INVALID_VOLUME_ID", I18nVolumeNotFound, nil)
+		return
+	}
+
+	novelID := uuid.Nil
+
+	var req CreateChapterRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, "VALIDATION_FAILED", "validation.failed", err.Error())
+		return
+	}
+
+	userIDStr, exists := middleware.GetUserID(c)
+	if !exists {
+		response.Error(c, http.StatusUnauthorized, "UNAUTHORIZED", "auth.unauthorized", nil)
+		return
+	}
+	userID, err := uuid.FromString(userIDStr)
+	if err != nil {
+		response.Error(c, http.StatusUnauthorized, "INVALID_USER_ID", "auth.invalid_user_id", nil)
+		return
+	}
+
+	chapter, err := h.chapterService.CreateChapter(
+		c.Request.Context(),
+		novelID,
+		volumeIDVal,
+		req.ChapterNumber,
+		req.Title,
+		req.Content,
+		req.WordCount,
+		req.CharacterCount,
+		req.AuthorNotes,
+		req.IsFree,
+		req.Price,
+		req.Currency,
+		req.Status,
+		req.DisplayOrder,
+		req.ScheduledAt,
+		userID,
+	)
+	if err != nil {
+		if appErr, ok := pkgerrors.AsAppError(err); ok {
+			response.Error(c, appErr.StatusCode, appErr.ErrCode, appErr.I18nKey, nil)
+			return
+		}
+		response.Error(c, http.StatusInternalServerError, "CREATE_FAILED", I18nCreateFailed, nil)
+		return
+	}
+
+	resp := mapToChapterDetailResponse(chapter)
+	response.Success(c, http.StatusCreated, I18nCreatedSuccess, resp, nil)
+}
+
+
+// UpdateChapter updates a chapter
+// @Summary Update a chapter
+// @Tags Chapters
+// @Accept json
+// @Produce json
+// @Param id path string true "Chapter ID"
+// @Param request body UpdateChapterRequest true "Update Chapter Request"
+// @Success 200 {object} response.StandardResponse{data=ChapterDetailResponse}
+// @Failure 400 {object} response.StandardResponse
+// @Failure 404 {object} response.StandardResponse
+// @Failure 409 {object} response.StandardResponse
+// @Failure 500 {object} response.StandardResponse
+// @Router /api/v1/novels/chapters/{id} [put]
+func (h *Handler) UpdateChapter(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := uuid.FromString(idStr)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "INVALID_ID", "chapter.invalid_id", nil)
+		return
+	}
+
+	var req UpdateChapterRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, "VALIDATION_FAILED", "validation.failed", err.Error())
+		return
+	}
+
+	var volumeID *uuid.UUID
+	if req.VolumeID != nil {
+		vid, err := uuid.FromString(*req.VolumeID)
+		if err != nil {
+			response.Error(c, http.StatusBadRequest, "INVALID_VOLUME_ID", "volume.invalid_id", nil)
+			return
+		}
+		volumeID = &vid
+	}
+
+	userIDStr, exists := middleware.GetUserID(c)
+	if !exists {
+		response.Error(c, http.StatusUnauthorized, "UNAUTHORIZED", "auth.unauthorized", nil)
+		return
+	}
+	userID, err := uuid.FromString(userIDStr)
+	if err != nil {
+		response.Error(c, http.StatusUnauthorized, "INVALID_USER_ID", "auth.invalid_user_id", nil)
+		return
+	}
+
+	chapter, err := h.chapterService.UpdateChapter(
+		c.Request.Context(),
+		id,
+		volumeID,
+		req.ChapterNumber,
+		req.Title,
+		req.Content,
+		req.WordCount,
+		req.CharacterCount,
+		req.AuthorNotes,
+		req.IsFree,
+		req.Price,
+		req.Currency,
+		req.Status,
+		req.DisplayOrder,
+		req.ScheduledAt,
+		userID,
+		nil,
+	)
+	if err != nil {
+		if appErr, ok := pkgerrors.AsAppError(err); ok {
+			response.Error(c, appErr.StatusCode, appErr.ErrCode, appErr.I18nKey, nil)
+			return
+		}
+		response.Error(c, http.StatusInternalServerError, "UPDATE_FAILED", I18nUpdateFailed, nil)
+		return
+	}
+
+	resp := mapToChapterDetailResponse(chapter)
+	response.Success(c, http.StatusOK, I18nUpdatedSuccess, resp, nil)
+}
+
+// DeleteChapter deletes a chapter
+// @Summary Delete a chapter
+// @Tags Chapters
+// @Produce json
+// @Param id path string true "Chapter ID"
+// @Success 200 {object} response.StandardResponse
+// @Failure 400 {object} response.StandardResponse
+// @Failure 404 {object} response.StandardResponse
+// @Failure 500 {object} response.StandardResponse
+// @Router /api/v1/novels/chapters/{id} [delete]
+func (h *Handler) DeleteChapter(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := uuid.FromString(idStr)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "INVALID_ID", "chapter.invalid_id", nil)
+		return
+	}
+
+	err = h.chapterService.DeleteChapter(c.Request.Context(), id)
+	if err != nil {
+		if appErr, ok := pkgerrors.AsAppError(err); ok {
+			response.Error(c, appErr.StatusCode, appErr.ErrCode, appErr.I18nKey, nil)
+			return
+		}
+		response.Error(c, http.StatusInternalServerError, "DELETE_FAILED", I18nDeleteFailed, nil)
+		return
+	}
+
+	response.Success(c, http.StatusOK, I18nDeletedSuccess, nil, nil)
+}
+
+// GetChapter retrieves chapter details
+// @Summary Get chapter details
+// @Tags Chapters
+// @Produce json
+// @Param id path string true "Chapter ID"
+// @Success 200 {object} response.StandardResponse{data=ChapterDetailResponse}
+// @Failure 400 {object} response.StandardResponse
+// @Failure 404 {object} response.StandardResponse
+// @Failure 500 {object} response.StandardResponse
+// @Router /api/v1/novels/chapters/{id} [get]
+func (h *Handler) GetChapter(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := uuid.FromString(idStr)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "INVALID_ID", "chapter.invalid_id", nil)
+		return
+	}
+
+	chapter, err := h.chapterService.GetChapterByID(c.Request.Context(), id)
+	if err != nil {
+		if appErr, ok := pkgerrors.AsAppError(err); ok {
+			response.Error(c, appErr.StatusCode, appErr.ErrCode, appErr.I18nKey, nil)
+			return
+		}
+		if err == pgx.ErrNoRows {
+			response.Error(c, http.StatusNotFound, "CHAPTER_NOT_FOUND", I18nNotFound, nil)
+			return
+		}
+		response.Error(c, http.StatusInternalServerError, "GET_FAILED", I18nGetFailed, nil)
+		return
+	}
+
+	resp := mapToChapterDetailResponse(chapter)
+	response.Success(c, http.StatusOK, I18nGetSuccess, resp, nil)
+}
+
+// ListChaptersByNovel retrieves chapters for a novel
+// @Summary List chapters by novel ID
+// @Tags Chapters
+// @Produce json
+// @Param id path string true "Novel ID"
+// @Success 200 {object} response.StandardResponse{data=[]ChapterResponse}
+// @Failure 400 {object} response.StandardResponse
+// @Failure 500 {object} response.StandardResponse
+// @Router /api/v1/novels/{id}/chapters [get]
+func (h *Handler) ListChaptersByNovel(c *gin.Context) {
+	novelIDStr := c.Param("id")
+	novelID, err := uuid.FromString(novelIDStr)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "INVALID_NOVEL_ID", "novel.invalid_id", nil)
+		return
+	}
+
+	var req ListChaptersRequest
+	if err := c.ShouldBindQuery(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, "VALIDATION_FAILED", "validation.failed", err.Error())
+		return
+	}
+
+	filter := domain.ChapterFilter{
+		PublishedOnly: req.PublishedOnly,
+		SortBy:        req.SortBy,
+		SortOrder:     req.SortOrder,
+	}
+
+	if req.Status != "" {
+		status := domain.ChapterStatus(req.Status)
+		filter.Status = &status
+	}
+
+	if req.VolumeID != nil {
+		vid, err := uuid.FromString(*req.VolumeID)
+		if err != nil {
+			response.Error(c, http.StatusBadRequest, "INVALID_VOLUME_ID", "volume.invalid_id", nil)
+			return
+		}
+		filter.VolumeID = &vid
+	}
+
+	if req.IsFree != nil {
+		filter.IsFree = req.IsFree
+	}
+
+	if req.Page > 0 && req.Limit > 0 {
+		offset := (req.Page - 1) * req.Limit
+		filter.Limit = req.Limit
+		filter.Offset = offset
+	}
+
+	chapters, err := h.chapterService.GetChaptersByNovelID(c.Request.Context(), novelID, filter)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "LIST_FAILED", "chapter.list_failed", nil)
+		return
+	}
+
+	chapterResponses := make([]ChapterResponse, len(chapters))
+	for i, chapter := range chapters {
+		chapterResponses[i] = mapToChapterResponse(chapter)
+	}
+
+	response.Success(c, http.StatusOK, "chapter.list_success", chapterResponses, nil)
+}
+
+// ListChaptersByVolume retrieves all chapters for a volume
+// @Summary List chapters by volume ID
+// @Tags Chapters
+// @Produce json
+// @Param id path string true "Volume ID"
+// @Success 200 {object} response.StandardResponse{data=[]ChapterResponse}
+// @Failure 400 {object} response.StandardResponse
+// @Failure 500 {object} response.StandardResponse
+// @Router /api/v1/novels/volumes/{id}/chapters [get]
+func (h *Handler) ListChaptersByVolume(c *gin.Context) {
+	volumeIDStr := c.Param("id")
+	volumeID, err := uuid.FromString(volumeIDStr)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "INVALID_VOLUME_ID", "volume.invalid_id", nil)
+		return
+	}
+
+	publishedOnly := c.Query("published_only") == "true"
+
+	chapters, err := h.chapterService.GetChaptersByVolumeID(c.Request.Context(), volumeID, publishedOnly)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "LIST_FAILED", "chapter.list_failed", nil)
+		return
+	}
+
+	chapterResponses := make([]ChapterResponse, len(chapters))
+	for i, chapter := range chapters {
+		chapterResponses[i] = mapToChapterResponse(chapter)
+	}
+
+	response.Success(c, http.StatusOK, "chapter.list_success", chapterResponses, nil)
+}
+
+// PublishChapter publishes a chapter immediately
+// @Summary Publish a chapter
+// @Tags Chapters
+// @Produce json
+// @Param id path string true "Chapter ID"
+// @Success 200 {object} response.StandardResponse
+// @Failure 400 {object} response.StandardResponse
+// @Failure 404 {object} response.StandardResponse
+// @Failure 500 {object} response.StandardResponse
+// @Router /api/v1/novels/chapters/{id}/publish [post]
+func (h *Handler) PublishChapter(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := uuid.FromString(idStr)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "INVALID_ID", "chapter.invalid_id", nil)
+		return
+	}
+
+	userIDStr, exists := middleware.GetUserID(c)
+	changedBy := uuid.Nil
+	if exists {
+		changedBy, _ = uuid.FromString(userIDStr)
+	}
+
+	requestContext := extractRequestContext(c)
+
+	err = h.chapterService.PublishChapter(c.Request.Context(), id, changedBy, requestContext)
+	if err != nil {
+		if errors.Is(err, pkgerrors.ErrChapterNotFound) {
+			response.Error(c, http.StatusNotFound, "CHAPTER_NOT_FOUND", "chapter.not_found", nil)
+			return
+		}
+		response.Error(c, http.StatusInternalServerError, "PUBLISH_FAILED", "chapter.publish_failed", nil)
+		return
+	}
+
+	response.Success(c, http.StatusOK, "chapter.published_success", nil, nil)
+}
+
+// ScheduleChapter schedules a chapter for publication
+// @Summary Schedule a chapter for publication
+// @Tags Chapters
+// @Accept json
+// @Produce json
+// @Param id path string true "Chapter ID"
+// @Param request body ScheduleChapterRequest true "Schedule Chapter Request"
+// @Success 200 {object} response.StandardResponse
+// @Failure 400 {object} response.StandardResponse
+// @Failure 404 {object} response.StandardResponse
+// @Failure 500 {object} response.StandardResponse
+// @Router /api/v1/novels/chapters/{id}/schedule [post]
+func (h *Handler) ScheduleChapter(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := uuid.FromString(idStr)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "INVALID_ID", "chapter.invalid_id", nil)
+		return
+	}
+
+	var req ScheduleChapterRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, "VALIDATION_FAILED", "validation.failed", err.Error())
+		return
+	}
+
+	scheduledAt, err := time.Parse(time.RFC3339, req.ScheduledAt)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "INVALID_SCHEDULED_TIME", "chapter.invalid_scheduled_time", nil)
+		return
+	}
+
+	err = h.chapterService.ScheduleChapter(c.Request.Context(), id, scheduledAt)
+	if err != nil {
+		if errors.Is(err, pkgerrors.ErrChapterNotFound) {
+			response.Error(c, http.StatusNotFound, "CHAPTER_NOT_FOUND", "chapter.not_found", nil)
+			return
+		}
+		response.Error(c, http.StatusInternalServerError, "SCHEDULE_FAILED", "chapter.schedule_failed", nil)
+		return
+	}
+
+	response.Success(c, http.StatusOK, "chapter.scheduled_success", nil, nil)
+}
+
+// IncrementViewCount increments the view count of a chapter
+// @Summary Increment chapter view count
+// @Tags Chapters
+// @Produce json
+// @Param id path string true "Chapter ID"
+// @Success 200 {object} response.StandardResponse
+// @Failure 400 {object} response.StandardResponse
+// @Failure 500 {object} response.StandardResponse
+// @Router /api/v1/novels/chapters/{id}/view [post]
+func (h *Handler) IncrementViewCount(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := uuid.FromString(idStr)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "INVALID_ID", "chapter.invalid_id", nil)
+		return
+	}
+
+	err = h.chapterService.IncrementViewCount(c.Request.Context(), id)
+	if err != nil {
+		_ = err // Log but don't fail
+	}
+
+	response.Success(c, http.StatusOK, "chapter.view_tracked", nil, nil)
+}
+
+// UpdateStatistics updates chapter statistics
+// @Summary Update chapter statistics
+// @Tags Chapters
+// @Accept json
+// @Produce json
+// @Param id path string true "Chapter ID"
+// @Param request body UpdateStatisticsRequest true "Update Statistics Request"
+// @Success 200 {object} response.StandardResponse
+// @Failure 400 {object} response.StandardResponse
+// @Failure 404 {object} response.StandardResponse
+// @Failure 500 {object} response.StandardResponse
+// @Router /api/v1/novels/chapters/{id}/statistics [put]
+func (h *Handler) UpdateStatistics(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := uuid.FromString(idStr)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "INVALID_ID", "chapter.invalid_id", nil)
+		return
+	}
+
+	var req UpdateStatisticsRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, "VALIDATION_FAILED", "validation.failed", err.Error())
+		return
+	}
+
+	stats := domain.ChapterStatistics{
+		ViewCount:    req.ViewCount,
+		LikeCount:    req.LikeCount,
+		CommentCount: req.CommentCount,
+	}
+
+	err = h.chapterService.UpdateStatistics(c.Request.Context(), id, stats)
+	if err != nil {
+		if errors.Is(err, pkgerrors.ErrChapterNotFound) {
+			response.Error(c, http.StatusNotFound, "CHAPTER_NOT_FOUND", "chapter.not_found", nil)
+			return
+		}
+		response.Error(c, http.StatusInternalServerError, "UPDATE_FAILED", "chapter.update_statistics_failed", nil)
+		return
+	}
+
+	response.Success(c, http.StatusOK, "chapter.statistics_updated", nil, nil)
+}
+
+// Helper function to map domain model to detail response
+func mapToChapterDetailResponse(chapter *domain.Chapter) ChapterDetailResponse {
+	resp := ChapterDetailResponse{
+		ID:             chapter.ID.String(),
+		NovelID:        chapter.NovelID.String(),
+		ChapterNumber:  chapter.ChapterNumber,
+		Title:          chapter.Title,
+		Slug:           chapter.Slug,
+		Content:        chapter.Content,
+		WordCount:      chapter.WordCount,
+		CharacterCount: chapter.CharacterCount,
+		IsFree:         chapter.IsFree,
+		Price:          chapter.Price,
+		Currency:       chapter.Currency,
+		Status:         string(chapter.Status),
+		ViewCount:      chapter.ViewCount,
+		LikeCount:      chapter.LikeCount,
+		CommentCount:   chapter.CommentCount,
+		DisplayOrder:   chapter.DisplayOrder,
+		AuthorNotes:    chapter.AuthorNotes,
+		CreatedAt:      chapter.CreatedAt.Format(timeutil.ISO8601Layout),
+		UpdatedAt:      chapter.UpdatedAt.Format(timeutil.ISO8601Layout),
+	}
+
+	if chapter.VolumeID != nil {
+		volumeID := chapter.VolumeID.String()
+		resp.VolumeID = &volumeID
+	}
+
+	if chapter.PublishedAt != nil {
+		publishedAt := chapter.PublishedAt.Format(timeutil.ISO8601Layout)
+		resp.PublishedAt = &publishedAt
+	}
+
+	if chapter.ScheduledAt != nil {
+		scheduledAt := chapter.ScheduledAt.Format(timeutil.ISO8601Layout)
+		resp.ScheduledAt = &scheduledAt
+	}
+
+	return resp
+}
+
+// Helper function to map domain model to list response
+func mapToChapterResponse(chapter *domain.Chapter) ChapterResponse {
+	resp := ChapterResponse{
+		ID:            chapter.ID.String(),
+		NovelID:       chapter.NovelID.String(),
+		ChapterNumber: chapter.ChapterNumber,
+		Title:         chapter.Title,
+		Slug:          chapter.Slug,
+		WordCount:     chapter.WordCount,
+		IsFree:        chapter.IsFree,
+		Price:         chapter.Price,
+		Currency:      chapter.Currency,
+		Status:        string(chapter.Status),
+		ViewCount:     chapter.ViewCount,
+		LikeCount:     chapter.LikeCount,
+		CommentCount:  chapter.CommentCount,
+		DisplayOrder:  chapter.DisplayOrder,
+		CreatedAt:     chapter.CreatedAt.Format(timeutil.ISO8601Layout),
+		UpdatedAt:     chapter.UpdatedAt.Format(timeutil.ISO8601Layout),
+	}
+
+	if chapter.VolumeID != nil {
+		volumeID := chapter.VolumeID.String()
+		resp.VolumeID = &volumeID
+	}
+
+	if chapter.PublishedAt != nil {
+		publishedAt := chapter.PublishedAt.Format(timeutil.ISO8601Layout)
+		resp.PublishedAt = &publishedAt
+	}
+
+	if chapter.ScheduledAt != nil {
+		scheduledAt := chapter.ScheduledAt.Format(timeutil.ISO8601Layout)
+		resp.ScheduledAt = &scheduledAt
+	}
+
+	return resp
+}
+
+// Helper function to extract request context for history logging
+func extractRequestContext(c *gin.Context) map[string]any {
+	return map[string]any{
+		"request_id": c.GetHeader("X-Request-ID"),
+		"ip_address": c.ClientIP(),
+		"user_agent": c.GetHeader("User-Agent"),
+	}
+}

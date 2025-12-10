@@ -8,9 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 	"system/configs"
-	v1 "system/internal/app/handler/v1"
-	"system/internal/app/handler/v1/oauth2_admin"
 	"system/internal/app/middleware"
+	oauth2_module "system/internal/modules/oauth2"
 	"system/internal/platform/database"
 	"system/internal/platform/i18n"
 	"system/internal/platform/logger"
@@ -126,8 +125,6 @@ func registerAPIRoutes(router *gin.Engine, deps *Dependencies, zapLogger *zap.Lo
 	apiV1 := router.Group("/api/v1")
 	authMiddleware := middleware.RequireAuth(deps.OAuth2Provider, zapLogger)
 
-	v1.RegisterRoutes(apiV1)
-
 	// Genre routes
 	genreGroup := apiV1.Group("/genres")
 	deps.Handlers.Genre.RegisterRoutes(genreGroup, authMiddleware)
@@ -147,22 +144,18 @@ func registerAPIRoutes(router *gin.Engine, deps *Dependencies, zapLogger *zap.Lo
 	userGroup.Use(authMiddleware)
 	deps.Handlers.User.RegisterRoutes(userGroup)
 
-	// Media routes
-	mediaGroup := apiV1.Group("/media")
-	mediaGroup.GET("/trending", deps.Handlers.Media.GetTrending)
-
 	// Creator routes
-	apiV1.GET("/creators", deps.Handlers.Creator.ListCreators)
+	deps.Handlers.Creator.RegisterRoutes(apiV1)
 
-	// Public routes
-	publicGroup := apiV1.Group("/public")
-	deps.Handlers.Public.RegisterRoutes(publicGroup)
+	// Media routes (trending, home page data)
+	mediaGroup := apiV1.Group("/media")
+	deps.Handlers.Media.RegisterRoutes(mediaGroup)
 
 	// Auth API routes
 	registerAuthAPIRoutes(apiV1, deps)
 
 	// OAuth2 Admin API
-	oauth2_admin.RegisterRoutes(apiV1, deps.Handlers.OAuth2Admin)
+	oauth2_module.RegisterAdminRoutes(apiV1, deps.Handlers.OAuth2Admin)
 }
 
 // registerNovelRoutes đăng ký novel, volume, chapter routes
@@ -204,29 +197,8 @@ func registerNovelRoutes(apiV1 *gin.RouterGroup, deps *Dependencies, authMiddlew
 
 // registerAuthAPIRoutes đăng ký auth API routes
 func registerAuthAPIRoutes(apiV1 *gin.RouterGroup, deps *Dependencies) {
-	authGroup := apiV1.Group("/auth")
 	sessionAuth := middleware.RequireSessionAuth(deps.Services.OAuth2, nil)
-	h := deps.Handlers.Auth
-
-	// Public auth endpoints
-	authGroup.POST("/register", h.Register)
-	authGroup.GET("/verify-email", h.VerifyEmail)
-	authGroup.POST("/verify-email", h.VerifyEmail)
-	authGroup.POST("/forgot-password", h.ForgotPassword)
-	authGroup.POST("/reset-password", h.ResetPassword)
-
-	// WebAuthn Registration (requires auth)
-	authGroup.POST("/passkey/register/begin", sessionAuth, h.PasskeyRegisterBegin)
-	authGroup.POST("/passkey/register/finish", sessionAuth, h.PasskeyRegisterFinish)
-
-	// WebAuthn Authentication (public)
-	authGroup.POST("/passkey/authenticate/begin", h.PasskeyAuthenticateBegin)
-	authGroup.POST("/passkey/authenticate/finish", h.PasskeyAuthenticateFinish)
-
-	// WebAuthn Credential management (requires auth)
-	authGroup.GET("/passkey/credentials", sessionAuth, h.PasskeyListCredentials)
-	authGroup.DELETE("/passkey/credentials", sessionAuth, h.PasskeyDeleteCredential)
-	authGroup.PUT("/passkey/credentials/name", sessionAuth, h.PasskeyUpdateCredentialName)
+	deps.Handlers.Auth.RegisterAPIRoutes(apiV1, sessionAuth)
 }
 
 // registerOAuth2Routes đăng ký OAuth2 routes
@@ -240,29 +212,13 @@ func registerOAuth2Routes(router *gin.Engine, deps *Dependencies) {
 	deps.Handlers.OAuth2.RegisterRoutes(oauth2Group)
 
 	// Auth pages under /oauth2
-	h := deps.Handlers.Auth
-	oauth2Group.GET("/register", h.RegisterPage)
-	oauth2Group.GET("/verify-email", h.VerifyEmailPage)
-	oauth2Group.GET("/forgot-password", h.ForgotPasswordPage)
-	oauth2Group.GET("/reset-password", h.ResetPasswordPage)
+	deps.Handlers.Auth.RegisterOAuth2Pages(oauth2Group)
 }
 
 // registerAuthRoutes đăng ký auth HTML pages và account routes
 func registerAuthRoutes(router *gin.Engine, handlers *Handlers, services *Services, zapLogger *zap.Logger) {
-	h := handlers.Auth
 	sessionAuth := middleware.RequireSessionAuth(services.OAuth2, zapLogger)
-
-	// Passkey HTML pages
-	authHTML := router.Group("/auth")
-	authHTML.GET("/passkey/setup", h.PasskeySetupPage)
-	authHTML.GET("/passkey/register", h.PasskeyRegisterPage)
-	authHTML.GET("/passkey/manage", h.PasskeyManagePage)
-
-	// Account management (requires session auth)
-	account := router.Group("/account", sessionAuth)
-	account.GET("/passkeys", h.PasskeyListFragment)
-	account.DELETE("/passkeys/:id", h.PasskeyDeleteFragment)
-	account.PUT("/passkeys/:id/name", h.PasskeyUpdateNameFragment)
+	handlers.Auth.RegisterPageRoutes(router.Group(""), sessionAuth)
 }
 
 // buildCorsConfig xây dựng cấu hình CORS từ config của ứng dụng.

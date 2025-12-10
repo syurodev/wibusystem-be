@@ -1,0 +1,4 @@
+{
+  "media.get_home_success": "Successfully retrieved home page data",
+  "media.get_home_failed": "Failed to retrieve home page data"
+}

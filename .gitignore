@@ -1,2 +1,14 @@
 scripts/seed_admin_and_clients.sql
 .env
+
+# IDE
+.idea/
+
+# OS
+.DS_Store
+
+# Logs
+*.log
+
+# Temp
+tmp/
