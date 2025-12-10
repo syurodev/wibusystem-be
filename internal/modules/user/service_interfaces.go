@@ -7,6 +7,7 @@ import (
 	"github.com/gofrs/uuid/v5"
 
 	"system/internal/domain"
+	userdto "system/internal/dto/user"
 )
 
 // UserService interface định nghĩa business logic cho User module
@@ -20,7 +21,7 @@ type UserService interface {
 	GetSettings(ctx context.Context, userID uuid.UUID) (map[string]any, error)
 	UpdateSettings(ctx context.Context, userID uuid.UUID, newSettings map[string]any) (map[string]any, error)
 	GetProfile(ctx context.Context, userID uuid.UUID) (*domain.User, error)
-	UpdateProfile(ctx context.Context, userID uuid.UUID, req UpdateProfileRequest) (*domain.User, error)
+	UpdateProfile(ctx context.Context, userID uuid.UUID, req userdto.UpdateProfileRequest) (*domain.User, error)
 	ChangePassword(ctx context.Context, userID uuid.UUID, currentPassword, newPassword string) error
 	GetSessions(ctx context.Context, userIDStr string) ([]*domain.UserSession, error)
 	DeleteSession(ctx context.Context, userIDStr, sessionID string) error

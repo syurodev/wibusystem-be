@@ -11,6 +11,7 @@ import (
 
 	"system/internal/app/middleware"
 	"system/internal/domain"
+	chapterdto "system/internal/dto/novel_chapter"
 	pkgerrors "system/pkg/errors"
 	"system/pkg/util/response"
 	"system/pkg/util/timeutil"
@@ -39,7 +40,7 @@ func (h *Handler) CreateChapter(c *gin.Context) {
 
 	novelID := uuid.Nil
 
-	var req CreateChapterRequest
+	var req chapterdto.CreateChapterRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, http.StatusBadRequest, "VALIDATION_FAILED", "validation.failed", err.Error())
 		return
@@ -109,7 +110,7 @@ func (h *Handler) UpdateChapter(c *gin.Context) {
 		return
 	}
 
-	var req UpdateChapterRequest
+	var req chapterdto.UpdateChapterRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, http.StatusBadRequest, "VALIDATION_FAILED", "validation.failed", err.Error())
 		return
@@ -252,7 +253,7 @@ func (h *Handler) ListChaptersByNovel(c *gin.Context) {
 		return
 	}
 
-	var req ListChaptersRequest
+	var req chapterdto.ListChaptersRequest
 	if err := c.ShouldBindQuery(&req); err != nil {
 		response.Error(c, http.StatusBadRequest, "VALIDATION_FAILED", "validation.failed", err.Error())
 		return
@@ -294,7 +295,7 @@ func (h *Handler) ListChaptersByNovel(c *gin.Context) {
 		return
 	}
 
-	chapterResponses := make([]ChapterResponse, len(chapters))
+	chapterResponses := make([]chapterdto.ChapterResponse, len(chapters))
 	for i, chapter := range chapters {
 		chapterResponses[i] = mapToChapterResponse(chapter)
 	}
@@ -327,7 +328,7 @@ func (h *Handler) ListChaptersByVolume(c *gin.Context) {
 		return
 	}
 
-	chapterResponses := make([]ChapterResponse, len(chapters))
+	chapterResponses := make([]chapterdto.ChapterResponse, len(chapters))
 	for i, chapter := range chapters {
 		chapterResponses[i] = mapToChapterResponse(chapter)
 	}
@@ -394,7 +395,7 @@ func (h *Handler) ScheduleChapter(c *gin.Context) {
 		return
 	}
 
-	var req ScheduleChapterRequest
+	var req chapterdto.ScheduleChapterRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, http.StatusBadRequest, "VALIDATION_FAILED", "validation.failed", err.Error())
 		return
@@ -464,7 +465,7 @@ func (h *Handler) UpdateStatistics(c *gin.Context) {
 		return
 	}
 
-	var req UpdateStatisticsRequest
+	var req chapterdto.UpdateStatisticsRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, http.StatusBadRequest, "VALIDATION_FAILED", "validation.failed", err.Error())
 		return
@@ -490,8 +491,8 @@ func (h *Handler) UpdateStatistics(c *gin.Context) {
 }
 
 // Helper function to map domain model to detail response
-func mapToChapterDetailResponse(chapter *domain.NovelChapter) ChapterDetailResponse {
-	resp := ChapterDetailResponse{
+func mapToChapterDetailResponse(chapter *domain.NovelChapter) chapterdto.ChapterDetailResponse {
+	resp := chapterdto.ChapterDetailResponse{
 		ID:             chapter.ID.String(),
 		NovelID:        chapter.NovelID.String(),
 		ChapterNumber:  chapter.ChapterNumber,
@@ -532,8 +533,8 @@ func mapToChapterDetailResponse(chapter *domain.NovelChapter) ChapterDetailRespo
 }
 
 // Helper function to map domain model to list response
-func mapToChapterResponse(chapter *domain.NovelChapter) ChapterResponse {
-	resp := ChapterResponse{
+func mapToChapterResponse(chapter *domain.NovelChapter) chapterdto.ChapterResponse {
+	resp := chapterdto.ChapterResponse{
 		ID:            chapter.ID.String(),
 		NovelID:       chapter.NovelID.String(),
 		ChapterNumber: chapter.ChapterNumber,

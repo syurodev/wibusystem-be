@@ -12,6 +12,7 @@ import (
 
 	"system/internal/app/middleware"
 	"system/internal/domain"
+	noveldto "system/internal/dto/novel"
 	novel_chapter "system/internal/modules/novel_chapter"
 	novel_volume "system/internal/modules/novel_volume"
 	pkgerrors "system/pkg/errors"
@@ -53,7 +54,7 @@ func (h *Handler) CreateNovel(c *gin.Context) {
 		return
 	}
 
-	var req CreateNovelRequest
+	var req noveldto.CreateNovelRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, http.StatusBadRequest, "VALIDATION_FAILED", "validation.failed", err.Error())
 		return
@@ -135,7 +136,7 @@ func (h *Handler) UpdateNovel(c *gin.Context) {
 		return
 	}
 
-	var req UpdateNovelRequest
+	var req noveldto.UpdateNovelRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, http.StatusBadRequest, "VALIDATION_FAILED", "validation.failed", err.Error())
 		return
@@ -222,9 +223,9 @@ func (h *Handler) GetNovel(c *gin.Context) {
 	resp.GenreIDs = make([]string, 0)
 	resp.AuthorIDs = make([]string, 0)
 	resp.ArtistIDs = make([]string, 0)
-	resp.Genres = make([]GenreInfo, 0)
-	resp.Authors = make([]OwnerInfo, 0)
-	resp.Artists = make([]OwnerInfo, 0)
+	resp.Genres = make([]noveldto.GenreInfo, 0)
+	resp.Authors = make([]noveldto.OwnerInfo, 0)
+	resp.Artists = make([]noveldto.OwnerInfo, 0)
 
 	// Load relations
 	genreIDs, err := h.novelService.GetNovelGenres(c.Request.Context(), novel.ID)
@@ -253,28 +254,28 @@ func (h *Handler) GetNovel(c *gin.Context) {
 
 	genres, err := h.novelService.GetNovelGenresDetails(c.Request.Context(), novel.ID)
 	if err == nil {
-		resp.Genres = make([]GenreInfo, len(genres))
+		resp.Genres = make([]noveldto.GenreInfo, len(genres))
 		for i, g := range genres {
-			resp.Genres[i] = GenreInfo{ID: g.ID.String(), Name: g.Name}
+			resp.Genres[i] = noveldto.GenreInfo{ID: g.ID.String(), Name: g.Name}
 		}
 	}
 
 	authors, err := h.novelService.GetNovelAuthorsDetails(c.Request.Context(), novel.ID)
 	if err == nil {
-		resp.Authors = make([]OwnerInfo, len(authors))
+		resp.Authors = make([]noveldto.OwnerInfo, len(authors))
 		for i, na := range authors {
 			if na.Author != nil {
-				resp.Authors[i] = OwnerInfo{ID: na.Author.ID.String(), DisplayName: na.Author.Name}
+				resp.Authors[i] = noveldto.OwnerInfo{ID: na.Author.ID.String(), DisplayName: na.Author.Name}
 			}
 		}
 	}
 
 	artists, err := h.novelService.GetNovelArtistsDetails(c.Request.Context(), novel.ID)
 	if err == nil {
-		resp.Artists = make([]OwnerInfo, len(artists))
+		resp.Artists = make([]noveldto.OwnerInfo, len(artists))
 		for i, na := range artists {
 			if na.Artist != nil {
-				resp.Artists[i] = OwnerInfo{ID: na.Artist.ID.String(), DisplayName: na.Artist.Name}
+				resp.Artists[i] = noveldto.OwnerInfo{ID: na.Artist.ID.String(), DisplayName: na.Artist.Name}
 			}
 		}
 	}
@@ -294,7 +295,7 @@ func (h *Handler) GetNovel(c *gin.Context) {
 // @Failure 500 {object} response.StandardResponse
 // @Router /api/v1/novels [get]
 func (h *Handler) ListNovels(c *gin.Context) {
-	var req ListNovelsRequest
+	var req noveldto.ListNovelsRequest
 	if err := c.ShouldBindQuery(&req); err != nil {
 		response.Error(c, http.StatusBadRequest, "VALIDATION_FAILED", "validation.failed", err.Error())
 		return
@@ -345,7 +346,7 @@ func (h *Handler) ListNovels(c *gin.Context) {
 		return
 	}
 
-	novelResponses := make([]NovelResponse, len(novels))
+	novelResponses := make([]noveldto.NovelResponse, len(novels))
 	for i, novel := range novels {
 		novelResponses[i] = mapToNovelResponse(novel)
 	}
@@ -418,7 +419,7 @@ func (h *Handler) GetNovelFull(c *gin.Context) {
 		return
 	}
 
-	resp := NovelFullResponse{
+	resp := noveldto.NovelFullResponse{
 		NovelDetailResponse: mapToNovelDetailResponse(novel),
 	}
 
@@ -426,11 +427,11 @@ func (h *Handler) GetNovelFull(c *gin.Context) {
 	resp.GenreIDs = make([]string, 0)
 	resp.AuthorIDs = make([]string, 0)
 	resp.ArtistIDs = make([]string, 0)
-	resp.Genres = make([]GenreInfo, 0)
-	resp.Authors = make([]OwnerInfo, 0)
-	resp.Artists = make([]OwnerInfo, 0)
-	resp.Volumes = make([]VolumeInfoResponse, 0)
-	resp.Chapters = make([]ChapterSummaryResponse, 0)
+	resp.Genres = make([]noveldto.GenreInfo, 0)
+	resp.Authors = make([]noveldto.OwnerInfo, 0)
+	resp.Artists = make([]noveldto.OwnerInfo, 0)
+	resp.Volumes = make([]noveldto.VolumeInfoResponseWithChapters, 0)
+	resp.Chapters = make([]noveldto.ChapterSummaryResponse, 0)
 
 	// Set owner info
 	ownerDisplayName := "Unknown Owner"
@@ -441,7 +442,7 @@ func (h *Handler) GetNovelFull(c *gin.Context) {
 	if novel.OwnerUsername != nil && *novel.OwnerUsername != "" {
 		ownerUsername = *novel.OwnerUsername
 	}
-	resp.Owner = OwnerInfo{
+	resp.Owner = noveldto.OwnerInfo{
 		ID:          novel.OwnerID.String(),
 		DisplayName: ownerDisplayName,
 		Username:    ownerUsername,
@@ -451,19 +452,19 @@ func (h *Handler) GetNovelFull(c *gin.Context) {
 	// Load genres
 	genres, err := h.novelService.GetNovelGenresDetails(c.Request.Context(), novel.ID)
 	if err == nil {
-		resp.Genres = make([]GenreInfo, len(genres))
+		resp.Genres = make([]noveldto.GenreInfo, len(genres))
 		for i, g := range genres {
-			resp.Genres[i] = GenreInfo{ID: g.ID.String(), Name: g.Name}
+			resp.Genres[i] = noveldto.GenreInfo{ID: g.ID.String(), Name: g.Name}
 		}
 	}
 
 	// Load authors
 	authors, err := h.novelService.GetNovelAuthorsDetails(c.Request.Context(), novel.ID)
 	if err == nil {
-		resp.Authors = make([]OwnerInfo, len(authors))
+		resp.Authors = make([]noveldto.OwnerInfo, len(authors))
 		for i, na := range authors {
 			if na.Author != nil {
-				resp.Authors[i] = OwnerInfo{ID: na.Author.ID.String(), DisplayName: na.Author.Name}
+				resp.Authors[i] = noveldto.OwnerInfo{ID: na.Author.ID.String(), DisplayName: na.Author.Name}
 			}
 		}
 	}
@@ -471,10 +472,10 @@ func (h *Handler) GetNovelFull(c *gin.Context) {
 	// Load artists
 	artists, err := h.novelService.GetNovelArtistsDetails(c.Request.Context(), novel.ID)
 	if err == nil {
-		resp.Artists = make([]OwnerInfo, len(artists))
+		resp.Artists = make([]noveldto.OwnerInfo, len(artists))
 		for i, na := range artists {
 			if na.Artist != nil {
-				resp.Artists[i] = OwnerInfo{ID: na.Artist.ID.String(), DisplayName: na.Artist.Name}
+				resp.Artists[i] = noveldto.OwnerInfo{ID: na.Artist.ID.String(), DisplayName: na.Artist.Name}
 			}
 		}
 	}
@@ -483,7 +484,7 @@ func (h *Handler) GetNovelFull(c *gin.Context) {
 	volumes, err := h.volumeService.GetVolumesByNovelID(c.Request.Context(), novel.ID, true)
 	if err == nil {
 		for _, vol := range volumes {
-			volResp := VolumeInfoResponse{
+			volResp := noveldto.VolumeInfoResponseWithChapters{
 				ID:            vol.ID.String(),
 				VolumeNumber:  vol.VolumeNumber,
 				Title:         vol.Title,
@@ -491,7 +492,7 @@ func (h *Handler) GetNovelFull(c *gin.Context) {
 				CoverImageURL: vol.CoverImageURL,
 				DisplayOrder:  vol.DisplayOrder,
 				IsPublished:   vol.IsPublished,
-				Chapters:      make([]ChapterSummaryResponse, 0),
+				Chapters:      make([]noveldto.ChapterSummaryResponse, 0),
 			}
 			if vol.PublishedAt != nil {
 				publishedAt := vol.PublishedAt.Format(timeutil.ISO8601Layout)
@@ -530,8 +531,8 @@ func (h *Handler) GetNovelFull(c *gin.Context) {
 
 // Helper functions
 
-func mapToNovelDetailResponse(novel *domain.Novel) NovelDetailResponse {
-	resp := NovelDetailResponse{
+func mapToNovelDetailResponse(novel *domain.Novel) noveldto.NovelDetailResponse {
+	resp := noveldto.NovelDetailResponse{
 		ID:               novel.ID.String(),
 		Title:            novel.Title,
 		Slug:             novel.Slug,
@@ -580,7 +581,7 @@ func mapToNovelDetailResponse(novel *domain.Novel) NovelDetailResponse {
 	return resp
 }
 
-func mapToNovelResponse(novel *domain.Novel) NovelResponse {
+func mapToNovelResponse(novel *domain.Novel) noveldto.NovelResponse {
 	ownerDisplayName := "Unknown Owner"
 	if novel.OwnerDisplayName != nil && *novel.OwnerDisplayName != "" {
 		ownerDisplayName = *novel.OwnerDisplayName
@@ -590,23 +591,23 @@ func mapToNovelResponse(novel *domain.Novel) NovelResponse {
 		ownerUsername = *novel.OwnerUsername
 	}
 
-	owner := OwnerInfo{
+	owner := noveldto.OwnerInfo{
 		ID:          novel.OwnerID.String(),
 		DisplayName: ownerDisplayName,
 		Username:    ownerUsername,
 		AvatarURL:   novel.OwnerAvatarURL,
 	}
 
-	genres := make([]GenreInfo, 0)
+	genres := make([]noveldto.GenreInfo, 0)
 	if novel.Genres != nil && len(novel.Genres) > 0 {
 		for _, genre := range novel.Genres {
-			genres = append(genres, GenreInfo{ID: genre.ID.String(), Name: genre.Name})
+			genres = append(genres, noveldto.GenreInfo{ID: genre.ID.String(), Name: genre.Name})
 		}
 	}
 
-	var latestChapter *LatestChapterInfo
+	var latestChapter *noveldto.LatestChapterInfo
 	if novel.LastChapterAt != nil {
-		latestChapter = &LatestChapterInfo{
+		latestChapter = &noveldto.LatestChapterInfo{
 			ID:          "",
 			Title:       "Latest Chapter",
 			PublishedAt: novel.LastChapterAt.Format(timeutil.ISO8601Layout),
@@ -615,7 +616,7 @@ func mapToNovelResponse(novel *domain.Novel) NovelResponse {
 
 	rating := novel.RatingAverage * 2
 
-	return NovelResponse{
+	return noveldto.NovelResponse{
 		ID:               novel.ID.String(),
 		Title:            novel.Title,
 		OriginalTitle:    novel.OriginalTitle,
@@ -636,8 +637,8 @@ func mapToNovelResponse(novel *domain.Novel) NovelResponse {
 	}
 }
 
-func mapToChapterSummary(ch *domain.NovelChapter) ChapterSummaryResponse {
-	resp := ChapterSummaryResponse{
+func mapToChapterSummary(ch *domain.NovelChapter) noveldto.ChapterSummaryResponse {
+	resp := noveldto.ChapterSummaryResponse{
 		ID:            ch.ID.String(),
 		ChapterNumber: ch.ChapterNumber,
 		Title:         ch.Title,

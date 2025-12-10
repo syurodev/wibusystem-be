@@ -11,6 +11,7 @@ import (
 	"github.com/gofrs/uuid/v5"
 	"go.uber.org/zap"
 
+	authdto "system/internal/dto/auth"
 	"system/internal/modules/email"
 	pkgerrors "system/pkg/errors"
 	"system/pkg/util/response"
@@ -48,7 +49,7 @@ func (h *Handler) RegisterPage(c *gin.Context) {
 
 // Register xử lý đăng ký user mới
 func (h *Handler) Register(c *gin.Context) {
-	var req RegisterRequest
+	var req authdto.RegisterRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, http.StatusBadRequest, "VALIDATION_FAILED", "validation.failed", err.Error())
 		return
@@ -95,7 +96,7 @@ func (h *Handler) Register(c *gin.Context) {
 	if err != nil {
 		zap.L().Error("Failed to create session after registration", zap.Error(err))
 		// Still return success but without auto-login
-		resp := RegisterResponse{
+		resp := authdto.RegisterResponse{
 			UserID:  user.ID.String(),
 			Email:   user.Email,
 			Message: "Registration successful. Please check your email to verify your account.",
@@ -108,7 +109,7 @@ func (h *Handler) Register(c *gin.Context) {
 	c.SetSameSite(http.SameSiteLaxMode)
 	c.SetCookie("session_id", sessionID, 86400*7, "/", "", false, true)
 
-	resp := RegisterResponse{
+	resp := authdto.RegisterResponse{
 		UserID:  user.ID.String(),
 		Email:   user.Email,
 		Message: "Registration successful. You are now logged in.",
@@ -129,7 +130,7 @@ func (h *Handler) VerifyEmailPage(c *gin.Context) {
 func (h *Handler) VerifyEmail(c *gin.Context) {
 	token := c.Query("token")
 	if token == "" {
-		var req VerifyEmailRequest
+		var req authdto.VerifyEmailRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
 			response.Error(c, http.StatusBadRequest, "VALIDATION_FAILED", "validation.failed", err.Error())
 			return
@@ -164,7 +165,7 @@ func (h *Handler) ForgotPasswordPage(c *gin.Context) {
 
 // ForgotPassword tạo token reset password và gửi email
 func (h *Handler) ForgotPassword(c *gin.Context) {
-	var req ForgotPasswordRequest
+	var req authdto.ForgotPasswordRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, http.StatusBadRequest, "VALIDATION_FAILED", "validation.failed", err.Error())
 		return
@@ -198,7 +199,7 @@ func (h *Handler) ResetPasswordPage(c *gin.Context) {
 
 // ResetPassword reset password bằng token
 func (h *Handler) ResetPassword(c *gin.Context) {
-	var req ResetPasswordRequest
+	var req authdto.ResetPasswordRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, http.StatusBadRequest, "VALIDATION_FAILED", "validation.failed", err.Error())
 		return

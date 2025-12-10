@@ -10,6 +10,7 @@ import (
 
 	"system/internal/app/middleware"
 	"system/internal/domain"
+	genredto "system/internal/dto/genre"
 	pkgerrors "system/pkg/errors"
 	"system/pkg/util/response"
 	"system/pkg/util/timeutil"
@@ -29,7 +30,7 @@ func NewHandler(genreService GenreService, logger *zap.Logger) *Handler {
 
 // CreateGenre tạo genre mới
 func (h *Handler) CreateGenre(c *gin.Context) {
-	var req CreateGenreRequest
+	var req genredto.CreateGenreRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, http.StatusBadRequest, "ValidationFailed", I18nValidationFailed, err.Error())
 		return
@@ -80,7 +81,7 @@ func (h *Handler) UpdateGenre(c *gin.Context) {
 		return
 	}
 
-	var req UpdateGenreRequest
+	var req genredto.UpdateGenreRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, http.StatusBadRequest, "ValidationFailed", I18nValidationFailed, err.Error())
 		return
@@ -192,7 +193,7 @@ func (h *Handler) GetGenre(c *gin.Context) {
 
 // ListGenres lấy danh sách genres
 func (h *Handler) ListGenres(c *gin.Context) {
-	var req ListGenresRequest
+	var req genredto.ListGenresRequest
 	if err := c.ShouldBindQuery(&req); err != nil {
 		response.Error(c, http.StatusBadRequest, "ValidationFailed", I18nValidationFailed, err.Error())
 		return
@@ -220,9 +221,9 @@ func (h *Handler) ListGenres(c *gin.Context) {
 		return
 	}
 
-	genreResponses := make([]GenreResponse, len(genresWithTrend))
+	genreResponses := make([]genredto.GenreResponse, len(genresWithTrend))
 	for i, gwt := range genresWithTrend {
-		genreResponses[i] = GenreResponse{
+		genreResponses[i] = genredto.GenreResponse{
 			ID:            gwt.Genre.ID.String(),
 			Name:          gwt.Genre.Name,
 			Slug:          gwt.Genre.Slug,
@@ -248,8 +249,8 @@ func (h *Handler) ListGenres(c *gin.Context) {
 	response.Success(c, http.StatusOK, I18nListSuccess, genreResponses, meta)
 }
 
-func mapToGenreDetailResponse(genre *domain.Genre, trend string) GenreDetailResponse {
-	resp := GenreDetailResponse{
+func mapToGenreDetailResponse(genre *domain.Genre, trend string) genredto.GenreDetailResponse {
+	resp := genredto.GenreDetailResponse{
 		ID:            genre.ID.String(),
 		Name:          genre.Name,
 		Slug:          genre.Slug,
@@ -273,7 +274,7 @@ func mapToGenreDetailResponse(genre *domain.Genre, trend string) GenreDetailResp
 
 // ListSelection lấy danh sách genres rút gọn
 func (h *Handler) ListSelection(c *gin.Context) {
-	var req ListGenresRequest
+	var req genredto.ListGenresRequest
 	if err := c.ShouldBindQuery(&req); err != nil {
 		response.Error(c, http.StatusBadRequest, "ValidationFailed", "validation.failed", err.Error())
 		return
@@ -324,7 +325,7 @@ func (h *Handler) ListSelection(c *gin.Context) {
 
 // MergeGenre gộp genres thành một
 func (h *Handler) MergeGenre(c *gin.Context) {
-	var req MergeGenreRequest
+	var req genredto.MergeGenreRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, http.StatusBadRequest, "ValidationFailed", I18nValidationFailed, err.Error())
 		return
@@ -359,7 +360,7 @@ func (h *Handler) MergeGenre(c *gin.Context) {
 
 // PreviewMergeGenre xem trước kết quả gộp genres
 func (h *Handler) PreviewMergeGenre(c *gin.Context) {
-	var req MergeGenreRequest
+	var req genredto.MergeGenreRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, http.StatusBadRequest, "ValidationFailed", I18nValidationFailed, err.Error())
 		return
@@ -376,9 +377,9 @@ func (h *Handler) PreviewMergeGenre(c *gin.Context) {
 		return
 	}
 
-	affectedNovels := make([]AffectedNovel, len(preview))
+	affectedNovels := make([]genredto.AffectedNovel, len(preview))
 	for i, n := range preview {
-		affectedNovels[i] = AffectedNovel{
+		affectedNovels[i] = genredto.AffectedNovel{
 			ID:            n.ID.String(),
 			Title:         n.Title,
 			Slug:          n.Slug,
@@ -386,7 +387,7 @@ func (h *Handler) PreviewMergeGenre(c *gin.Context) {
 		}
 	}
 
-	responsePayload := PreviewMergeGenreResponse{
+	responsePayload := genredto.PreviewMergeGenreResponse{
 		AffectedNovels: affectedNovels,
 	}
 

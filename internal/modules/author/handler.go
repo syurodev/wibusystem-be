@@ -11,6 +11,7 @@ import (
 
 	"system/internal/app/middleware"
 	"system/internal/domain"
+	authordto "system/internal/dto/author"
 	pkgerrors "system/pkg/errors"
 	"system/pkg/util/response"
 	"system/pkg/util/timeutil"
@@ -30,7 +31,7 @@ func NewHandler(authorService AuthorService, logger *zap.Logger) *Handler {
 
 // CreateAuthor tạo author mới
 func (h *Handler) CreateAuthor(c *gin.Context) {
-	var req CreateAuthorRequest
+	var req authordto.CreateAuthorRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, http.StatusBadRequest, "ValidationFailed", I18nValidationFailed, err.Error())
 		return
@@ -71,7 +72,7 @@ func (h *Handler) UpdateAuthor(c *gin.Context) {
 		return
 	}
 
-	var req UpdateAuthorRequest
+	var req authordto.UpdateAuthorRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, http.StatusBadRequest, "ValidationFailed", I18nValidationFailed, err.Error())
 		return
@@ -142,7 +143,7 @@ func (h *Handler) GetAuthor(c *gin.Context) {
 
 // ListAuthors lấy danh sách authors
 func (h *Handler) ListAuthors(c *gin.Context) {
-	var req ListAuthorsRequest
+	var req authordto.ListAuthorsRequest
 	if err := c.ShouldBindQuery(&req); err != nil {
 		response.Error(c, http.StatusBadRequest, "ValidationFailed", I18nValidationFailed, err.Error())
 		return
@@ -170,7 +171,7 @@ func (h *Handler) ListAuthors(c *gin.Context) {
 		return
 	}
 
-	authorResponses := make([]AuthorResponse, len(authors))
+	authorResponses := make([]authordto.AuthorResponse, len(authors))
 	for i, author := range authors {
 		authorResponses[i] = mapToAuthorResponse(author)
 	}
@@ -186,8 +187,8 @@ func (h *Handler) ListAuthors(c *gin.Context) {
 	response.Success(c, http.StatusOK, I18nListSuccess, authorResponses, meta)
 }
 
-func mapToAuthorDetailResponse(author *domain.Author) AuthorDetailResponse {
-	resp := AuthorDetailResponse{
+func mapToAuthorDetailResponse(author *domain.Author) authordto.AuthorDetailResponse {
+	resp := authordto.AuthorDetailResponse{
 		ID:            author.ID.String(),
 		Name:          author.Name,
 		Slug:          author.Slug,
@@ -221,8 +222,8 @@ func mapToAuthorDetailResponse(author *domain.Author) AuthorDetailResponse {
 	return resp
 }
 
-func mapToAuthorResponse(author *domain.Author) AuthorResponse {
-	resp := AuthorResponse{
+func mapToAuthorResponse(author *domain.Author) authordto.AuthorResponse {
+	resp := authordto.AuthorResponse{
 		ID:         author.ID.String(),
 		Name:       author.Name,
 		Slug:       author.Slug,
@@ -245,7 +246,7 @@ func mapToAuthorResponse(author *domain.Author) AuthorResponse {
 
 // ListSelection lấy danh sách authors rút gọn
 func (h *Handler) ListSelection(c *gin.Context) {
-	var req ListAuthorsRequest
+	var req authordto.ListAuthorsRequest
 	if err := c.ShouldBindQuery(&req); err != nil {
 		response.Error(c, http.StatusBadRequest, "ValidationFailed", I18nValidationFailed, err.Error())
 		return
@@ -296,7 +297,7 @@ func (h *Handler) ListSelection(c *gin.Context) {
 
 // MergeAuthor gộp authors
 func (h *Handler) MergeAuthor(c *gin.Context) {
-	var req MergeAuthorRequest
+	var req authordto.MergeAuthorRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, http.StatusBadRequest, "ValidationFailed", I18nValidationFailed, err.Error())
 		return
@@ -329,7 +330,7 @@ func (h *Handler) MergeAuthor(c *gin.Context) {
 
 // PreviewMergeAuthor xem trước kết quả gộp authors
 func (h *Handler) PreviewMergeAuthor(c *gin.Context) {
-	var req MergeAuthorRequest
+	var req authordto.MergeAuthorRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, http.StatusBadRequest, "ValidationFailed", I18nValidationFailed, err.Error())
 		return
@@ -345,9 +346,9 @@ func (h *Handler) PreviewMergeAuthor(c *gin.Context) {
 		return
 	}
 
-	affectedNovels := make([]AffectedNovel, len(preview))
+	affectedNovels := make([]authordto.AffectedNovel, len(preview))
 	for i, novel := range preview {
-		affectedNovels[i] = AffectedNovel{
+		affectedNovels[i] = authordto.AffectedNovel{
 			ID:            novel.ID.String(),
 			Title:         novel.Title,
 			Slug:          novel.Slug,
@@ -355,7 +356,7 @@ func (h *Handler) PreviewMergeAuthor(c *gin.Context) {
 		}
 	}
 
-	resp := PreviewMergeAuthorResponse{
+	resp := authordto.PreviewMergeAuthorResponse{
 		AffectedNovels: affectedNovels,
 		SourceAuthors:  nil,
 	}

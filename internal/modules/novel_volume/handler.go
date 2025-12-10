@@ -9,6 +9,7 @@ import (
 
 	"system/internal/app/middleware"
 	"system/internal/domain"
+	volumedto "system/internal/dto/novel_volume"
 	pkgerrors "system/pkg/errors"
 	"system/pkg/util/response"
 )
@@ -39,7 +40,7 @@ func (h *Handler) CreateVolume(c *gin.Context) {
 		return
 	}
 
-	var req CreateVolumeRequest
+	var req volumedto.CreateVolumeRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, http.StatusBadRequest, "VALIDATION_FAILED", "validation.failed", err.Error())
 		return
@@ -84,7 +85,7 @@ func (h *Handler) UpdateVolume(c *gin.Context) {
 		return
 	}
 
-	var req UpdateVolumeRequest
+	var req volumedto.UpdateVolumeRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, http.StatusBadRequest, "VALIDATION_FAILED", "validation.failed", err.Error())
 		return
@@ -181,7 +182,7 @@ func (h *Handler) ListVolumesByNovel(c *gin.Context) {
 		return
 	}
 
-	var req ListVolumesRequest
+	var req volumedto.ListVolumesRequest
 	if err := c.ShouldBindQuery(&req); err != nil {
 		response.Error(c, http.StatusBadRequest, "VALIDATION_FAILED", "validation.failed", err.Error())
 		return
@@ -193,7 +194,7 @@ func (h *Handler) ListVolumesByNovel(c *gin.Context) {
 		return
 	}
 
-	volumeResponses := make([]VolumeResponse, len(volumes))
+	volumeResponses := make([]volumedto.VolumeResponse, len(volumes))
 	for i, volume := range volumes {
 		volumeResponses[i] = mapToVolumeResponse(volume)
 	}
@@ -210,7 +211,7 @@ func (h *Handler) UpdateDisplayOrder(c *gin.Context) {
 		return
 	}
 
-	var req UpdateDisplayOrderRequest
+	var req volumedto.UpdateDisplayOrderRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, http.StatusBadRequest, "VALIDATION_FAILED", "validation.failed", err.Error())
 		return
@@ -291,8 +292,8 @@ func (h *Handler) UnpublishVolume(c *gin.Context) {
 
 // Helper function to map domain model to detail response
 
-func mapToVolumeDetailResponse(volume *domain.NovelVolume) VolumeDetailResponse {
-	resp := VolumeDetailResponse{
+func mapToVolumeDetailResponse(volume *domain.NovelVolume) volumedto.VolumeDetailResponse {
+	resp := volumedto.VolumeDetailResponse{
 		ID:            volume.ID.String(),
 		NovelID:       volume.NovelID.String(),
 		VolumeNumber:  volume.VolumeNumber,
@@ -317,8 +318,8 @@ func mapToVolumeDetailResponse(volume *domain.NovelVolume) VolumeDetailResponse 
 }
 
 // Helper function to map domain model to list response
-func mapToVolumeResponse(volume *domain.NovelVolume) VolumeResponse {
-	resp := VolumeResponse{
+func mapToVolumeResponse(volume *domain.NovelVolume) volumedto.VolumeResponse {
+	resp := volumedto.VolumeResponse{
 		ID:            volume.ID.String(),
 		NovelID:       volume.NovelID.String(),
 		VolumeNumber:  volume.VolumeNumber,

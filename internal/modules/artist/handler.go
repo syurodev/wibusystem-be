@@ -10,6 +10,7 @@ import (
 
 	"system/internal/app/middleware"
 	"system/internal/domain"
+	artistdto "system/internal/dto/artist"
 	pkgerrors "system/pkg/errors"
 	"system/pkg/util/response"
 	"system/pkg/util/timeutil"
@@ -37,7 +38,7 @@ func NewHandler(artistService ArtistService) *Handler {
 // @Failure 500 {object} response.StandardResponse
 // @Router /api/v1/artists [post]
 func (h *Handler) CreateArtist(c *gin.Context) {
-	var req CreateArtistRequest
+	var req artistdto.CreateArtistRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, http.StatusBadRequest, "ValidationFailed", I18nValidationFailed, err.Error())
 		return
@@ -95,7 +96,7 @@ func (h *Handler) UpdateArtist(c *gin.Context) {
 		return
 	}
 
-	var req UpdateArtistRequest
+	var req artistdto.UpdateArtistRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, http.StatusBadRequest, "ValidationFailed", I18nValidationFailed, err.Error())
 		return
@@ -208,7 +209,7 @@ func (h *Handler) GetArtist(c *gin.Context) {
 // @Failure 500 {object} response.StandardResponse
 // @Router /api/v1/artists [get]
 func (h *Handler) ListArtists(c *gin.Context) {
-	var req ListArtistsRequest
+	var req artistdto.ListArtistsRequest
 	if err := c.ShouldBindQuery(&req); err != nil {
 		response.Error(c, http.StatusBadRequest, "ValidationFailed", I18nValidationFailed, err.Error())
 		return
@@ -239,7 +240,7 @@ func (h *Handler) ListArtists(c *gin.Context) {
 	}
 
 	// Map to response format
-	artistResponses := make([]ArtistResponse, len(artists))
+	artistResponses := make([]artistdto.ArtistResponse, len(artists))
 	for i, artist := range artists {
 		artistResponses[i] = mapToArtistResponse(artist)
 	}
@@ -257,8 +258,8 @@ func (h *Handler) ListArtists(c *gin.Context) {
 }
 
 // Helper function to map domain model to detail response
-func mapToArtistDetailResponse(artist *domain.Artist) ArtistDetailResponse {
-	resp := ArtistDetailResponse{
+func mapToArtistDetailResponse(artist *domain.Artist) artistdto.ArtistDetailResponse {
+	resp := artistdto.ArtistDetailResponse{
 		ID:             artist.ID.String(),
 		Name:           artist.Name,
 		Slug:           artist.Slug,
@@ -295,8 +296,8 @@ func mapToArtistDetailResponse(artist *domain.Artist) ArtistDetailResponse {
 }
 
 // Helper function to map domain model to list response
-func mapToArtistResponse(artist *domain.Artist) ArtistResponse {
-	resp := ArtistResponse{
+func mapToArtistResponse(artist *domain.Artist) artistdto.ArtistResponse {
+	resp := artistdto.ArtistResponse{
 		ID:             artist.ID.String(),
 		Name:           artist.Name,
 		Slug:           artist.Slug,
@@ -330,7 +331,7 @@ func mapToArtistResponse(artist *domain.Artist) ArtistResponse {
 // @Failure 500 {object} response.StandardResponse
 // @Router /api/v1/artists/selection [get]
 func (h *Handler) ListSelection(c *gin.Context) {
-	var req ListArtistsRequest
+	var req artistdto.ListArtistsRequest
 	if err := c.ShouldBindQuery(&req); err != nil {
 		response.Error(c, http.StatusBadRequest, "ValidationFailed", I18nValidationFailed, err.Error())
 		return
@@ -394,7 +395,7 @@ func (h *Handler) ListSelection(c *gin.Context) {
 // @Failure 500 {object} response.StandardResponse
 // @Router /api/v1/artists/merge [post]
 func (h *Handler) MergeArtist(c *gin.Context) {
-	var req MergeArtistRequest
+	var req artistdto.MergeArtistRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, http.StatusBadRequest, "ValidationFailed", I18nValidationFailed, err.Error())
 		return
@@ -439,7 +440,7 @@ func (h *Handler) MergeArtist(c *gin.Context) {
 // @Failure 500 {object} response.StandardResponse
 // @Router /api/v1/artists/merge/preview [post]
 func (h *Handler) PreviewMergeArtist(c *gin.Context) {
-	var req MergeArtistRequest
+	var req artistdto.MergeArtistRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, http.StatusBadRequest, "ValidationFailed", I18nValidationFailed, err.Error())
 		return
@@ -457,9 +458,9 @@ func (h *Handler) PreviewMergeArtist(c *gin.Context) {
 	}
 
 	// Transform to response DTO
-	affectedNovels := make([]AffectedNovel, len(preview))
+	affectedNovels := make([]artistdto.AffectedNovel, len(preview))
 	for i, novel := range preview {
-		affectedNovels[i] = AffectedNovel{
+		affectedNovels[i] = artistdto.AffectedNovel{
 			ID:            novel.ID.String(),
 			Title:         novel.Title,
 			Slug:          novel.Slug,
@@ -467,7 +468,7 @@ func (h *Handler) PreviewMergeArtist(c *gin.Context) {
 		}
 	}
 
-	resp := PreviewMergeArtistResponse{
+	resp := artistdto.PreviewMergeArtistResponse{
 		AffectedNovels: affectedNovels,
 		SourceArtists:  nil, // Optional
 	}

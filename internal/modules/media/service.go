@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"system/internal/domain"
+	mediadto "system/internal/dto/media"
 	analytics_module "system/internal/modules/analytics"
 	creator_module "system/internal/modules/creator"
 	"system/internal/platform/cache"
@@ -47,19 +48,19 @@ func NewMediaService(
 
 // GetHomeData retrieves all data needed for the home page.
 // Uses caching to reduce load on ClickHouse.
-func (s *mediaServiceImpl) GetHomeData(ctx context.Context) (*HomeData, error) {
+func (s *mediaServiceImpl) GetHomeData(ctx context.Context) (*mediadto.HomeData, error) {
 	// Try to get from cache first
-	return cache.GetOrSet(ctx, s.cacheService, HomeDataCacheKey, HomeDataCacheTTL, func() (*HomeData, error) {
+	return cache.GetOrSet(ctx, s.cacheService, HomeDataCacheKey, HomeDataCacheTTL, func() (*mediadto.HomeData, error) {
 		return s.fetchHomeData(ctx)
 	})
 }
 
 // fetchHomeData fetches all home data using goroutines for parallel execution.
-func (s *mediaServiceImpl) fetchHomeData(ctx context.Context) (*HomeData, error) {
+func (s *mediaServiceImpl) fetchHomeData(ctx context.Context) (*mediadto.HomeData, error) {
 	var wg sync.WaitGroup
 	var mu sync.Mutex
 
-	result := &HomeData{
+	result := &mediadto.HomeData{
 		Hero:     []map[string]any{},
 		Trending: []map[string]any{},
 		Creators: []any{},

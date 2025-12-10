@@ -7,6 +7,7 @@ import (
 	"github.com/gofrs/uuid/v5"
 
 	"system/internal/domain"
+	userdto "system/internal/dto/user"
 	pkgerrors "system/pkg/errors"
 	"system/pkg/util/crypto"
 	"system/pkg/util/validator"
@@ -73,7 +74,7 @@ func (s *userServiceImpl) GetProfile(ctx context.Context, userID uuid.UUID) (*do
 }
 
 // UpdateProfile cập nhật profile của user
-func (s *userServiceImpl) UpdateProfile(ctx context.Context, userID uuid.UUID, req UpdateProfileRequest) (*domain.User, error) {
+func (s *userServiceImpl) UpdateProfile(ctx context.Context, userID uuid.UUID, req userdto.UpdateProfileRequest) (*domain.User, error) {
 	user, err := s.userRepo.GetByID(ctx, userID)
 	if err != nil {
 		return nil, err

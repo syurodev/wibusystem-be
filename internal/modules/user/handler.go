@@ -7,6 +7,7 @@ import (
 	"github.com/gofrs/uuid/v5"
 
 	"system/internal/app/middleware"
+	userdto "system/internal/dto/user"
 	pkgerrors "system/pkg/errors"
 	"system/pkg/util/response"
 )
@@ -48,7 +49,7 @@ func (h *Handler) UpdateProfile(c *gin.Context) {
 		return
 	}
 
-	var req UpdateProfileRequest
+	var req userdto.UpdateProfileRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, http.StatusBadRequest, "VALIDATION_FAILED", I18nInvalidRequest, nil)
 		return
@@ -112,7 +113,7 @@ func (h *Handler) ChangePassword(c *gin.Context) {
 		return
 	}
 
-	var req ChangePasswordRequest
+	var req userdto.ChangePasswordRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, http.StatusBadRequest, "VALIDATION_FAILED", I18nInvalidRequest, nil)
 		return
@@ -146,9 +147,9 @@ func (h *Handler) GetSessions(c *gin.Context) {
 
 	currentSessionID, _ := c.Cookie("session_id")
 
-	resp := make([]SessionResponse, len(sessions))
+	resp := make([]userdto.SessionResponse, len(sessions))
 	for i, s := range sessions {
-		resp[i] = SessionResponse{
+		resp[i] = userdto.SessionResponse{
 			ID:         s.SessionID,
 			IP:         s.IP,
 			UserAgent:  s.UserAgent,

@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strconv"
 
+	mediadto "system/internal/dto/media"
 	analytics_module "system/internal/modules/analytics"
 	"system/pkg/util/response"
 
@@ -56,7 +57,7 @@ func (h *Handler) GetTrending(c *gin.Context) {
 	}
 
 	// Convert map to typed response for consistency
-	var resp []MediaSeriesResponse
+	var resp []mediadto.MediaSeriesResponse
 	bytes, err := json.Marshal(results)
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, "SERIALIZATION_FAILED", I18nAnalyticsSerializationFailed, nil)
