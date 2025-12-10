@@ -17,8 +17,8 @@ import (
 
 // ChapterService provides business logic for chapters
 type chapterServiceImpl struct {
-	chapterRepo domain.ChapterRepository
-	volumeRepo  domain.VolumeRepository
+	chapterRepo domain.NovelChapterRepository
+	volumeRepo  domain.NovelVolumeRepository
 	historyRepo ChapterHistoryRepository
 	creatorRepo domain.CreatorRepository
 }
@@ -26,13 +26,13 @@ type chapterServiceImpl struct {
 // ChapterHistoryRepository interface for logging chapter history
 // TODO: Move to domain package once fully implemented
 type ChapterHistoryRepository interface {
-	LogUpdate(ctx context.Context, chapterID, volumeID, novelID uuid.UUID, oldChapter, newChapter *domain.Chapter, changedBy uuid.UUID, requestContext map[string]any) error
+	LogUpdate(ctx context.Context, chapterID, volumeID, novelID uuid.UUID, oldChapter, newChapter *domain.NovelChapter, changedBy uuid.UUID, requestContext map[string]any) error
 	LogPublish(ctx context.Context, chapterID, volumeID, novelID uuid.UUID, changedBy uuid.UUID, requestContext map[string]any) error
 	GetLatestVersion(ctx context.Context, chapterID uuid.UUID) (int, error)
 }
 
 // NewChapterService creates a new instance of ChapterService
-func NewService(chapterRepo domain.ChapterRepository, volumeRepo domain.VolumeRepository, historyRepo ChapterHistoryRepository, creatorRepo domain.CreatorRepository) *chapterServiceImpl {
+func NewService(chapterRepo domain.NovelChapterRepository, volumeRepo domain.NovelVolumeRepository, historyRepo ChapterHistoryRepository, creatorRepo domain.CreatorRepository) *chapterServiceImpl {
 	return &chapterServiceImpl{
 		chapterRepo: chapterRepo,
 		volumeRepo:  volumeRepo,
@@ -58,7 +58,7 @@ func (s *chapterServiceImpl) CreateChapter(
 	displayOrder int,
 	scheduledAt *string,
 	createdBy uuid.UUID,
-) (*domain.Chapter, error) {
+) (*domain.NovelChapter, error) {
 	// Validate input
 	if title == "" {
 		return nil, pkgerrors.BadRequest(I18nInvalidInput, "title is required")
@@ -141,7 +141,7 @@ func (s *chapterServiceImpl) CreateChapter(
 		characterCount = 0
 	}
 
-	chapter := &domain.Chapter{
+	chapter := &domain.NovelChapter{
 		ID:             id,
 		NovelID:        novelID,
 		VolumeID:       &volumeID, // volumeID is now uuid.UUID, so it needs to be a pointer here
@@ -154,12 +154,12 @@ func (s *chapterServiceImpl) CreateChapter(
 		IsFree:         isFree,
 		Price:          price,
 		Currency:       currency,
-		Status:         domain.ChapterStatus(status),
+		Status:         domain.NovelChapterStatus(status),
 		DisplayOrder:   displayOrder,
 		AuthorNotes:    authorNotes,
 		ScheduledAt:    scheduledTime,
 		CreatedBy:      createdBy,
-		UpdatedBy:      createdBy,
+		UpdatedBy:      &createdBy,
 	}
 
 	if err := s.chapterRepo.Create(ctx, chapter); err != nil {
@@ -202,7 +202,7 @@ func (s *chapterServiceImpl) UpdateChapter(
 	scheduledAt *string,
 	changedBy uuid.UUID,
 	requestContext map[string]any,
-) (*domain.Chapter, error) {
+) (*domain.NovelChapter, error) {
 	// Validate input
 	if title == "" {
 		return nil, pkgerrors.BadRequest(I18nInvalidInput, "title is required")
@@ -290,7 +290,7 @@ func (s *chapterServiceImpl) UpdateChapter(
 		newVolumeID = volumeID
 	}
 
-	newChapter := &domain.Chapter{
+	newChapter := &domain.NovelChapter{
 		ID:             id,
 		NovelID:        oldChapter.NovelID,
 		VolumeID:       newVolumeID,
@@ -303,7 +303,7 @@ func (s *chapterServiceImpl) UpdateChapter(
 		IsFree:         isFree,
 		Price:          price,
 		Currency:       currency,
-		Status:         domain.ChapterStatus(status),
+		Status:         domain.NovelChapterStatus(status),
 		ViewCount:      oldChapter.ViewCount,
 		LikeCount:      oldChapter.LikeCount,
 		CommentCount:   oldChapter.CommentCount,
@@ -315,7 +315,7 @@ func (s *chapterServiceImpl) UpdateChapter(
 		UpdatedAt:      oldChapter.UpdatedAt,
 		DeletedAt:      oldChapter.DeletedAt,
 		CreatedBy:      oldChapter.CreatedBy,
-		UpdatedBy:      changedBy,
+		UpdatedBy:      &changedBy,
 	}
 
 	// Update chapter in database
@@ -392,7 +392,7 @@ func (s *chapterServiceImpl) DeleteChapter(ctx context.Context, id uuid.UUID) er
 }
 
 // GetChapterByID retrieves a chapter by ID
-func (s *chapterServiceImpl) GetChapterByID(ctx context.Context, id uuid.UUID) (*domain.Chapter, error) {
+func (s *chapterServiceImpl) GetChapterByID(ctx context.Context, id uuid.UUID) (*domain.NovelChapter, error) {
 	chapter, err := s.chapterRepo.GetByID(ctx, id)
 	if err != nil {
 		if err == pgx.ErrNoRows {
@@ -404,12 +404,12 @@ func (s *chapterServiceImpl) GetChapterByID(ctx context.Context, id uuid.UUID) (
 }
 
 // GetChaptersByNovelID retrieves chapters for a novel with filters
-func (s *chapterServiceImpl) GetChaptersByNovelID(ctx context.Context, novelID uuid.UUID, filter domain.ChapterFilter) ([]*domain.Chapter, error) {
+func (s *chapterServiceImpl) GetChaptersByNovelID(ctx context.Context, novelID uuid.UUID, filter domain.NovelChapterFilter) ([]*domain.NovelChapter, error) {
 	return s.chapterRepo.GetByNovelID(ctx, novelID, filter)
 }
 
 // GetChaptersByVolumeID retrieves all chapters for a volume
-func (s *chapterServiceImpl) GetChaptersByVolumeID(ctx context.Context, volumeID uuid.UUID, publishedOnly bool) ([]*domain.Chapter, error) {
+func (s *chapterServiceImpl) GetChaptersByVolumeID(ctx context.Context, volumeID uuid.UUID, publishedOnly bool) ([]*domain.NovelChapter, error) {
 	return s.chapterRepo.GetByVolumeID(ctx, volumeID, publishedOnly)
 }
 
@@ -460,7 +460,7 @@ func (s *chapterServiceImpl) ScheduleChapter(ctx context.Context, id uuid.UUID, 
 }
 
 // GetScheduledChapters retrieves chapters scheduled for publication before a specific time
-func (s *chapterServiceImpl) GetScheduledChapters(ctx context.Context, before time.Time) ([]*domain.Chapter, error) {
+func (s *chapterServiceImpl) GetScheduledChapters(ctx context.Context, before time.Time) ([]*domain.NovelChapter, error) {
 	return s.chapterRepo.GetScheduledChapters(ctx, before)
 }
 
@@ -470,7 +470,7 @@ func (s *chapterServiceImpl) IncrementViewCount(ctx context.Context, id uuid.UUI
 }
 
 // UpdateStatistics updates chapter statistics
-func (s *chapterServiceImpl) UpdateStatistics(ctx context.Context, id uuid.UUID, stats domain.ChapterStatistics) error {
+func (s *chapterServiceImpl) UpdateStatistics(ctx context.Context, id uuid.UUID, stats domain.NovelChapterStatistics) error {
 	// Check if chapter exists
 	_, err := s.chapterRepo.GetByID(ctx, id)
 	if err != nil {
@@ -517,7 +517,7 @@ func extractContentFromJSON(contentJSON json.RawMessage) string {
 }
 
 // Helper function to detect changed fields between old and new chapter
-func detectChapterChangedFields(old, new *domain.Chapter) ([]string, bool) {
+func detectChapterChangedFields(old, new *domain.NovelChapter) ([]string, bool) {
 	var changedFields []string
 	contentChanged := false
 

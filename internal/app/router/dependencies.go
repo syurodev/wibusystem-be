@@ -42,9 +42,9 @@ type Repositories struct {
 	Author             domain.AuthorRepository
 	Artist             domain.ArtistRepository
 	Novel              domain.NovelRepository
-	Volume             domain.VolumeRepository
+	Volume             domain.NovelVolumeRepository
 	VolumeHistory      novel_volume.VolumeHistoryRepository
-	Chapter            domain.ChapterRepository
+	Chapter            domain.NovelChapterRepository
 	ChapterHistory     novel_chapter.ChapterHistoryRepository
 	WebAuthnCredential domain.WebAuthnCredentialRepository
 	WebAuthnSession    domain.WebAuthnSessionRepository

@@ -29,7 +29,7 @@ type ChapterService interface {
 		displayOrder int,
 		scheduledAt *string,
 		createdBy uuid.UUID,
-	) (*domain.Chapter, error)
+	) (*domain.NovelChapter, error)
 
 	// UpdateChapter updates chapter information
 	UpdateChapter(
@@ -50,19 +50,19 @@ type ChapterService interface {
 		scheduledAt *string,
 		changedBy uuid.UUID,
 		requestContext map[string]any,
-	) (*domain.Chapter, error)
+	) (*domain.NovelChapter, error)
 
 	// DeleteChapter deletes a chapter (soft delete)
 	DeleteChapter(ctx context.Context, id uuid.UUID) error
 
 	// GetChapterByID retrieves a chapter by ID
-	GetChapterByID(ctx context.Context, id uuid.UUID) (*domain.Chapter, error)
+	GetChapterByID(ctx context.Context, id uuid.UUID) (*domain.NovelChapter, error)
 
 	// GetChaptersByNovelID retrieves chapters for a novel with filters
-	GetChaptersByNovelID(ctx context.Context, novelID uuid.UUID, filter domain.ChapterFilter) ([]*domain.Chapter, error)
+	GetChaptersByNovelID(ctx context.Context, novelID uuid.UUID, filter domain.NovelChapterFilter) ([]*domain.NovelChapter, error)
 
 	// GetChaptersByVolumeID retrieves all chapters for a volume
-	GetChaptersByVolumeID(ctx context.Context, volumeID uuid.UUID, publishedOnly bool) ([]*domain.Chapter, error)
+	GetChaptersByVolumeID(ctx context.Context, volumeID uuid.UUID, publishedOnly bool) ([]*domain.NovelChapter, error)
 
 	// PublishChapter publishes a chapter immediately
 	PublishChapter(ctx context.Context, id uuid.UUID, changedBy uuid.UUID, requestContext map[string]any) error
@@ -71,11 +71,11 @@ type ChapterService interface {
 	ScheduleChapter(ctx context.Context, id uuid.UUID, scheduledAt time.Time) error
 
 	// GetScheduledChapters retrieves chapters scheduled for publication
-	GetScheduledChapters(ctx context.Context, before time.Time) ([]*domain.Chapter, error)
+	GetScheduledChapters(ctx context.Context, before time.Time) ([]*domain.NovelChapter, error)
 
 	// IncrementViewCount increments the view count of a chapter
 	IncrementViewCount(ctx context.Context, id uuid.UUID) error
 
 	// UpdateStatistics updates chapter statistics
-	UpdateStatistics(ctx context.Context, id uuid.UUID, stats domain.ChapterStatistics) error
+	UpdateStatistics(ctx context.Context, id uuid.UUID, stats domain.NovelChapterStatistics) error
 }

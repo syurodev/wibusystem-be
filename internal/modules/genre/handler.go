@@ -379,7 +379,7 @@ func (h *Handler) PreviewMergeGenre(c *gin.Context) {
 	affectedNovels := make([]AffectedNovel, len(preview))
 	for i, n := range preview {
 		affectedNovels[i] = AffectedNovel{
-			ID:            n.ID,
+			ID:            n.ID.String(),
 			Title:         n.Title,
 			Slug:          n.Slug,
 			CoverImageURL: n.CoverImageURL,

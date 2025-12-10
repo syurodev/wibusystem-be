@@ -11,30 +11,33 @@ import (
 // Translator là domain model cho người dịch
 type Translator struct {
 	ID     uuid.UUID
-	UserID *uuid.UUID
+	UserID uuid.UUID // Required - link to user account
 
 	Name string
 	Slug string
 
-	Biography json.RawMessage
+	Bio       *string
 	AvatarURL *string
 
-	// Languages: ["vi", "en", "zh", "ja", "ko"]
-	Languages json.RawMessage
+	// Languages arrays
+	SourceLanguages []string `db:"source_languages"` // Array of ISO 639-1 codes
+	TargetLanguages []string `db:"target_languages"` // Array of ISO 639-1 codes
 
 	// Thống kê
-	NovelCount         int
-	ChapterCount       int
-	WordCount          int64
-	ContributionCount  int
-	FollowerCount      int
+	TranslationCount     int   `db:"translation_count"`
+	TotalWordsTranslated int64 `db:"total_words_translated"`
 
 	// Chất lượng (0-5)
-	RatingAverage float64
-	RatingCount   int
+	QualityScore float64 `db:"quality_score"`
 
-	IsVerified bool
+	// Metadata (JSONB)
+	Metadata json.RawMessage
 
+	// Audit fields
+	CreatedBy uuid.UUID
+	UpdatedBy *uuid.UUID
+	DeletedBy *uuid.UUID
+	Version   int
 	CreatedAt time.Time
 	UpdatedAt time.Time
 	DeletedAt *time.Time
@@ -67,10 +70,10 @@ type TranslatorRepository interface {
 	GetNovelTranslators(ctx context.Context, novelID uuid.UUID) ([]*NovelTranslator, error)
 
 	// AddNovelTranslator thêm translator cho novel
-	AddNovelTranslator(ctx context.Context, novelID, translatorID uuid.UUID, targetLanguage, role string, displayOrder int) error
+	AddNovelTranslator(ctx context.Context, novelID, translatorID uuid.UUID, language, role string, displayOrder int) error
 
 	// RemoveNovelTranslator xóa translator khỏi novel
-	RemoveNovelTranslator(ctx context.Context, novelID, translatorID uuid.UUID, targetLanguage string) error
+	RemoveNovelTranslator(ctx context.Context, novelID, translatorID uuid.UUID, language string) error
 
 	// UpdateStatistics cập nhật thống kê
 	UpdateStatistics(ctx context.Context, id uuid.UUID, stats TranslatorStatistics) error
@@ -78,31 +81,27 @@ type TranslatorRepository interface {
 
 // TranslatorFilter định nghĩa các filter cho việc query translators
 type TranslatorFilter struct {
-	SearchQuery *string
-	Languages   []string // Filter by supported languages
-	IsVerified  *bool
-	MinRating   *float64
-	SortBy      string // "name", "rating", "chapter_count", "follower_count"
-	SortOrder   string // "asc", "desc"
-	Limit       int
-	Offset      int
+	SearchQuery     *string
+	SourceLanguages []string // Filter by source languages
+	TargetLanguages []string // Filter by target languages
+	MinQualityScore *float64
+	SortBy          string // "name", "quality_score", "translation_count"
+	SortOrder       string // "asc", "desc"
+	Limit           int
+	Offset          int
 }
 
 // TranslatorStatistics chứa thông tin thống kê để update
 type TranslatorStatistics struct {
-	NovelCount        *int
-	ChapterCount      *int
-	WordCount         *int64
-	ContributionCount *int
-	FollowerCount     *int
-	RatingAverage     *float64
-	RatingCount       *int
+	TranslationCount     *int
+	TotalWordsTranslated *int64
+	QualityScore         *float64
 }
 
 // NovelTranslator chứa thông tin về translator và role trong novel
 type NovelTranslator struct {
-	Translator     *Translator
-	TargetLanguage string // Ngôn ngữ đích
-	Role           string // "lead_translator", "translator", "proofreader"
-	DisplayOrder   int
+	Translator   *Translator
+	Language     string // Target language for translation
+	Role         string // "lead_translator", "translator", "proofreader"
+	DisplayOrder int
 }

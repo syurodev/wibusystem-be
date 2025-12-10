@@ -511,7 +511,7 @@ func (h *Handler) GetNovelFull(c *gin.Context) {
 	}
 
 	// Load chapters without volume
-	filter := domain.ChapterFilter{
+	filter := domain.NovelChapterFilter{
 		PublishedOnly: true,
 		SortBy:        "chapter_number",
 		SortOrder:     "asc",
@@ -636,7 +636,7 @@ func mapToNovelResponse(novel *domain.Novel) NovelResponse {
 	}
 }
 
-func mapToChapterSummary(ch *domain.Chapter) ChapterSummaryResponse {
+func mapToChapterSummary(ch *domain.NovelChapter) ChapterSummaryResponse {
 	resp := ChapterSummaryResponse{
 		ID:            ch.ID.String(),
 		ChapterNumber: ch.ChapterNumber,

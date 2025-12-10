@@ -8,30 +8,28 @@ import (
 	"github.com/gofrs/uuid/v5"
 )
 
-// ChapterStatus định nghĩa trạng thái của chapter
-type ChapterStatus string
+// NovelChapterStatus định nghĩa trạng thái của chapter
+type NovelChapterStatus string
 
 const (
-	ChapterStatusDraft     ChapterStatus = "draft"
-	ChapterStatusPublished ChapterStatus = "published"
-	ChapterStatusScheduled ChapterStatus = "scheduled"
+	NovelChapterStatusDraft     NovelChapterStatus = "draft"
+	NovelChapterStatusPublished NovelChapterStatus = "published"
+	NovelChapterStatusScheduled NovelChapterStatus = "scheduled"
 )
 
-// Chapter là domain model cho chapter/chương trong hệ thống
-// Đây là cấp thấp nhất trong cấu trúc phân cấp Novel > Volume > Chapter
-type Chapter struct {
+// NovelChapter là domain model cho chapter/chương trong hệ thống
+// Đây là cấp thấp nhất trong cấu trúc phân cấp Novel > NovelVolume > NovelChapter
+type NovelChapter struct {
 	ID       uuid.UUID
 	NovelID  uuid.UUID
 	VolumeID *uuid.UUID // Nullable: chapter có thể tồn tại mà không thuộc volume
-	Novel    *Novel     `db:"-"` // Optional: được load bởi JOIN query
-	Volume   *Volume    `db:"-"` // Optional: được load bởi JOIN query
 
 	ChapterNumber int
 	Title         string
 	Slug          string // SEO-friendly URL
 
 	// Content lưu trữ dạng JSONB cho nội dung phong phú
-	// Ví dụ: {"blocks": [{"type": "paragraph", "content": "..."}], "version": "1.0"}
+	// Ví dụ: {\"blocks\": [{\"type\": \"paragraph\", \"content\": \"...\"}], \"version\": \"1.0\"}
 	Content json.RawMessage
 
 	// Metadata về nội dung
@@ -44,7 +42,7 @@ type Chapter struct {
 	Currency *string
 
 	// Trạng thái và hiển thị
-	Status ChapterStatus
+	Status NovelChapterStatus
 
 	// Thống kê
 	ViewCount    int64
@@ -63,31 +61,37 @@ type Chapter struct {
 
 	// Audit fields
 	CreatedBy uuid.UUID
-	UpdatedBy uuid.UUID
+	UpdatedBy *uuid.UUID
+	DeletedBy *uuid.UUID
+	Version   int
 	CreatedAt time.Time
 	UpdatedAt time.Time
 	DeletedAt *time.Time
+
+	// Relationships (loaded via JOIN)
+	Novel  *Novel       `db:"-"` // Optional: được load bởi JOIN query
+	Volume *NovelVolume `db:"-"` // Optional: được load bởi JOIN query
 }
 
-// ChapterRepository định nghĩa interface cho việc truy cập dữ liệu chapter
-type ChapterRepository interface {
+// NovelChapterRepository định nghĩa interface cho việc truy cập dữ liệu chapter
+type NovelChapterRepository interface {
 	// GetByID lấy chapter theo ID
-	GetByID(ctx context.Context, id uuid.UUID) (*Chapter, error)
+	GetByID(ctx context.Context, id uuid.UUID) (*NovelChapter, error)
 
 	// GetByNovelIDAndNumber lấy chapter theo novel ID và chapter number
-	GetByNovelIDAndNumber(ctx context.Context, novelID uuid.UUID, chapterNumber int) (*Chapter, error)
+	GetByNovelIDAndNumber(ctx context.Context, novelID uuid.UUID, chapterNumber int) (*NovelChapter, error)
 
 	// GetByNovelID lấy danh sách chapter theo novel ID
-	GetByNovelID(ctx context.Context, novelID uuid.UUID, filter ChapterFilter) ([]*Chapter, error)
+	GetByNovelID(ctx context.Context, novelID uuid.UUID, filter NovelChapterFilter) ([]*NovelChapter, error)
 
 	// GetByVolumeID lấy danh sách chapter theo volume ID
-	GetByVolumeID(ctx context.Context, volumeID uuid.UUID, publishedOnly bool) ([]*Chapter, error)
+	GetByVolumeID(ctx context.Context, volumeID uuid.UUID, publishedOnly bool) ([]*NovelChapter, error)
 
 	// Create tạo chapter mới
-	Create(ctx context.Context, chapter *Chapter) error
+	Create(ctx context.Context, chapter *NovelChapter) error
 
 	// Update cập nhật thông tin chapter
-	Update(ctx context.Context, chapter *Chapter) error
+	Update(ctx context.Context, chapter *NovelChapter) error
 
 	// Delete xóa mềm chapter
 	Delete(ctx context.Context, id uuid.UUID) error
@@ -99,7 +103,7 @@ type ChapterRepository interface {
 	Schedule(ctx context.Context, id uuid.UUID, scheduledAt time.Time) error
 
 	// GetScheduledChapters lấy danh sách chapter cần xuất bản
-	GetScheduledChapters(ctx context.Context, before time.Time) ([]*Chapter, error)
+	GetScheduledChapters(ctx context.Context, before time.Time) ([]*NovelChapter, error)
 
 	// IncrementViewCount tăng view count
 	IncrementViewCount(ctx context.Context, id uuid.UUID) error
@@ -109,31 +113,31 @@ type ChapterRepository interface {
 	BatchIncrementViewCount(ctx context.Context, increments map[uuid.UUID]int64) error
 
 	// UpdateStatistics cập nhật thống kê của chapter
-	UpdateStatistics(ctx context.Context, id uuid.UUID, stats ChapterStatistics) error
+	UpdateStatistics(ctx context.Context, id uuid.UUID, stats NovelChapterStatistics) error
 }
 
-// ChapterFilter định nghĩa các filter cho việc query chapter
-type ChapterFilter struct {
-	Status       *ChapterStatus
-	VolumeID     *uuid.UUID
+// NovelChapterFilter định nghĩa các filter cho việc query chapter
+type NovelChapterFilter struct {
+	Status        *NovelChapterStatus
+	VolumeID      *uuid.UUID
 	PublishedOnly bool
-	IsFree       *bool
-	Limit        int
-	Offset       int
-	SortBy       string // "chapter_number", "published_at", "views"
-	SortOrder    string // "asc", "desc"
+	IsFree        *bool
+	Limit         int
+	Offset        int
+	SortBy        string // "chapter_number", "published_at", "views"
+	SortOrder     string // "asc", "desc"
 }
 
-// ChapterStatistics chứa thông tin thống kê để update
-type ChapterStatistics struct {
+// NovelChapterStatistics chứa thông tin thống kê để update
+type NovelChapterStatistics struct {
 	ViewCount    *int64
 	LikeCount    *int
 	CommentCount *int
 }
 
-// ChapterSummary là phiên bản rút gọn của chapter (không có content)
+// NovelChapterSummary là phiên bản rút gọn của chapter (không có content)
 // Dùng cho danh sách chapter để giảm kích thước response
-type ChapterSummary struct {
+type NovelChapterSummary struct {
 	ID            uuid.UUID
 	NovelID       uuid.UUID
 	VolumeID      *uuid.UUID
@@ -144,7 +148,7 @@ type ChapterSummary struct {
 	IsFree        bool
 	Price         *float64
 	Currency      *string
-	Status        ChapterStatus
+	Status        NovelChapterStatus
 	ViewCount     int64
 	PublishedAt   *time.Time
 	CreatedAt     time.Time

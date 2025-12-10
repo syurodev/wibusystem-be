@@ -38,7 +38,7 @@ func (r *volumeHistoryRepository) GetLatestVersion(ctx context.Context, volumeID
 }
 
 // LogUpdate logs a volume update to history
-func (r *volumeHistoryRepository) LogUpdate(ctx context.Context, volumeID, novelID uuid.UUID, oldVolume, newVolume *domain.Volume, changedBy uuid.UUID, requestContext map[string]any) error {
+func (r *volumeHistoryRepository) LogUpdate(ctx context.Context, volumeID, novelID uuid.UUID, oldVolume, newVolume *domain.NovelVolume, changedBy uuid.UUID, requestContext map[string]any) error {
 	// Get next version number
 	latestVersion, err := r.GetLatestVersion(ctx, volumeID)
 	if err != nil {

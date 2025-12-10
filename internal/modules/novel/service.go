@@ -17,7 +17,7 @@ import (
 // NovelService cung cấp business logic cho novels
 type novelServiceImpl struct {
 	novelRepo  domain.NovelRepository
-	volumeRepo domain.VolumeRepository
+	volumeRepo domain.NovelVolumeRepository
 	genreRepo  domain.GenreRepository
 	authorRepo domain.AuthorRepository
 	artistRepo domain.ArtistRepository
@@ -28,7 +28,7 @@ type novelServiceImpl struct {
 // NewNovelService tạo một instance mới của NovelService
 func NewService(
 	novelRepo domain.NovelRepository,
-	volumeRepo domain.VolumeRepository,
+	volumeRepo domain.NovelVolumeRepository,
 	genreRepo domain.GenreRepository,
 	authorRepo domain.AuthorRepository,
 	artistRepo domain.ArtistRepository,

@@ -33,7 +33,7 @@ const (
 type ChapterTranslation struct {
 	ID        uuid.UUID
 	ChapterID uuid.UUID
-	Chapter   *Chapter // Optional: được load bởi JOIN query
+	Chapter   *NovelChapter // Optional: được load bởi JOIN query
 
 	// Language code (ISO 639-1)
 	Language string
@@ -143,7 +143,7 @@ type TranslationStatisticsUpdate struct {
 type TranslationContribution struct {
 	ID        uuid.UUID
 	ChapterID uuid.UUID
-	Chapter   *Chapter // Optional
+	Chapter   *NovelChapter // Optional
 
 	// Contributor
 	ContributorID uuid.UUID

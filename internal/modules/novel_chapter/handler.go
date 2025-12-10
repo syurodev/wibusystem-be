@@ -258,14 +258,14 @@ func (h *Handler) ListChaptersByNovel(c *gin.Context) {
 		return
 	}
 
-	filter := domain.ChapterFilter{
+	filter := domain.NovelChapterFilter{
 		PublishedOnly: req.PublishedOnly,
 		SortBy:        req.SortBy,
 		SortOrder:     req.SortOrder,
 	}
 
 	if req.Status != "" {
-		status := domain.ChapterStatus(req.Status)
+		status := domain.NovelChapterStatus(req.Status)
 		filter.Status = &status
 	}
 
@@ -470,7 +470,7 @@ func (h *Handler) UpdateStatistics(c *gin.Context) {
 		return
 	}
 
-	stats := domain.ChapterStatistics{
+	stats := domain.NovelChapterStatistics{
 		ViewCount:    req.ViewCount,
 		LikeCount:    req.LikeCount,
 		CommentCount: req.CommentCount,
@@ -490,7 +490,7 @@ func (h *Handler) UpdateStatistics(c *gin.Context) {
 }
 
 // Helper function to map domain model to detail response
-func mapToChapterDetailResponse(chapter *domain.Chapter) ChapterDetailResponse {
+func mapToChapterDetailResponse(chapter *domain.NovelChapter) ChapterDetailResponse {
 	resp := ChapterDetailResponse{
 		ID:             chapter.ID.String(),
 		NovelID:        chapter.NovelID.String(),
@@ -532,7 +532,7 @@ func mapToChapterDetailResponse(chapter *domain.Chapter) ChapterDetailResponse {
 }
 
 // Helper function to map domain model to list response
-func mapToChapterResponse(chapter *domain.Chapter) ChapterResponse {
+func mapToChapterResponse(chapter *domain.NovelChapter) ChapterResponse {
 	resp := ChapterResponse{
 		ID:            chapter.ID.String(),
 		NovelID:       chapter.NovelID.String(),

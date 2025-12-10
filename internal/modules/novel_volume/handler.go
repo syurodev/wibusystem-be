@@ -291,7 +291,7 @@ func (h *Handler) UnpublishVolume(c *gin.Context) {
 
 // Helper function to map domain model to detail response
 
-func mapToVolumeDetailResponse(volume *domain.Volume) VolumeDetailResponse {
+func mapToVolumeDetailResponse(volume *domain.NovelVolume) VolumeDetailResponse {
 	resp := VolumeDetailResponse{
 		ID:            volume.ID.String(),
 		NovelID:       volume.NovelID.String(),
@@ -317,7 +317,7 @@ func mapToVolumeDetailResponse(volume *domain.Volume) VolumeDetailResponse {
 }
 
 // Helper function to map domain model to list response
-func mapToVolumeResponse(volume *domain.Volume) VolumeResponse {
+func mapToVolumeResponse(volume *domain.NovelVolume) VolumeResponse {
 	resp := VolumeResponse{
 		ID:            volume.ID.String(),
 		NovelID:       volume.NovelID.String(),

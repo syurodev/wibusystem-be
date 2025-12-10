@@ -18,12 +18,12 @@ type chapterRepository struct {
 }
 
 // NewChapterRepository tạo một instance mới của chapterRepository
-func NewChapterRepository(pool *pgxpool.Pool) domain.ChapterRepository {
+func NewChapterRepository(pool *pgxpool.Pool) domain.NovelChapterRepository {
 	return &chapterRepository{pool: pool}
 }
 
 // GetByID lấy chapter từ database theo ID
-func (r *chapterRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.Chapter, error) {
+func (r *chapterRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.NovelChapter, error) {
 	query := `
 		SELECT id, novel_id, volume_id, chapter_number, title, slug, content,
 		       word_count, character_count, is_free, price, currency, status,
@@ -39,7 +39,7 @@ func (r *chapterRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.
 		return nil, err
 	}
 
-	chapter, err := pgx.CollectOneRow(rows, pgx.RowToStructByName[domain.Chapter])
+	chapter, err := pgx.CollectOneRow(rows, pgx.RowToStructByName[domain.NovelChapter])
 	if err != nil {
 		return nil, err
 	}
@@ -48,7 +48,7 @@ func (r *chapterRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.
 }
 
 // GetByNovelIDAndNumber lấy chapter theo novel ID và chapter number
-func (r *chapterRepository) GetByNovelIDAndNumber(ctx context.Context, novelID uuid.UUID, chapterNumber int) (*domain.Chapter, error) {
+func (r *chapterRepository) GetByNovelIDAndNumber(ctx context.Context, novelID uuid.UUID, chapterNumber int) (*domain.NovelChapter, error) {
 	query := `
 		SELECT id, novel_id, volume_id, chapter_number, title, slug, content,
 		       word_count, character_count, is_free, price, currency, status,
@@ -64,7 +64,7 @@ func (r *chapterRepository) GetByNovelIDAndNumber(ctx context.Context, novelID u
 		return nil, err
 	}
 
-	chapter, err := pgx.CollectOneRow(rows, pgx.RowToStructByName[domain.Chapter])
+	chapter, err := pgx.CollectOneRow(rows, pgx.RowToStructByName[domain.NovelChapter])
 	if err != nil {
 		return nil, err
 	}
@@ -73,7 +73,7 @@ func (r *chapterRepository) GetByNovelIDAndNumber(ctx context.Context, novelID u
 }
 
 // GetByNovelID lấy danh sách chapter theo novel ID
-func (r *chapterRepository) GetByNovelID(ctx context.Context, novelID uuid.UUID, filter domain.ChapterFilter) ([]*domain.Chapter, error) {
+func (r *chapterRepository) GetByNovelID(ctx context.Context, novelID uuid.UUID, filter domain.NovelChapterFilter) ([]*domain.NovelChapter, error) {
 	var whereClauses []string
 	var args []any
 	argIdx := 2
@@ -154,7 +154,7 @@ func (r *chapterRepository) GetByNovelID(ctx context.Context, novelID uuid.UUID,
 		return nil, err
 	}
 
-	chapters, err := pgx.CollectRows(rows, pgx.RowToAddrOfStructByName[domain.Chapter])
+	chapters, err := pgx.CollectRows(rows, pgx.RowToAddrOfStructByName[domain.NovelChapter])
 	if err != nil {
 		return nil, err
 	}
@@ -163,7 +163,7 @@ func (r *chapterRepository) GetByNovelID(ctx context.Context, novelID uuid.UUID,
 }
 
 // GetByVolumeID lấy danh sách chapter theo volume ID
-func (r *chapterRepository) GetByVolumeID(ctx context.Context, volumeID uuid.UUID, publishedOnly bool) ([]*domain.Chapter, error) {
+func (r *chapterRepository) GetByVolumeID(ctx context.Context, volumeID uuid.UUID, publishedOnly bool) ([]*domain.NovelChapter, error) {
 	query := `
 		SELECT id, novel_id, volume_id, chapter_number, title, slug, content,
 		       word_count, character_count, is_free, price, currency, status,
@@ -185,7 +185,7 @@ func (r *chapterRepository) GetByVolumeID(ctx context.Context, volumeID uuid.UUI
 		return nil, err
 	}
 
-	chapters, err := pgx.CollectRows(rows, pgx.RowToAddrOfStructByName[domain.Chapter])
+	chapters, err := pgx.CollectRows(rows, pgx.RowToAddrOfStructByName[domain.NovelChapter])
 	if err != nil {
 		return nil, err
 	}
@@ -194,7 +194,7 @@ func (r *chapterRepository) GetByVolumeID(ctx context.Context, volumeID uuid.UUI
 }
 
 // Create tạo chapter mới trong database
-func (r *chapterRepository) Create(ctx context.Context, chapter *domain.Chapter) error {
+func (r *chapterRepository) Create(ctx context.Context, chapter *domain.NovelChapter) error {
 	query := `
 		INSERT INTO catalog.novel_chapters (
 			id, novel_id, volume_id, chapter_number, title, slug, content,
@@ -228,7 +228,7 @@ func (r *chapterRepository) Create(ctx context.Context, chapter *domain.Chapter)
 }
 
 // Update cập nhật thông tin chapter
-func (r *chapterRepository) Update(ctx context.Context, chapter *domain.Chapter) error {
+func (r *chapterRepository) Update(ctx context.Context, chapter *domain.NovelChapter) error {
 	query := `
 		UPDATE catalog.novel_chapters
 		SET volume_id = $2,
@@ -311,7 +311,7 @@ func (r *chapterRepository) Schedule(ctx context.Context, id uuid.UUID, schedule
 }
 
 // GetScheduledChapters lấy danh sách chapter cần xuất bản
-func (r *chapterRepository) GetScheduledChapters(ctx context.Context, before time.Time) ([]*domain.Chapter, error) {
+func (r *chapterRepository) GetScheduledChapters(ctx context.Context, before time.Time) ([]*domain.NovelChapter, error) {
 	query := `
 		SELECT id, novel_id, volume_id, chapter_number, title, slug, content,
 		       word_count, character_count, is_free, price, currency, status,
@@ -330,7 +330,7 @@ func (r *chapterRepository) GetScheduledChapters(ctx context.Context, before tim
 		return nil, err
 	}
 
-	chapters, err := pgx.CollectRows(rows, pgx.RowToAddrOfStructByName[domain.Chapter])
+	chapters, err := pgx.CollectRows(rows, pgx.RowToAddrOfStructByName[domain.NovelChapter])
 	if err != nil {
 		return nil, err
 	}
@@ -351,7 +351,7 @@ func (r *chapterRepository) IncrementViewCount(ctx context.Context, id uuid.UUID
 }
 
 // UpdateStatistics cập nhật thống kê của chapter
-func (r *chapterRepository) UpdateStatistics(ctx context.Context, id uuid.UUID, stats domain.ChapterStatistics) error {
+func (r *chapterRepository) UpdateStatistics(ctx context.Context, id uuid.UUID, stats domain.NovelChapterStatistics) error {
 	var setClauses []string
 	var args []any
 	argIdx := 2

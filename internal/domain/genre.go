@@ -32,8 +32,11 @@ type Genre struct {
 	// Audit
 	CreatedBy *uuid.UUID
 	UpdatedBy *uuid.UUID
+	DeletedBy *uuid.UUID
+	Version   int
 	CreatedAt time.Time
 	UpdatedAt time.Time
+	DeletedAt *time.Time
 }
 
 // Trend định nghĩa xu hướng của genre

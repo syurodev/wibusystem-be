@@ -22,6 +22,7 @@ type Artist struct {
 
 	// Specialization: cover_artist, illustrator, manga_artist, etc.
 	Specialization *string
+	PortfolioURL   *string
 
 	// Thống kê
 	NovelCount    int
@@ -30,13 +31,17 @@ type Artist struct {
 
 	IsVerified bool
 
+	// Metadata (JSONB)
+	Metadata json.RawMessage
+
 	// Audit
 	CreatedBy uuid.UUID
 	UpdatedBy *uuid.UUID
+	DeletedBy *uuid.UUID
+	Version   int
 	CreatedAt time.Time
 	UpdatedAt time.Time
 	DeletedAt *time.Time
-	DeletedBy *uuid.UUID
 }
 
 // ArtistRepository định nghĩa interface cho việc truy cập dữ liệu artist

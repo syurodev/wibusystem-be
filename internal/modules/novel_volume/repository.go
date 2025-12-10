@@ -9,22 +9,23 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// volumeRepository triển khai VolumeRepository sử dụng pgx
+// volumeRepository triển khai NovelVolumeRepository sử dụng pgx
 type volumeRepository struct {
 	pool *pgxpool.Pool
 }
 
 // NewVolumeRepository tạo một instance mới của volumeRepository
-func NewVolumeRepository(pool *pgxpool.Pool) domain.VolumeRepository {
+func NewVolumeRepository(pool *pgxpool.Pool) domain.NovelVolumeRepository {
 	return &volumeRepository{pool: pool}
 }
 
 // GetByID lấy volume từ database theo ID
-func (r *volumeRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.Volume, error) {
+func (r *volumeRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.NovelVolume, error) {
 	query := `
 		SELECT v.id, v.novel_id, v.volume_number, v.title, v.slug, v.description,
 		       v.cover_image_url, v.chapter_count, v.word_count, v.display_order,
-		       v.is_published, v.published_at, v.created_at, v.updated_at, v.deleted_at, v.created_by,
+		       v.is_published, v.published_at, v.created_by, v.updated_by, v.deleted_by,
+		       v.version, v.created_at, v.updated_at, v.deleted_at,
 		       n.title as novel_title
 		FROM catalog.novel_volumes v
 		LEFT JOIN catalog.novels n ON v.novel_id = n.id
@@ -36,7 +37,7 @@ func (r *volumeRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.V
 		return nil, err
 	}
 
-	volume, err := pgx.CollectOneRow(rows, pgx.RowToStructByName[domain.Volume])
+	volume, err := pgx.CollectOneRow(rows, pgx.RowToStructByName[domain.NovelVolume])
 	if err != nil {
 		return nil, err
 	}
@@ -45,11 +46,12 @@ func (r *volumeRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.V
 }
 
 // GetByNovelIDAndNumber lấy volume theo novel ID và volume number
-func (r *volumeRepository) GetByNovelIDAndNumber(ctx context.Context, novelID uuid.UUID, volumeNumber int) (*domain.Volume, error) {
+func (r *volumeRepository) GetByNovelIDAndNumber(ctx context.Context, novelID uuid.UUID, volumeNumber int) (*domain.NovelVolume, error) {
 	query := `
 		SELECT v.id, v.novel_id, v.volume_number, v.title, v.slug, v.description,
 		       v.cover_image_url, v.chapter_count, v.word_count, v.display_order,
-		       v.is_published, v.published_at, v.created_at, v.updated_at, v.deleted_at, v.created_by,
+		       v.is_published, v.published_at, v.created_by, v.updated_by, v.deleted_by,
+		       v.version, v.created_at, v.updated_at, v.deleted_at,
 		       n.title as novel_title
 		FROM catalog.novel_volumes v
 		LEFT JOIN catalog.novels n ON v.novel_id = n.id
@@ -61,7 +63,7 @@ func (r *volumeRepository) GetByNovelIDAndNumber(ctx context.Context, novelID uu
 		return nil, err
 	}
 
-	volume, err := pgx.CollectOneRow(rows, pgx.RowToStructByName[domain.Volume])
+	volume, err := pgx.CollectOneRow(rows, pgx.RowToStructByName[domain.NovelVolume])
 	if err != nil {
 		return nil, err
 	}
@@ -70,11 +72,12 @@ func (r *volumeRepository) GetByNovelIDAndNumber(ctx context.Context, novelID uu
 }
 
 // GetByNovelID lấy danh sách volume theo novel ID
-func (r *volumeRepository) GetByNovelID(ctx context.Context, novelID uuid.UUID, publishedOnly bool) ([]*domain.Volume, error) {
+func (r *volumeRepository) GetByNovelID(ctx context.Context, novelID uuid.UUID, publishedOnly bool) ([]*domain.NovelVolume, error) {
 	query := `
 		SELECT v.id, v.novel_id, v.volume_number, v.title, v.slug, v.description,
 		       v.cover_image_url, v.chapter_count, v.word_count, v.display_order,
-		       v.is_published, v.published_at, v.created_at, v.updated_at, v.deleted_at, v.created_by,
+		       v.is_published, v.published_at, v.created_by, v.updated_by, v.deleted_by,
+		       v.version, v.created_at, v.updated_at, v.deleted_at,
 		       n.title as novel_title
 		FROM catalog.novel_volumes v
 		LEFT JOIN catalog.novels n ON v.novel_id = n.id
@@ -92,7 +95,7 @@ func (r *volumeRepository) GetByNovelID(ctx context.Context, novelID uuid.UUID, 
 		return nil, err
 	}
 
-	volumes, err := pgx.CollectRows(rows, pgx.RowToAddrOfStructByName[domain.Volume])
+	volumes, err := pgx.CollectRows(rows, pgx.RowToAddrOfStructByName[domain.NovelVolume])
 	if err != nil {
 		return nil, err
 	}
@@ -101,7 +104,7 @@ func (r *volumeRepository) GetByNovelID(ctx context.Context, novelID uuid.UUID, 
 }
 
 // Create tạo volume mới trong database
-func (r *volumeRepository) Create(ctx context.Context, volume *domain.Volume) error {
+func (r *volumeRepository) Create(ctx context.Context, volume *domain.NovelVolume) error {
 	query := `
 		INSERT INTO catalog.novel_volumes (
 			id, novel_id, volume_number, title, slug, description,
@@ -126,7 +129,7 @@ func (r *volumeRepository) Create(ctx context.Context, volume *domain.Volume) er
 }
 
 // Update cập nhật thông tin volume
-func (r *volumeRepository) Update(ctx context.Context, volume *domain.Volume) error {
+func (r *volumeRepository) Update(ctx context.Context, volume *domain.NovelVolume) error {
 	query := `
 		UPDATE catalog.novel_volumes
 		SET volume_number = $2,

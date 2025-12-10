@@ -1,4 +1,4 @@
-package domain
+package media
 
 import "encoding/json"
 
@@ -11,27 +11,27 @@ type MediaSeriesResponse struct {
 	OriginalTitle    *string `json:"original_title,omitempty"`
 	Slug             string  `json:"slug"`
 	OriginalLanguage *string `json:"original_language,omitempty"`
-	
+
 	// Content fields
-	Synopsis    json.RawMessage `json:"synopsis"` // TNode[] as raw JSON
-	CoverURL    *string         `json:"cover_url,omitempty"`
-	
+	Synopsis json.RawMessage `json:"synopsis"` // TNode[] as raw JSON
+	CoverURL *string         `json:"cover_url,omitempty"`
+
 	// Type and status
 	Type   string `json:"type"`   // "novel", "manga", "anime"
 	Status string `json:"status"` // "ongoing", "completed", etc.
-	
+
 	// Relations
 	Genres []GenreInfo `json:"genres"`
 	Owner  OwnerInfo   `json:"owner"`
-	
+
 	// Stats
 	Rating    float64 `json:"rating"`
 	Views     int64   `json:"views"`
 	Favorites int     `json:"favorites"`
-	
+
 	// Optional
 	LatestChapter *LatestChapterInfo `json:"latest_chapter,omitempty"`
-	
+
 	// Timestamps
 	CreatedAt string `json:"created_at"`
 	UpdatedAt string `json:"updated_at"`
@@ -53,4 +53,12 @@ type LatestChapterInfo struct {
 	ID          string `json:"id"`
 	Title       string `json:"title"`
 	PublishedAt string `json:"published_at"`
+}
+
+// HomeData là DTO cho response trang chủ media
+type HomeData struct {
+	Hero     []map[string]any `json:"hero"`
+	Trending []map[string]any `json:"trending"`
+	Creators []any            `json:"creators"`
+	Genres   []any            `json:"genres"`
 }

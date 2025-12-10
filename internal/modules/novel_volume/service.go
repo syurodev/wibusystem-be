@@ -16,21 +16,21 @@ import (
 
 // VolumeService provides business logic for volumes
 type volumeServiceImpl struct {
-	volumeRepo domain.VolumeRepository
+	volumeRepo domain.NovelVolumeRepository
 	historyRepo VolumeHistoryRepository
 }
 
 // VolumeHistoryRepository interface for logging volume history
 // TODO: Move to domain package once fully implemented
 type VolumeHistoryRepository interface {
-	LogUpdate(ctx context.Context, volumeID, novelID uuid.UUID, oldVolume, newVolume *domain.Volume, changedBy uuid.UUID, requestContext map[string]any) error
+	LogUpdate(ctx context.Context, volumeID, novelID uuid.UUID, oldVolume, newVolume *domain.NovelVolume, changedBy uuid.UUID, requestContext map[string]any) error
 	LogPublish(ctx context.Context, volumeID, novelID uuid.UUID, changedBy uuid.UUID, requestContext map[string]any) error
 	LogUnpublish(ctx context.Context, volumeID, novelID uuid.UUID, changedBy uuid.UUID, requestContext map[string]any) error
 	GetLatestVersion(ctx context.Context, volumeID uuid.UUID) (int, error)
 }
 
 // NewVolumeService creates a new instance of VolumeService
-func NewService(volumeRepo domain.VolumeRepository, historyRepo VolumeHistoryRepository) *volumeServiceImpl {
+func NewService(volumeRepo domain.NovelVolumeRepository, historyRepo VolumeHistoryRepository) *volumeServiceImpl {
 	return &volumeServiceImpl{
 		volumeRepo: volumeRepo,
 		historyRepo: historyRepo,
@@ -38,7 +38,7 @@ func NewService(volumeRepo domain.VolumeRepository, historyRepo VolumeHistoryRep
 }
 
 // CreateVolume creates a new volume with auto-calculated volume number
-func (s *volumeServiceImpl) CreateVolume(ctx context.Context, novelID uuid.UUID, title string, description, coverImageURL *string, displayOrder int, isPublished bool, createdBy uuid.UUID) (*domain.Volume, error) {
+func (s *volumeServiceImpl) CreateVolume(ctx context.Context, novelID uuid.UUID, title string, description, coverImageURL *string, displayOrder int, isPublished bool, createdBy uuid.UUID) (*domain.NovelVolume, error) {
 	// Validate input
 	if title == "" {
 		return nil, pkgerrors.BadRequest(I18nInvalidInput, "title is required")
@@ -76,7 +76,7 @@ func (s *volumeServiceImpl) CreateVolume(ctx context.Context, novelID uuid.UUID,
 		displayOrder = nextVolumeNumber
 	}
 
-	volume := &domain.Volume{
+	volume := &domain.NovelVolume{
 		ID:           id,
 		NovelID:      novelID,
 		VolumeNumber: nextVolumeNumber,
@@ -98,7 +98,7 @@ func (s *volumeServiceImpl) CreateVolume(ctx context.Context, novelID uuid.UUID,
 }
 
 // UpdateVolume updates volume information with history tracking
-func (s *volumeServiceImpl) UpdateVolume(ctx context.Context, id uuid.UUID, volumeNumber int, title string, description, coverImageURL *string, displayOrder int, isPublished bool, changedBy uuid.UUID, requestContext map[string]any) (*domain.Volume, error) {
+func (s *volumeServiceImpl) UpdateVolume(ctx context.Context, id uuid.UUID, volumeNumber int, title string, description, coverImageURL *string, displayOrder int, isPublished bool, changedBy uuid.UUID, requestContext map[string]any) (*domain.NovelVolume, error) {
 	// Validate input
 	if title == "" {
 		return nil, pkgerrors.BadRequest(I18nInvalidInput, "title is required")
@@ -132,7 +132,7 @@ func (s *volumeServiceImpl) UpdateVolume(ctx context.Context, id uuid.UUID, volu
 	newSlug := slug.Make(title)
 
 	// Update fields
-	newVolume := &domain.Volume{
+	newVolume := &domain.NovelVolume{
 		ID:           oldVolume.ID,
 		NovelID:      oldVolume.NovelID,
 		VolumeNumber: volumeNumber,
@@ -187,7 +187,7 @@ func (s *volumeServiceImpl) DeleteVolume(ctx context.Context, id uuid.UUID) erro
 }
 
 // GetVolumeByID retrieves a volume by ID
-func (s *volumeServiceImpl) GetVolumeByID(ctx context.Context, id uuid.UUID) (*domain.Volume, error) {
+func (s *volumeServiceImpl) GetVolumeByID(ctx context.Context, id uuid.UUID) (*domain.NovelVolume, error) {
 	volume, err := s.volumeRepo.GetByID(ctx, id)
 	if err != nil {
 		if err == pgx.ErrNoRows {
@@ -199,7 +199,7 @@ func (s *volumeServiceImpl) GetVolumeByID(ctx context.Context, id uuid.UUID) (*d
 }
 
 // GetVolumesByNovelID retrieves all volumes for a novel
-func (s *volumeServiceImpl) GetVolumesByNovelID(ctx context.Context, novelID uuid.UUID, publishedOnly bool) ([]*domain.Volume, error) {
+func (s *volumeServiceImpl) GetVolumesByNovelID(ctx context.Context, novelID uuid.UUID, publishedOnly bool) ([]*domain.NovelVolume, error) {
 	return s.volumeRepo.GetByNovelID(ctx, novelID, publishedOnly)
 }
 
@@ -272,7 +272,7 @@ func (s *volumeServiceImpl) UnpublishVolume(ctx context.Context, id uuid.UUID, c
 }
 
 // Helper function to detect changed fields between old and new volume
-func detectVolumeChangedFields(old, new *domain.Volume) []string {
+func detectVolumeChangedFields(old, new *domain.NovelVolume) []string {
 	var changedFields []string
 
 	if old.VolumeNumber != new.VolumeNumber {

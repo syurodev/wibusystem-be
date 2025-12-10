@@ -21,7 +21,7 @@ import (
 type ViewTrackingService struct {
 	viewTrackingRepo  domain.ViewTrackingRepository
 	viewAnalyticsRepo domain.ViewAnalyticsRepository
-	chapterRepo       domain.ChapterRepository
+	chapterRepo       domain.NovelChapterRepository
 	novelRepo         domain.NovelRepository
 	genreRepo         domain.GenreRepository
 	logger            *zap.Logger
@@ -43,7 +43,7 @@ type ViewTrackingService struct {
 func NewViewTrackingService(
 	viewTrackingRepo domain.ViewTrackingRepository,
 	viewAnalyticsRepo domain.ViewAnalyticsRepository,
-	chapterRepo domain.ChapterRepository,
+	chapterRepo domain.NovelChapterRepository,
 	novelRepo domain.NovelRepository,
 	genreRepo domain.GenreRepository,
 	logger *zap.Logger,

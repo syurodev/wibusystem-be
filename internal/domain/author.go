@@ -34,13 +34,17 @@ type Author struct {
 	// Status
 	IsVerified bool
 
+	// Metadata (JSONB)
+	Metadata json.RawMessage
+
 	// Audit
 	CreatedBy uuid.UUID
 	UpdatedBy *uuid.UUID
+	DeletedBy *uuid.UUID
+	Version   int
 	CreatedAt time.Time
 	UpdatedAt time.Time
 	DeletedAt *time.Time
-	DeletedBy *uuid.UUID
 }
 
 // AuthorRepository định nghĩa interface cho việc truy cập dữ liệu author

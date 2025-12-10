@@ -17,11 +17,14 @@ type OAuth2Client struct {
 	ResponseTypes     []string   `db:"response_types"`
 	Scopes            []string   `db:"scopes"`
 	IsPublic          bool       `db:"is_public"`
-	IsInternal        bool       `db:"is_internal"`
-	TokenEndpointAuth string     `db:"token_endpoint_auth_method"`
 	OrganizationID    *uuid.UUID `db:"organization_id"`
-	ClientURI         *string    `db:"client_uri"`
+	OwnerUserID       *uuid.UUID `db:"owner_user_id"`
 	LogoURL           *string    `db:"logo_url"`
+	TermsOfServiceURL *string    `db:"terms_of_service_url"`
+	PolicyURL         *string    `db:"policy_url"`
+	ClientURI         *string    `db:"client_uri"`
+	TokenEndpointAuth string     `db:"token_endpoint_auth_method"`
+	IsInternal        bool       `db:"is_internal"`
 	Active            bool       `db:"active"`
 	CreatedAt         time.Time  `db:"created_at"`
 	UpdatedAt         time.Time  `db:"updated_at"`
