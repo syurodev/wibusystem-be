@@ -94,12 +94,12 @@ jobs:
             sed -i 's|DOCKER_IMAGE=.*|DOCKER_IMAGE=${{ env.DOCKER_IMAGE }}:latest|g' .env 2>/dev/null || echo "DOCKER_IMAGE=${{ env.DOCKER_IMAGE }}:latest" >> .env
 
             # Zero downtime deploy: chỉ recreate app container, giữ nguyên databases
-            docker compose --env-file .env -f deploy/docker-compose.production.yml up -d --no-deps --force-recreate wibusystem-be
+            docker compose --project-name wibusystem --env-file .env -f deploy/docker-compose.production.yml up -d --no-deps --force-recreate wibusystem-be
 
             # Wait for new container to be healthy
             echo "Waiting for container to be healthy..."
             for i in {1..30}; do
-              if docker compose --env-file .env -f deploy/docker-compose.production.yml ps wibusystem-be | grep -q "healthy"; then
+              if docker compose --project-name wibusystem --env-file .env -f deploy/docker-compose.production.yml ps wibusystem-be | grep -q "healthy"; then
                 echo "✓ Container is healthy!"
                 break
               fi
@@ -128,6 +128,6 @@ jobs:
               curl -f http://localhost:8080/health || echo "⚠ Health check failed, but container is running"
             else
               echo "✗ Container is not running!"
-              docker compose --env-file ${{ env.DEPLOY_PATH }}/.env -f ${{ env.DEPLOY_PATH }}/deploy/docker-compose.production.yml logs wibusystem-be
+              docker compose --project-name wibusystem --env-file ${{ env.DEPLOY_PATH }}/.env -f ${{ env.DEPLOY_PATH }}/deploy/docker-compose.production.yml logs wibusystem-be
               exit 1
             fi
