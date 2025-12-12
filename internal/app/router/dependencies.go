@@ -16,6 +16,7 @@ import (
 	novel_chapter "system/internal/modules/novel_chapter"
 	novel_volume "system/internal/modules/novel_volume"
 	oauth2_module "system/internal/modules/oauth2"
+	organization_module "system/internal/modules/organization"
 	user_module "system/internal/modules/user"
 	"system/internal/platform/cache"
 	"system/internal/platform/database"
@@ -52,6 +53,7 @@ type Repositories struct {
 	ViewTracking       domain.ViewTrackingRepository
 	Role               domain.RoleRepository
 	Creator            domain.CreatorRepository
+	Organization       domain.OrganizationRepository
 }
 
 // Services chứa tất cả service instances
@@ -74,6 +76,7 @@ type Services struct {
 	Media        media_module.MediaService
 	WebAuthn     auth_module.WebAuthnService
 	User         user_module.UserService
+	Organization organization_module.OrganizationService
 }
 
 // Handlers chứa tất cả handler instances
@@ -90,6 +93,7 @@ type Handlers struct {
 	User        *user_module.Handler
 	Media       *media_module.Handler
 	Creator     *creator_module.Handler
+	Organization *organization_module.Handler
 }
 
 // Dependencies chứa tất cả dependencies của ứng dụng
@@ -164,6 +168,7 @@ func newRepositories(db *database.PostgresDB, rdb *database.RedisClient, ch *dat
 		ViewTracking:       analytics_module.NewViewTrackingRedisRepository(rdb),
 		Role:               user_module.NewRoleRepository(db.Pool),
 		Creator:            creator_module.NewCreatorRepository(db.Pool),
+		Organization:       organization_module.NewRepository(db.Pool),
 	}
 }
 
@@ -266,6 +271,7 @@ func newServices(
 		Media:        mediaSvc,
 		WebAuthn:     webauthnSvc,
 		User:         userSvc,
+		Organization: organization_module.NewService(repos.Organization),
 	}, nil
 }
 
@@ -300,5 +306,6 @@ func newHandlers(
 		User:        user_module.NewHandler(services.User),
 		Media:       media_module.NewHandler(services.Analytics, services.Media),
 		Creator:     creator_module.NewHandler(services.Creator),
+		Organization: organization_module.NewHandler(services.Organization, zapLogger),
 	}
 }

@@ -87,16 +87,28 @@ ON CONFLICT (name) DO UPDATE SET
     action = EXCLUDED.action;
 
 -- =====================================================
--- Seed Tenant Permissions
+-- Seed Organization Permissions
 -- =====================================================
 
 INSERT INTO identify.permissions (name, scope, description, resource, action) VALUES
-    -- Tenant Management
-    ('tenant:manage_member', 'organization', 'Manage tenant members', 'organization', 'manage_member'),
-    ('tenant:assign_permission', 'organization', 'Assign permissions in tenant', 'organization', 'assign_permission'),
-    ('tenant:update_info', 'organization', 'Update tenant information', 'organization', 'update_info'),
-    ('tenant:view_stats', 'organization', 'View tenant statistics', 'organization', 'view_stats'),
-    ('tenant:billing_manage', 'organization', 'Manage tenant billing', 'organization', 'billing_manage'),
+    -- Organization Management (renamed from tenant:*)
+    ('organization:manage_member', 'organization', 'Manage organization members', 'organization', 'manage_member'),
+    ('organization:assign_role', 'organization', 'Assign roles to members in organization', 'organization', 'assign_role'),
+    ('organization:update_info', 'organization', 'Update organization information', 'organization', 'update_info'),
+    ('organization:view_stats', 'organization', 'View organization statistics', 'organization', 'view_stats'),
+    ('organization:billing_manage', 'organization', 'Manage organization billing', 'organization', 'billing_manage'),
+
+    -- Organization Member Management (NEW)
+    ('organization:invite_member', 'organization', 'Invite new members to organization', 'organization', 'invite_member'),
+    ('organization:approve_invite', 'organization', 'Approve pending member invites', 'organization', 'approve_invite'),
+    ('organization:kick_member', 'organization', 'Remove members from organization', 'organization', 'kick_member'),
+
+    -- Organization Settings Management (NEW)
+    ('organization:update_settings', 'organization', 'Update organization settings', 'organization', 'update_settings'),
+
+    -- Organization Report Management (NEW)
+    ('organization:respond_report', 'organization', 'Respond to reports about organization', 'organization', 'respond_report'),
+    ('organization:view_reports', 'organization', 'View reports about organization', 'organization', 'view_reports'),
 
     -- Content Management (Anime)
     ('content:create_anime', 'organization', 'Create anime content', 'content', 'create_anime'),
@@ -137,11 +149,11 @@ INSERT INTO identify.permissions (name, scope, description, resource, action) VA
     ('novel:volume_update', 'organization', 'Update novel volumes', 'novel', 'volume_update'),
     ('novel:volume_delete', 'organization', 'Delete novel volumes', 'novel', 'volume_delete'),
 
-    -- Master Data Management in Tenant
-    ('character:manage', 'organization', 'Manage characters in tenant', 'character', 'manage'),
-    ('creator:manage', 'organization', 'Manage creators in tenant', 'creator', 'manage'),
-    ('genre:manage', 'organization', 'Manage genres in tenant', 'genre', 'manage'),
-    ('relation:manage', 'organization', 'Manage relations in tenant', 'relation', 'manage'),
+    -- Master Data Management in Organization
+    ('character:manage', 'organization', 'Manage characters in organization', 'character', 'manage'),
+    ('creator:manage', 'organization', 'Manage creators in organization', 'creator', 'manage'),
+    ('genre:manage', 'organization', 'Manage genres in organization', 'genre', 'manage'),
+    ('relation:manage', 'organization', 'Manage relations in organization', 'relation', 'manage'),
 
     -- Content Publishing
     ('content:publish', 'organization', 'Publish content', 'content', 'publish'),
@@ -151,6 +163,12 @@ ON CONFLICT (name) DO UPDATE SET
     description = EXCLUDED.description,
     resource = EXCLUDED.resource,
     action = EXCLUDED.action;
+
+-- Global permission for reporting organizations
+INSERT INTO identify.permissions (name, scope, description, resource, action) VALUES
+    ('organization:report', 'global', 'Report an organization', 'organization', 'report')
+ON CONFLICT (name) DO UPDATE SET
+    description = EXCLUDED.description;
 
 -- =====================================================
 -- Seed Global Roles
@@ -259,7 +277,9 @@ WHERE scope = 'global'
         'content:stream_anime', 'content:read_manga', 'content:read_novel',
         -- Master data viewing
         'character:view', 'character:contribute', 'character:contribute_update_self',
-        'creator:view', 'genre:view', 'relation:view'
+        'creator:view', 'genre:view', 'relation:view',
+        -- Organization
+        'organization:report'
     )
 ON CONFLICT DO NOTHING;
 
@@ -291,7 +311,9 @@ WHERE scope = 'global'
         'character:view', 'character:contribute', 'character:contribute_update_self',
         'creator:view', 'genre:view', 'relation:view',
         -- Creator specific
-        'creator:create', 'creator:update'
+        'creator:create', 'creator:update',
+        -- Organization
+        'organization:report'
     )
 ON CONFLICT DO NOTHING;
 

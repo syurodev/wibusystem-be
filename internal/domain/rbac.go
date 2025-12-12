@@ -151,12 +151,25 @@ func (p Permission) String() string {
 // =====================================================
 
 const (
-	// Tenant Management
-	PermTenantManageMember     Permission = "tenant:manage_member"
-	PermTenantAssignPermission Permission = "tenant:assign_permission"
-	PermTenantUpdateInfo       Permission = "tenant:update_info"
-	PermTenantViewStats        Permission = "tenant:view_stats"
-	PermTenantBillingManage    Permission = "tenant:billing_manage"
+	// Organization Management (renamed from tenant:*)
+	PermOrgManageMember   Permission = "organization:manage_member"
+	PermOrgAssignRole     Permission = "organization:assign_role"
+	PermOrgUpdateInfo     Permission = "organization:update_info"
+	PermOrgViewStats      Permission = "organization:view_stats"
+	PermOrgBillingManage  Permission = "organization:billing_manage"
+
+	// Organization Member Management (NEW)
+	PermOrgInviteMember   Permission = "organization:invite_member"
+	PermOrgApproveInvite  Permission = "organization:approve_invite"
+	PermOrgKickMember     Permission = "organization:kick_member"
+
+	// Organization Settings Management (NEW)
+	PermOrgUpdateSettings Permission = "organization:update_settings"
+
+	// Organization Report Management (NEW)
+	PermOrgRespondReport  Permission = "organization:respond_report"
+	PermOrgViewReports    Permission = "organization:view_reports"
+	PermOrgReport         Permission = "organization:report" // global scope - for reporting orgs
 
 	// Content Management (Anime)
 	PermContentCreateAnime Permission = "content:create_anime"
@@ -197,7 +210,7 @@ const (
 	PermNovelVolumeUpdate  Permission = "novel:volume_update"
 	PermNovelVolumeDelete  Permission = "novel:volume_delete"
 
-	// Master Data Management in Tenant
+	// Master Data Management in Organization
 	PermCharacterManage Permission = "character:manage"
 	PermCreatorManage   Permission = "creator:manage"
 	PermGenreManage     Permission = "genre:manage"

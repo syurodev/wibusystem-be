@@ -66,4 +66,7 @@ type NovelService interface {
 
 	// GetNovelArtistsDetails lấy danh sách artist (chi tiết) của novel
 	GetNovelArtistsDetails(ctx context.Context, novelID uuid.UUID) ([]*domain.NovelArtist, error)
+
+	// GetNovelFull lấy toàn bộ dữ liệu novel cho trang chi tiết (public API)
+	GetNovelFull(ctx context.Context, slug string) (*NovelFullData, error)
 }

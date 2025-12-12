@@ -46,7 +46,7 @@ func (h *Handler) CreateVolume(c *gin.Context) {
 		return
 	}
 
-	novelIDStr := c.Param("id")
+	novelIDStr := c.Param("identifier")
 	novelID, err := uuid.FromString(novelIDStr)
 	if err != nil {
 		response.Error(c, http.StatusBadRequest, "INVALID_NOVEL_ID", I18nNovelNotFound, nil)
@@ -78,7 +78,7 @@ func (h *Handler) CreateVolume(c *gin.Context) {
 
 // UpdateVolume updates a volume
 func (h *Handler) UpdateVolume(c *gin.Context) {
-	idStr := c.Param("id")
+	idStr := c.Param("identifier")
 	id, err := uuid.FromString(idStr)
 	if err != nil {
 		response.Error(c, http.StatusBadRequest, "INVALID_ID", I18nInvalidID, nil)
@@ -126,7 +126,7 @@ func (h *Handler) UpdateVolume(c *gin.Context) {
 
 // DeleteVolume deletes a volume
 func (h *Handler) DeleteVolume(c *gin.Context) {
-	idStr := c.Param("id")
+	idStr := c.Param("identifier")
 	id, err := uuid.FromString(idStr)
 	if err != nil {
 		response.Error(c, http.StatusBadRequest, "INVALID_ID", I18nInvalidID, nil)
@@ -148,7 +148,7 @@ func (h *Handler) DeleteVolume(c *gin.Context) {
 
 // GetVolume retrieves volume details
 func (h *Handler) GetVolume(c *gin.Context) {
-	idStr := c.Param("id")
+	idStr := c.Param("identifier")
 	id, err := uuid.FromString(idStr)
 	if err != nil {
 		response.Error(c, http.StatusBadRequest, "INVALID_ID", I18nInvalidID, nil)
@@ -175,7 +175,7 @@ func (h *Handler) GetVolume(c *gin.Context) {
 
 // ListVolumesByNovel retrieves all volumes for a novel
 func (h *Handler) ListVolumesByNovel(c *gin.Context) {
-	novelIDStr := c.Param("id")
+	novelIDStr := c.Param("identifier")
 	novelID, err := uuid.FromString(novelIDStr)
 	if err != nil {
 		response.Error(c, http.StatusBadRequest, "INVALID_NOVEL_ID", I18nNovelNotFound, nil)
@@ -204,7 +204,7 @@ func (h *Handler) ListVolumesByNovel(c *gin.Context) {
 
 // UpdateDisplayOrder updates the display order of a volume
 func (h *Handler) UpdateDisplayOrder(c *gin.Context) {
-	idStr := c.Param("id")
+	idStr := c.Param("identifier")
 	id, err := uuid.FromString(idStr)
 	if err != nil {
 		response.Error(c, http.StatusBadRequest, "INVALID_ID", I18nInvalidID, nil)
@@ -232,7 +232,7 @@ func (h *Handler) UpdateDisplayOrder(c *gin.Context) {
 
 // PublishVolume publishes a volume
 func (h *Handler) PublishVolume(c *gin.Context) {
-	idStr := c.Param("id")
+	idStr := c.Param("identifier")
 	id, err := uuid.FromString(idStr)
 	if err != nil {
 		response.Error(c, http.StatusBadRequest, "INVALID_ID", I18nInvalidID, nil)
@@ -262,7 +262,7 @@ func (h *Handler) PublishVolume(c *gin.Context) {
 
 // UnpublishVolume unpublishes a volume
 func (h *Handler) UnpublishVolume(c *gin.Context) {
-	idStr := c.Param("id")
+	idStr := c.Param("identifier")
 	id, err := uuid.FromString(idStr)
 	if err != nil {
 		response.Error(c, http.StatusBadRequest, "INVALID_ID", I18nInvalidID, nil)

@@ -63,8 +63,8 @@ CREATE TABLE IF NOT EXISTS organizations
     slug                   VARCHAR(255)                                                 NOT NULL UNIQUE,
     status                 VARCHAR(50)              DEFAULT 'active'::CHARACTER VARYING NOT NULL
         CONSTRAINT organizations_status_check CHECK ((status)::TEXT = ANY
-                                                     ((ARRAY ['active'::CHARACTER VARYING, 'suspended'::CHARACTER VARYING, 'archived'::CHARACTER VARYING])::TEXT[])),
-    settings               jsonb,
+                                                     ((ARRAY ['active'::CHARACTER VARYING, 'flagged'::CHARACTER VARYING, 'suspended'::CHARACTER VARYING, 'archived'::CHARACTER VARYING])::TEXT[])),
+    settings               jsonb                    DEFAULT '{"bypass_invite_approval": false}'::jsonb,
     description            jsonb,
     avatar_url             VARCHAR(1000),
     is_recruiting          BOOLEAN                  DEFAULT FALSE                       NOT NULL,
@@ -77,6 +77,8 @@ CREATE TABLE IF NOT EXISTS organizations
         CONSTRAINT organizations_active_projects_check CHECK (active_projects >= 0),
     completed_translations INTEGER                  DEFAULT 0                           NOT NULL
         CONSTRAINT organizations_completed_translations_check CHECK (completed_translations >= 0),
+    report_count           INTEGER                  DEFAULT 0                           NOT NULL
+        CONSTRAINT organizations_report_count_check CHECK (report_count >= 0),
     metadata               jsonb                    DEFAULT '{}'::jsonb,
     created_by             uuid REFERENCES users ON DELETE RESTRICT,
     updated_by             uuid                                                         REFERENCES users ON DELETE SET NULL,
@@ -91,7 +93,7 @@ COMMENT ON TABLE organizations IS 'Bảng lưu trữ thông tin về các tổ c
 
 COMMENT ON COLUMN organizations.slug IS 'URL-friendly identifier cho organization';
 
-COMMENT ON COLUMN organizations.settings IS 'Cấu hình tùy chỉnh cho organization (JSONB format)';
+COMMENT ON COLUMN organizations.settings IS 'Cấu hình tùy chỉnh cho organization (JSONB format). Bao gồm: bypass_invite_approval';
 
 COMMENT ON COLUMN organizations.description IS 'Mô tả organization (Plate editor JSON output)';
 
@@ -100,6 +102,8 @@ COMMENT ON COLUMN organizations.can_translate IS 'Quyền dịch nội dung';
 COMMENT ON COLUMN organizations.can_proofread IS 'Quyền hiệu đính bản dịch';
 
 COMMENT ON COLUMN organizations.can_edit IS 'Quyền chỉnh sửa bản dịch';
+
+COMMENT ON COLUMN organizations.report_count IS 'Số lượng reports đang pending/org_responded';
 
 ALTER TABLE organizations
     OWNER TO system_dev;
@@ -115,6 +119,8 @@ CREATE INDEX idx_organizations_recruiting ON organizations ( is_recruiting ) WHE
 CREATE INDEX idx_organizations_metadata ON organizations USING gin ( metadata ) WHERE (deleted_at IS NULL);
 
 CREATE INDEX idx_organizations_description ON organizations USING gin ( description ) WHERE (deleted_at IS NULL);
+
+CREATE INDEX idx_organizations_report_count ON organizations ( report_count ) WHERE (deleted_at IS NULL);
 
 CREATE TRIGGER update_organizations_updated_at
     BEFORE UPDATE
@@ -293,6 +299,74 @@ CREATE INDEX idx_user_organization_roles_organization_id ON user_organization_ro
 CREATE INDEX idx_user_organization_roles_role_id ON user_organization_roles ( role_id );
 
 CREATE INDEX idx_user_organization_roles_user_organization ON user_organization_roles ( user_id, organization_id );
+
+CREATE TABLE IF NOT EXISTS organization_reports
+(
+    id              uuid                     DEFAULT uuidv7() NOT NULL PRIMARY KEY,
+    organization_id uuid                     NOT NULL REFERENCES organizations ON DELETE CASCADE,
+    reporter_id     uuid                     NOT NULL REFERENCES users ON DELETE CASCADE,
+    reason          VARCHAR(50)              NOT NULL
+        CONSTRAINT organization_reports_reason_check CHECK (reason IN (
+            'spam', 'harassment', 'inappropriate_content',
+            'copyright_violation', 'fake_translations', 'other'
+        )),
+    description     TEXT,
+    org_response        TEXT,
+    org_responded_by    uuid REFERENCES users ON DELETE SET NULL,
+    org_responded_at    TIMESTAMP WITH TIME ZONE,
+    status          VARCHAR(50)              DEFAULT 'pending' NOT NULL
+        CONSTRAINT organization_reports_status_check CHECK (status IN (
+            'pending', 'org_responded', 'reviewing', 'resolved', 'dismissed'
+        )),
+    resolved_by     uuid                     REFERENCES users ON DELETE SET NULL,
+    resolved_at     TIMESTAMP WITH TIME ZONE,
+    resolution_note TEXT,
+    created_at      TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
+    updated_at      TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
+    CONSTRAINT organization_reports_unique_report UNIQUE (organization_id, reporter_id)
+);
+
+COMMENT ON TABLE organization_reports IS 'Lưu trữ các report về organization từ users';
+COMMENT ON COLUMN organization_reports.org_response IS 'Phản hồi từ owner/admin của org';
+COMMENT ON COLUMN organization_reports.org_responded_by IS 'User (owner/admin) đã phản hồi';
+
+ALTER TABLE organization_reports OWNER TO system_dev;
+
+CREATE INDEX idx_organization_reports_org_id ON organization_reports(organization_id);
+CREATE INDEX idx_organization_reports_reporter_id ON organization_reports(reporter_id);
+CREATE INDEX idx_organization_reports_status ON organization_reports(status);
+CREATE INDEX idx_organization_reports_created_at ON organization_reports(created_at);
+
+CREATE TRIGGER update_organization_reports_updated_at
+    BEFORE UPDATE ON organization_reports
+    FOR EACH ROW
+EXECUTE PROCEDURE public.update_updated_at_column();
+
+CREATE TABLE IF NOT EXISTS organization_pending_invites
+(
+    id              uuid                     DEFAULT uuidv7() NOT NULL PRIMARY KEY,
+    organization_id uuid                     NOT NULL REFERENCES organizations ON DELETE CASCADE,
+    user_id         uuid                     NOT NULL REFERENCES users ON DELETE CASCADE,
+    invited_by      uuid                     NOT NULL REFERENCES users ON DELETE CASCADE,
+    status          VARCHAR(50)              DEFAULT 'pending' NOT NULL
+        CONSTRAINT organization_pending_invites_status_check CHECK (status IN (
+            'pending', 'approved', 'rejected', 'expired'
+        )),
+    approved_by     uuid                     REFERENCES users ON DELETE SET NULL,
+    processed_at    TIMESTAMP WITH TIME ZONE,
+    expires_at      TIMESTAMP WITH TIME ZONE DEFAULT (NOW() + INTERVAL '7 days') NOT NULL,
+    created_at      TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
+    CONSTRAINT organization_pending_invites_unique UNIQUE (organization_id, user_id)
+);
+
+COMMENT ON TABLE organization_pending_invites IS 'Pending invites chờ owner/admin duyệt';
+
+ALTER TABLE organization_pending_invites OWNER TO system_dev;
+
+CREATE INDEX idx_org_pending_invites_org_id ON organization_pending_invites(organization_id);
+CREATE INDEX idx_org_pending_invites_user_id ON organization_pending_invites(user_id);
+CREATE INDEX idx_org_pending_invites_status ON organization_pending_invites(status);
+CREATE INDEX idx_org_pending_invites_expires_at ON organization_pending_invites(expires_at);
 
 CREATE TABLE IF NOT EXISTS user_global_roles
 (
@@ -961,3 +1035,41 @@ COMMENT ON FUNCTION cleanup_expired_password_reset_tokens() IS 'Cleanup expired 
 
 ALTER FUNCTION cleanup_expired_password_reset_tokens() OWNER TO system_dev;
 
+CREATE OR REPLACE FUNCTION update_organization_report_status()
+RETURNS TRIGGER AS $$
+BEGIN
+    -- Update report_count (chỉ đếm pending + org_responded)
+    UPDATE organizations
+    SET report_count = (
+        SELECT COUNT(*) FROM organization_reports
+        WHERE organization_id = NEW.organization_id 
+        AND status IN ('pending', 'org_responded')
+    )
+    WHERE id = NEW.organization_id;
+    
+    -- Auto-flag if report_count >= 5
+    UPDATE organizations
+    SET status = 'flagged'
+    WHERE id = NEW.organization_id 
+      AND report_count >= 5
+      AND status = 'active';
+    
+    -- Auto-suspend if report_count >= 10
+    UPDATE organizations
+    SET status = 'suspended'
+    WHERE id = NEW.organization_id 
+      AND report_count >= 10
+      AND status IN ('active', 'flagged');
+    
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION update_organization_report_status() IS 'Tự động cập nhật report_count và status của organization khi có report mới';
+
+ALTER FUNCTION update_organization_report_status() OWNER TO system_dev;
+
+CREATE TRIGGER trigger_update_org_report_status
+    AFTER INSERT OR UPDATE ON organization_reports
+    FOR EACH ROW
+EXECUTE FUNCTION update_organization_report_status();

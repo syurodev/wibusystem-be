@@ -396,3 +396,19 @@ func (s *novelServiceImpl) GetNovelAuthorsDetails(ctx context.Context, novelID u
 func (s *novelServiceImpl) GetNovelArtistsDetails(ctx context.Context, novelID uuid.UUID) ([]*domain.NovelArtist, error) {
 	return s.artistRepo.GetNovelArtists(ctx, novelID)
 }
+
+// NovelFullRepository là interface mở rộng cho hàm GetNovelFullBySlug
+type NovelFullRepository interface {
+	GetNovelFullBySlug(ctx context.Context, slug string) (*NovelFullData, error)
+}
+
+// GetNovelFull lấy toàn bộ dữ liệu novel cho trang chi tiết (public API)
+func (s *novelServiceImpl) GetNovelFull(ctx context.Context, slug string) (*NovelFullData, error) {
+	// Type assertion để truy cập method GetNovelFullBySlug
+	if fullRepo, ok := s.novelRepo.(NovelFullRepository); ok {
+		return fullRepo.GetNovelFullBySlug(ctx, slug)
+	}
+	// Fallback: không hỗ trợ, trả về error
+	return nil, pkgerrors.Internal("novel.get_full_not_supported", "GetNovelFull not supported by repository")
+}
+

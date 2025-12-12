@@ -156,6 +156,10 @@ func registerAPIRoutes(router *gin.Engine, deps *Dependencies, zapLogger *zap.Lo
 
 	// OAuth2 Admin API
 	oauth2_module.RegisterAdminRoutes(apiV1, deps.Handlers.OAuth2Admin)
+
+	// Organization routes
+	orgGroup := apiV1.Group("/organizations")
+	deps.Handlers.Organization.RegisterRoutes(orgGroup, authMiddleware)
 }
 
 // registerNovelRoutes đăng ký novel, volume, chapter routes
@@ -165,34 +169,34 @@ func registerNovelRoutes(apiV1 *gin.RouterGroup, deps *Dependencies, authMiddlew
 	// Novel routes
 	novelGroup := apiV1.Group("/novels")
 	h.Novel.RegisterRoutes(novelGroup, authMiddleware)
-	novelGroup.GET("/:id/volumes", h.Volume.ListVolumesByNovel)
-	novelGroup.POST("/:id/volumes", authMiddleware, h.Volume.CreateVolume)
+	novelGroup.GET("/:identifier/volumes", h.Volume.ListVolumesByNovel)
+	novelGroup.POST("/:identifier/volumes", authMiddleware, h.Volume.CreateVolume)
 
 	// Volume routes (Namespace: /novels/volumes)
 	volumeGroup := apiV1.Group("/novels/volumes")
-	volumeGroup.GET("/:id", h.Volume.GetVolume)
+	volumeGroup.GET("/:identifier", h.Volume.GetVolume)
 	
 	protectedVolume := volumeGroup.Group("", authMiddleware)
-	protectedVolume.PUT("/:id", h.Volume.UpdateVolume)
-	protectedVolume.DELETE("/:id", h.Volume.DeleteVolume)
-	protectedVolume.PUT("/:id/display-order", h.Volume.UpdateDisplayOrder)
-	protectedVolume.POST("/:id/publish", h.Volume.PublishVolume)
-	protectedVolume.POST("/:id/unpublish", h.Volume.UnpublishVolume)
+	protectedVolume.PUT("/:identifier", h.Volume.UpdateVolume)
+	protectedVolume.DELETE("/:identifier", h.Volume.DeleteVolume)
+	protectedVolume.PUT("/:identifier/display-order", h.Volume.UpdateDisplayOrder)
+	protectedVolume.POST("/:identifier/publish", h.Volume.PublishVolume)
+	protectedVolume.POST("/:identifier/unpublish", h.Volume.UnpublishVolume)
 
-	volumeGroup.GET("/:id/chapters", h.Chapter.ListChaptersByVolume)
-	volumeGroup.POST("/:id/chapters", authMiddleware, h.Chapter.CreateChapter)
+	volumeGroup.GET("/:identifier/chapters", h.Chapter.ListChaptersByVolume)
+	volumeGroup.POST("/:identifier/chapters", authMiddleware, h.Chapter.CreateChapter)
 
 	// Chapter routes (Namespace: /novels/chapters)
 	chapterGroup := apiV1.Group("/novels/chapters")
-	chapterGroup.GET("/:id", h.Chapter.GetChapter)
-	chapterGroup.POST("/:id/view", h.Chapter.IncrementViewCount)
+	chapterGroup.GET("/:identifier", h.Chapter.GetChapter)
+	chapterGroup.POST("/:identifier/view", h.Chapter.IncrementViewCount)
 
 	protectedChapter := chapterGroup.Group("", authMiddleware)
-	protectedChapter.PUT("/:id", h.Chapter.UpdateChapter)
-	protectedChapter.DELETE("/:id", h.Chapter.DeleteChapter)
-	protectedChapter.POST("/:id/publish", h.Chapter.PublishChapter)
-	protectedChapter.POST("/:id/schedule", h.Chapter.ScheduleChapter)
-	protectedChapter.PUT("/:id/statistics", h.Chapter.UpdateStatistics)
+	protectedChapter.PUT("/:identifier", h.Chapter.UpdateChapter)
+	protectedChapter.DELETE("/:identifier", h.Chapter.DeleteChapter)
+	protectedChapter.POST("/:identifier/publish", h.Chapter.PublishChapter)
+	protectedChapter.POST("/:identifier/schedule", h.Chapter.ScheduleChapter)
+	protectedChapter.PUT("/:identifier/statistics", h.Chapter.UpdateStatistics)
 }
 
 // registerAuthAPIRoutes đăng ký auth API routes

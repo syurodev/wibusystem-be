@@ -8,23 +8,10 @@ import (
 	"github.com/gofrs/uuid/v5"
 )
 
-// OrganizationStatus định nghĩa trạng thái của organization
-type OrganizationStatus string
-
-const (
-	OrganizationStatusActive    OrganizationStatus = "active"
-	OrganizationStatusSuspended OrganizationStatus = "suspended"
-	OrganizationStatusArchived  OrganizationStatus = "archived"
-)
-
-// OrganizationMemberRole định nghĩa role của thành viên trong organization
-type OrganizationMemberRole string
-
-const (
-	OrganizationMemberRoleOwner   OrganizationMemberRole = "owner"
-	OrganizationMemberRoleAdmin   OrganizationMemberRole = "admin"
-	OrganizationMemberRoleMember  OrganizationMemberRole = "member"
-)
+// OrganizationSettings định nghĩa settings của organization
+type OrganizationSettings struct {
+	BypassInviteApproval bool `json:"bypass_invite_approval"`
+}
 
 // Organization là domain model cho nhóm dịch
 type Organization struct {
@@ -46,6 +33,7 @@ type Organization struct {
 	MemberCount           int
 	ActiveProjects        int
 	CompletedTranslations int
+	ReportCount           int
 
 	// Metadata
 	Metadata json.RawMessage
@@ -60,6 +48,15 @@ type Organization struct {
 	DeletedAt *time.Time
 }
 
+// GetSettings parses settings JSON to OrganizationSettings
+func (o *Organization) GetSettings() OrganizationSettings {
+	var settings OrganizationSettings
+	if o.Settings != nil {
+		_ = json.Unmarshal(o.Settings, &settings)
+	}
+	return settings
+}
+
 // OrganizationMembership là domain model cho thành viên của organization
 type OrganizationMembership struct {
 	UserID         uuid.UUID
@@ -67,8 +64,8 @@ type OrganizationMembership struct {
 	User           *User         // Optional: loaded by JOIN
 	Organization   *Organization // Optional: loaded by JOIN
 
-	Status  string
-	Role    OrganizationMemberRole
+	Status   string
+	Role     OrganizationMemberRole
 	IsActive bool
 
 	// Statistics
@@ -92,6 +89,47 @@ type OrganizationMembership struct {
 	CreatedAt time.Time
 	UpdatedAt time.Time
 	DeletedAt *time.Time
+}
+
+// OrganizationPendingInvite là domain model cho pending invite
+type OrganizationPendingInvite struct {
+	ID             uuid.UUID
+	OrganizationID uuid.UUID
+	UserID         uuid.UUID
+	InvitedBy      uuid.UUID
+	Status         string // pending, approved, rejected, expired
+	ApprovedBy     *uuid.UUID
+	ProcessedAt    *time.Time
+	ExpiresAt      time.Time
+	CreatedAt      time.Time
+
+	// Relations (optional)
+	User        *User
+	Inviter     *User
+	Organization *Organization
+}
+
+// OrganizationReport là domain model cho report
+type OrganizationReport struct {
+	ID             uuid.UUID
+	OrganizationID uuid.UUID
+	ReporterID     uuid.UUID
+	Reason         string
+	Description    *string
+	OrgResponse    *string
+	OrgRespondedBy *uuid.UUID
+	OrgRespondedAt *time.Time
+	Status         string // pending, org_responded, reviewing, resolved, dismissed
+	ResolvedBy     *uuid.UUID
+	ResolvedAt     *time.Time
+	ResolutionNote *string
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
+
+	// Relations (optional)
+	Reporter     *User
+	Organization *Organization
+	Responder    *User
 }
 
 // OrganizationFilter định nghĩa các filter cho việc query organizations
@@ -126,8 +164,16 @@ type OrganizationRepository interface {
 	// Delete xóa mềm organization
 	Delete(ctx context.Context, id uuid.UUID) error
 
+	// SlugExists kiểm tra slug đã tồn tại chưa
+	SlugExists(ctx context.Context, slug string) (bool, error)
+
+	// --- Membership ---
+
 	// GetMembers lấy danh sách thành viên của organization
 	GetMembers(ctx context.Context, orgID uuid.UUID, limit, offset int) ([]*OrganizationMembership, int64, error)
+
+	// GetMembership lấy membership của user trong org
+	GetMembership(ctx context.Context, userID, orgID uuid.UUID) (*OrganizationMembership, error)
 
 	// AddMember thêm thành viên vào organization
 	AddMember(ctx context.Context, membership *OrganizationMembership) error
@@ -141,8 +187,51 @@ type OrganizationRepository interface {
 	// GetUserOrganizations lấy danh sách organizations của user
 	GetUserOrganizations(ctx context.Context, userID uuid.UUID) ([]*OrganizationMembership, error)
 
+	// CountUserMemberships đếm số memberships của user (không bao gồm owner)
+	CountUserMemberships(ctx context.Context, userID uuid.UUID) (int, error)
+
+	// IsUserOwnerOfAnyOrg kiểm tra user đã là owner của org nào chưa
+	IsUserOwnerOfAnyOrg(ctx context.Context, userID uuid.UUID) (bool, error)
+
 	// UpdateStatistics cập nhật thống kê organization
 	UpdateStatistics(ctx context.Context, id uuid.UUID, stats OrganizationStatisticsUpdate) error
+
+	// --- Pending Invites ---
+
+	// CreatePendingInvite tạo pending invite mới
+	CreatePendingInvite(ctx context.Context, invite *OrganizationPendingInvite) error
+
+	// GetPendingInvite lấy pending invite theo ID
+	GetPendingInvite(ctx context.Context, id uuid.UUID) (*OrganizationPendingInvite, error)
+
+	// GetPendingInviteByUserAndOrg lấy pending invite của user trong org
+	GetPendingInviteByUserAndOrg(ctx context.Context, userID, orgID uuid.UUID) (*OrganizationPendingInvite, error)
+
+	// ListPendingInvites lấy danh sách pending invites của org
+	ListPendingInvites(ctx context.Context, orgID uuid.UUID) ([]*OrganizationPendingInvite, error)
+
+	// UpdatePendingInvite cập nhật pending invite
+	UpdatePendingInvite(ctx context.Context, invite *OrganizationPendingInvite) error
+
+	// DeletePendingInvite xóa pending invite
+	DeletePendingInvite(ctx context.Context, id uuid.UUID) error
+
+	// --- Reports ---
+
+	// CreateReport tạo report mới
+	CreateReport(ctx context.Context, report *OrganizationReport) error
+
+	// GetReport lấy report theo ID
+	GetReport(ctx context.Context, id uuid.UUID) (*OrganizationReport, error)
+
+	// GetReportByUserAndOrg lấy report của user về org
+	GetReportByUserAndOrg(ctx context.Context, userID, orgID uuid.UUID) (*OrganizationReport, error)
+
+	// ListReportsByOrg lấy danh sách reports của org
+	ListReportsByOrg(ctx context.Context, orgID uuid.UUID) ([]*OrganizationReport, error)
+
+	// UpdateReport cập nhật report
+	UpdateReport(ctx context.Context, report *OrganizationReport) error
 }
 
 // OrganizationStatisticsUpdate chứa thông tin thống kê để update
@@ -151,3 +240,4 @@ type OrganizationStatisticsUpdate struct {
 	ActiveProjects        *int
 	CompletedTranslations *int
 }
+

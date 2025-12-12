@@ -2,6 +2,7 @@ package novel
 
 import (
 	"context"
+	_ "embed"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -13,6 +14,47 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+// SQL queries embedded từ file
+//
+//go:embed queries/get_by_id.sql
+var getByIDQuery string
+
+//go:embed queries/get_by_slug.sql
+var getBySlugQuery string
+
+//go:embed queries/get_by_author_id.sql
+var getByAuthorIDQuery string
+
+//go:embed queries/create.sql
+var createQuery string
+
+//go:embed queries/update.sql
+var updateQuery string
+
+//go:embed queries/delete.sql
+var deleteQuery string
+
+//go:embed queries/increment_view_count.sql
+var incrementViewCountQuery string
+
+//go:embed queries/get_authors.sql
+var getAuthorsQuery string
+
+//go:embed queries/get_genres.sql
+var getGenresQuery string
+
+//go:embed queries/get_artists.sql
+var getArtistsQuery string
+
+//go:embed queries/get_organization_assignments.sql
+var getOrganizationAssignmentsQuery string
+
+//go:embed queries/load_novel_genres.sql
+var loadNovelGenresQuery string
+
+//go:embed queries/get_novel_full.sql
+var getNovelFullQuery string
+
 // novelRepository triển khai NovelRepository sử dụng pgx
 type novelRepository struct {
 	pool *pgxpool.Pool
@@ -23,38 +65,9 @@ func NewNovelRepository(pool *pgxpool.Pool) domain.NovelRepository {
 	return &novelRepository{pool: pool}
 }
 
-const novelColumns = `
-	id, title, slug, synopsis, cover_image_url, thumbnail_url,
-	status, is_oneshot, original_language, original_title,
-	owner_id, owner_type,
-	owner_id, owner_type,
-	total_volumes, total_chapters, total_words, view_count,
-	favorite_count, rating_average, rating_count, metadata,
-	first_published_at, last_chapter_at, completed_at,
-	created_by, updated_by, deleted_by,
-	created_at, updated_at, deleted_at
-`
-
 // GetByID lấy novel từ database theo ID
 func (r *novelRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.Novel, error) {
-	query := `
-		SELECT n.id, n.title, n.slug, n.synopsis, n.cover_image_url, n.thumbnail_url,
-		       n.status, n.is_oneshot, n.original_language, n.original_title,
-		       n.owner_id, n.owner_type,
-		       COALESCE(u.full_name, '') as owner_display_name,
-		       COALESCE(u.email, '') as owner_username,
-		       u.avatar_url as owner_avatar_url,
-		       n.total_volumes, n.total_chapters, n.total_words, n.view_count,
-		       n.favorite_count, n.rating_average, n.rating_count, n.metadata,
-		       n.first_published_at, n.last_chapter_at, n.completed_at,
-		       n.created_by, n.updated_by, n.deleted_by,
-		       n.created_at, n.updated_at, n.deleted_at
-		FROM catalog.novels n
-		LEFT JOIN identify.users u ON n.owner_type = 'user' AND n.owner_id = u.id
-		WHERE n.id = $1 AND n.deleted_at IS NULL
-	`
-
-	rows, err := r.pool.Query(ctx, query, id)
+	rows, err := r.pool.Query(ctx, getByIDQuery, id)
 	if err != nil {
 		return nil, err
 	}
@@ -69,24 +82,7 @@ func (r *novelRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.No
 
 // GetBySlug lấy novel từ database theo slug
 func (r *novelRepository) GetBySlug(ctx context.Context, slug string) (*domain.Novel, error) {
-	query := `
-		SELECT n.id, n.title, n.slug, n.synopsis, n.cover_image_url, n.thumbnail_url,
-		       n.status, n.is_oneshot, n.original_language, n.original_title,
-		       n.owner_id, n.owner_type,
-		       COALESCE(u.full_name, '') as owner_display_name,
-		       COALESCE(u.email, '') as owner_username,
-		       u.avatar_url as owner_avatar_url,
-		       n.total_volumes, n.total_chapters, n.total_words, n.view_count,
-		       n.favorite_count, n.rating_average, n.rating_count, n.metadata,
-		       n.first_published_at, n.last_chapter_at, n.completed_at,
-		       n.created_by, n.updated_by, n.deleted_by,
-		       n.created_at, n.updated_at, n.deleted_at
-		FROM catalog.novels n
-		LEFT JOIN identify.users u ON n.owner_type = 'user' AND n.owner_id = u.id
-		WHERE n.slug = $1 AND n.deleted_at IS NULL
-	`
-
-	rows, err := r.pool.Query(ctx, query, slug)
+	rows, err := r.pool.Query(ctx, getBySlugQuery, slug)
 	if err != nil {
 		return nil, err
 	}
@@ -101,27 +97,7 @@ func (r *novelRepository) GetBySlug(ctx context.Context, slug string) (*domain.N
 
 // GetByAuthorID lấy danh sách novel theo author ID (via junction table)
 func (r *novelRepository) GetByAuthorID(ctx context.Context, authorID uuid.UUID, limit, offset int) ([]*domain.Novel, error) {
-	query := `
-		SELECT n.id, n.title, n.slug, n.synopsis, n.cover_image_url, n.thumbnail_url,
-		       n.status, n.is_oneshot, n.original_language, n.original_title,
-		       n.owner_id, n.owner_type,
-		       COALESCE(u.full_name, '') as owner_display_name,
-		       COALESCE(u.email, '') as owner_username,
-		       u.avatar_url as owner_avatar_url,
-		       n.total_volumes, n.total_chapters, n.total_words, n.view_count,
-		       n.favorite_count, n.rating_average, n.rating_count, n.metadata,
-		       n.first_published_at, n.last_chapter_at, n.completed_at,
-		       n.created_by, n.updated_by, n.deleted_by,
-		       n.created_at, n.updated_at, n.deleted_at
-		FROM catalog.novels n
-		INNER JOIN catalog.novel_authors na ON n.id = na.novel_id
-		LEFT JOIN identify.users u ON n.owner_type = 'user' AND n.owner_id = u.id
-		WHERE na.author_id = $1 AND n.deleted_at IS NULL
-		ORDER BY n.created_at DESC
-		LIMIT $2 OFFSET $3
-	`
-
-	rows, err := r.pool.Query(ctx, query, authorID, limit, offset)
+	rows, err := r.pool.Query(ctx, getByAuthorIDQuery, authorID, limit, offset)
 	if err != nil {
 		return nil, err
 	}
@@ -136,15 +112,6 @@ func (r *novelRepository) GetByAuthorID(ctx context.Context, authorID uuid.UUID,
 
 // Create tạo novel mới trong database
 func (r *novelRepository) Create(ctx context.Context, novel *domain.Novel) error {
-	query := `
-		INSERT INTO catalog.novels (
-			id, title, slug, synopsis, cover_image_url, thumbnail_url,
-			status, is_oneshot, original_language, original_title, metadata,
-			owner_id, owner_type,
-			created_by, created_at, updated_at
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, NOW(), NOW())
-	`
-
 	// Đảm bảo metadata không null
 	if novel.Metadata == nil {
 		novel.Metadata = json.RawMessage("{}")
@@ -156,7 +123,7 @@ func (r *novelRepository) Create(ctx context.Context, novel *domain.Novel) error
 	}
 
 	db := db.GetDB(ctx, r.pool)
-	_, err := db.Exec(ctx, query,
+	_, err := db.Exec(ctx, createQuery,
 		novel.ID,
 		novel.Title,
 		novel.Slug,
@@ -178,26 +145,7 @@ func (r *novelRepository) Create(ctx context.Context, novel *domain.Novel) error
 
 // Update cập nhật thông tin novel
 func (r *novelRepository) Update(ctx context.Context, novel *domain.Novel) error {
-	query := `
-		UPDATE catalog.novels
-		SET title = $2,
-		    slug = $3,
-		    synopsis = $4,
-		    cover_image_url = $5,
-		    thumbnail_url = $6,
-		    status = $7,
-		    is_oneshot = $8,
-		    original_language = $9,
-		    original_title = $10,
-		    metadata = $11,
-		    first_published_at = $12,
-		    completed_at = $13,
-		    updated_by = $14,
-		    updated_at = NOW()
-		WHERE id = $1 AND deleted_at IS NULL
-	`
-
-	_, err := r.pool.Exec(ctx, query,
+	_, err := r.pool.Exec(ctx, updateQuery,
 		novel.ID,
 		novel.Title,
 		novel.Slug,
@@ -219,24 +167,7 @@ func (r *novelRepository) Update(ctx context.Context, novel *domain.Novel) error
 
 // Delete xóa mềm novel
 func (r *novelRepository) Delete(ctx context.Context, id uuid.UUID) error {
-	// Note: We need deleted_by, but interface only accepts ID.
-	// We might need to update interface or assume deleted_by is not available here.
-	// But wait, Delete usually needs context of who deleted it.
-	// The interface `Delete(ctx context.Context, id uuid.UUID) error` doesn't support it.
-	// I should update the interface too.
-	// For now, I will leave Delete as is or update it if I change interface.
-	// Let's check if I can change interface. Yes I can.
-	// But `DeleteNovel` service also needs update.
-	// I'll update interface later.
-	// Wait, I should do it now to be consistent.
-	// But `Delete` in `novel_repo.go` currently:
-	query := `
-		UPDATE catalog.novels
-		SET deleted_at = NOW()
-		WHERE id = $1 AND deleted_at IS NULL
-	`
-
-	_, err := r.pool.Exec(ctx, query, id)
+	_, err := r.pool.Exec(ctx, deleteQuery, id)
 	return err
 }
 
@@ -446,14 +377,7 @@ func (r *novelRepository) UpdateStatistics(ctx context.Context, id uuid.UUID, st
 
 // IncrementViewCount tăng view count
 func (r *novelRepository) IncrementViewCount(ctx context.Context, id uuid.UUID) error {
-	query := `
-		UPDATE catalog.novels
-		SET view_count = view_count + 1,
-		    updated_at = NOW()
-		WHERE id = $1 AND deleted_at IS NULL
-	`
-
-	_, err := r.pool.Exec(ctx, query, id)
+	_, err := r.pool.Exec(ctx, incrementViewCountQuery, id)
 	return err
 }
 
@@ -503,8 +427,7 @@ func (r *novelRepository) BatchIncrementViewCount(ctx context.Context, increment
 
 // GetAuthors lấy danh sách author IDs của novel
 func (r *novelRepository) GetAuthors(ctx context.Context, novelID uuid.UUID) ([]uuid.UUID, error) {
-	query := `SELECT author_id FROM catalog.novel_authors WHERE novel_id = $1`
-	rows, err := r.pool.Query(ctx, query, novelID)
+	rows, err := r.pool.Query(ctx, getAuthorsQuery, novelID)
 	if err != nil {
 		return nil, err
 	}
@@ -513,8 +436,7 @@ func (r *novelRepository) GetAuthors(ctx context.Context, novelID uuid.UUID) ([]
 
 // GetGenres lấy danh sách genre IDs của novel
 func (r *novelRepository) GetGenres(ctx context.Context, novelID uuid.UUID) ([]uuid.UUID, error) {
-	query := `SELECT genre_id FROM catalog.novel_genres WHERE novel_id = $1`
-	rows, err := r.pool.Query(ctx, query, novelID)
+	rows, err := r.pool.Query(ctx, getGenresQuery, novelID)
 	if err != nil {
 		return nil, err
 	}
@@ -523,8 +445,7 @@ func (r *novelRepository) GetGenres(ctx context.Context, novelID uuid.UUID) ([]u
 
 // GetArtists lấy danh sách artist IDs của novel
 func (r *novelRepository) GetArtists(ctx context.Context, novelID uuid.UUID) ([]uuid.UUID, error) {
-	query := `SELECT artist_id FROM catalog.novel_artists WHERE novel_id = $1`
-	rows, err := r.pool.Query(ctx, query, novelID)
+	rows, err := r.pool.Query(ctx, getArtistsQuery, novelID)
 	if err != nil {
 		return nil, err
 	}
@@ -533,8 +454,7 @@ func (r *novelRepository) GetArtists(ctx context.Context, novelID uuid.UUID) ([]
 
 // GetOrganizationAssignments lấy danh sách organization IDs được assign cho novel
 func (r *novelRepository) GetOrganizationAssignments(ctx context.Context, novelID uuid.UUID) ([]uuid.UUID, error) {
-	query := `SELECT organization_id FROM catalog.novel_organization_assignments WHERE novel_id = $1 AND status = 'active'`
-	rows, err := r.pool.Query(ctx, query, novelID)
+	rows, err := r.pool.Query(ctx, getOrganizationAssignmentsQuery, novelID)
 	if err != nil {
 		return nil, err
 	}
@@ -543,18 +463,7 @@ func (r *novelRepository) GetOrganizationAssignments(ctx context.Context, novelI
 
 // loadNovelGenres loads genres for a specific novel
 func (r *novelRepository) loadNovelGenres(ctx context.Context, novelID uuid.UUID) ([]*domain.Genre, error) {
-	query := `
-		SELECT g.id, g.name, g.slug, g.description,
-		       g.parent_id, g.display_order, g.is_active,
-		       g.novel_count, g.active_readers, g.total_views,
-		       g.created_by, g.updated_by, g.created_at, g.updated_at
-		FROM catalog.genres g
-		INNER JOIN catalog.novel_genres ng ON g.id = ng.genre_id
-		WHERE ng.novel_id = $1
-		ORDER BY ng.display_order ASC
-	`
-
-	rows, err := r.pool.Query(ctx, query, novelID)
+	rows, err := r.pool.Query(ctx, loadNovelGenresQuery, novelID)
 	if err != nil {
 		return nil, err
 	}
@@ -565,4 +474,166 @@ func (r *novelRepository) loadNovelGenres(ctx context.Context, novelID uuid.UUID
 	}
 
 	return genres, nil
+}
+
+// NovelFullData chứa toàn bộ dữ liệu cần thiết cho trang chi tiết novel
+type NovelFullData struct {
+	Novel              *domain.Novel
+	Genres             []*domain.Genre
+	Authors            []*domain.NovelAuthor
+	Artists            []*domain.NovelArtist
+	Volumes            []*domain.NovelVolume
+	Chapters           []*domain.NovelChapter           // All published chapters
+	ChaptersWithoutVol []*domain.NovelChapter           // Chapters không thuộc volume nào
+	VolumesWithChapters []*domain.NovelVolumeWithChapters
+}
+
+// GetNovelFullBySlug lấy toàn bộ dữ liệu novel trong một transaction
+// Sử dụng single query với JSON aggregation để giảm round-trips
+// Query được load từ queries/get_novel_full.sql
+func (r *novelRepository) GetNovelFullBySlug(ctx context.Context, slug string) (*NovelFullData, error) {
+	var novel domain.Novel
+	var genresJSON, authorsJSON, artistsJSON, volumesJSON, chaptersJSON json.RawMessage
+
+	row := r.pool.QueryRow(ctx, getNovelFullQuery, slug)
+	err := row.Scan(
+		&novel.ID, &novel.Title, &novel.Slug, &novel.Synopsis, &novel.CoverImageURL, &novel.ThumbnailURL,
+		&novel.Status, &novel.IsOneshot, &novel.OriginalLanguage, &novel.OriginalTitle,
+		&novel.OwnerID, &novel.OwnerType,
+		&novel.OwnerDisplayName, &novel.OwnerUsername, &novel.OwnerAvatarURL,
+		&novel.TotalVolumes, &novel.TotalChapters, &novel.TotalWords, &novel.ViewCount,
+		&novel.FavoriteCount, &novel.RatingAverage, &novel.RatingCount, &novel.Metadata,
+		&novel.FirstPublishedAt, &novel.LastChapterAt, &novel.CompletedAt,
+		&novel.CreatedBy, &novel.UpdatedBy, &novel.DeletedBy,
+		&novel.CreatedAt, &novel.UpdatedAt, &novel.DeletedAt,
+		&genresJSON, &authorsJSON, &artistsJSON, &volumesJSON, &chaptersJSON,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	result := &NovelFullData{
+		Novel:               &novel,
+		Genres:              make([]*domain.Genre, 0),
+		Authors:             make([]*domain.NovelAuthor, 0),
+		Artists:             make([]*domain.NovelArtist, 0),
+		Volumes:             make([]*domain.NovelVolume, 0),
+		Chapters:            make([]*domain.NovelChapter, 0),
+		ChaptersWithoutVol:  make([]*domain.NovelChapter, 0),
+		VolumesWithChapters: make([]*domain.NovelVolumeWithChapters, 0),
+	}
+
+	// Parse genres
+	type genreJSON struct {
+		ID   uuid.UUID `json:"id"`
+		Name string    `json:"name"`
+		Slug string    `json:"slug"`
+	}
+	var genres []genreJSON
+	if err := json.Unmarshal(genresJSON, &genres); err == nil {
+		for _, g := range genres {
+			result.Genres = append(result.Genres, &domain.Genre{ID: g.ID, Name: g.Name, Slug: g.Slug})
+		}
+	}
+
+	// Parse authors
+	type authorJSON struct {
+		ID   uuid.UUID `json:"id"`
+		Name string    `json:"name"`
+	}
+	var authors []authorJSON
+	if err := json.Unmarshal(authorsJSON, &authors); err == nil {
+		for _, a := range authors {
+			result.Authors = append(result.Authors, &domain.NovelAuthor{
+				Author: &domain.Author{ID: a.ID, Name: a.Name},
+			})
+		}
+	}
+
+	// Parse artists
+	type artistJSON struct {
+		ID   uuid.UUID `json:"id"`
+		Name string    `json:"name"`
+	}
+	var artists []artistJSON
+	if err := json.Unmarshal(artistsJSON, &artists); err == nil {
+		for _, a := range artists {
+			result.Artists = append(result.Artists, &domain.NovelArtist{
+				Artist: &domain.Artist{ID: a.ID, Name: a.Name},
+			})
+		}
+	}
+
+	// Parse volumes
+	type volumeJSON struct {
+		ID            uuid.UUID  `json:"id"`
+		VolumeNumber  int        `json:"volume_number"`
+		Title         string     `json:"title"`
+		Slug          string     `json:"slug"`
+		CoverImageURL *string    `json:"cover_image_url"`
+		DisplayOrder  int        `json:"display_order"`
+		IsPublished   bool       `json:"is_published"`
+		PublishedAt   *string    `json:"published_at"`
+	}
+	var volumes []volumeJSON
+	if err := json.Unmarshal(volumesJSON, &volumes); err == nil {
+		for _, v := range volumes {
+			vol := &domain.NovelVolume{
+				ID:            v.ID,
+				VolumeNumber:  v.VolumeNumber,
+				Title:         v.Title,
+				Slug:          v.Slug,
+				CoverImageURL: v.CoverImageURL,
+				DisplayOrder:  v.DisplayOrder,
+				IsPublished:   v.IsPublished,
+			}
+			result.Volumes = append(result.Volumes, vol)
+		}
+	}
+
+	// Parse chapters
+	type chapterJSON struct {
+		ID            uuid.UUID  `json:"id"`
+		VolumeID      *uuid.UUID `json:"volume_id"`
+		ChapterNumber int        `json:"chapter_number"`
+		Title         string     `json:"title"`
+		Slug          string     `json:"slug"`
+		DisplayOrder  int        `json:"display_order"`
+		Status        string     `json:"status"`
+		PublishedAt   *string    `json:"published_at"`
+	}
+	var chapters []chapterJSON
+	if err := json.Unmarshal(chaptersJSON, &chapters); err == nil {
+		for _, c := range chapters {
+			ch := &domain.NovelChapter{
+				ID:            c.ID,
+				VolumeID:      c.VolumeID,
+				ChapterNumber: c.ChapterNumber,
+				Title:         c.Title,
+				Slug:          c.Slug,
+				DisplayOrder:  c.DisplayOrder,
+				Status:        domain.NovelChapterStatus(c.Status),
+			}
+			result.Chapters = append(result.Chapters, ch)
+			if c.VolumeID == nil {
+				result.ChaptersWithoutVol = append(result.ChaptersWithoutVol, ch)
+			}
+		}
+	}
+
+	// Build VolumesWithChapters
+	volumeChaptersMap := make(map[uuid.UUID][]*domain.NovelChapter)
+	for _, ch := range result.Chapters {
+		if ch.VolumeID != nil {
+			volumeChaptersMap[*ch.VolumeID] = append(volumeChaptersMap[*ch.VolumeID], ch)
+		}
+	}
+	for _, vol := range result.Volumes {
+		result.VolumesWithChapters = append(result.VolumesWithChapters, &domain.NovelVolumeWithChapters{
+			Volume:   vol,
+			Chapters: volumeChaptersMap[vol.ID],
+		})
+	}
+
+	return result, nil
 }

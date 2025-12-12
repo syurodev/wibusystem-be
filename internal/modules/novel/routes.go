@@ -8,13 +8,13 @@ import (
 func (h *Handler) RegisterRoutes(router *gin.RouterGroup, middlewares ...gin.HandlerFunc) {
 	// Public routes (no auth required for reading)
 	router.GET("", h.ListNovels)                   // GET /api/v1/novels
-	router.GET("/:id", h.GetNovel)                 // GET /api/v1/novels/:id (ID or slug)
-	router.GET("/:id/full", h.GetNovelFull)      // GET /api/v1/novels/:id/full (slug or ID)
-	router.POST("/:id/view", h.IncrementViewCount) // POST /api/v1/novels/:id/view
+	router.GET("/:identifier", h.GetNovel)                 // GET /api/v1/novels/:identifier (ID or slug)
+	router.GET("/:identifier/full", h.GetNovelFull)      // GET /api/v1/novels/:identifier/full (slug)
+	router.POST("/:identifier/view", h.IncrementViewCount) // POST /api/v1/novels/:identifier/view
 
 	// Protected routes (require authentication)
 	protected := router.Group("", middlewares...)
 	protected.POST("", h.CreateNovel)       // POST /api/v1/novels
-	protected.PUT("/:id", h.UpdateNovel)    // PUT /api/v1/novels/:id
-	protected.DELETE("/:id", h.DeleteNovel) // DELETE /api/v1/novels/:id
+	protected.PUT("/:identifier", h.UpdateNovel)    // PUT /api/v1/novels/:identifier
+	protected.DELETE("/:identifier", h.DeleteNovel) // DELETE /api/v1/novels/:id
 }

@@ -7,16 +7,16 @@ import (
 // RegisterRoutes registers chapter routes
 func (h *Handler) RegisterRoutes(router *gin.RouterGroup) {
 	// Chapter CRUD operations
-	router.GET("/:id", h.GetChapter)
+	router.GET("/:identifier", h.GetChapter)
 	router.POST("", h.CreateChapter)
-	router.PUT("/:id", h.UpdateChapter)
-	router.DELETE("/:id", h.DeleteChapter)
+	router.PUT("/:identifier", h.UpdateChapter)
+	router.DELETE("/:identifier", h.DeleteChapter)
 
 	// Chapter operations
-	router.POST("/:id/publish", h.PublishChapter)
-	router.POST("/:id/schedule", h.ScheduleChapter)
-	router.POST("/:id/view", h.IncrementViewCount)
-	router.PUT("/:id/statistics", h.UpdateStatistics)
+	router.POST("/:identifier/publish", h.PublishChapter)
+	router.POST("/:identifier/schedule", h.ScheduleChapter)
+	router.POST("/:identifier/view", h.IncrementViewCount)
+	router.PUT("/:identifier/statistics", h.UpdateStatistics)
 }
 
 // RegisterNovelChaptersRoutes registers routes for getting chapters by novel

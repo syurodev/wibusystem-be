@@ -27,7 +27,8 @@ func (r *oauth2ClientRepository) GetClientByID(ctx context.Context, id uuid.UUID
 	query := `
 		SELECT id, client_name, secret_hash, redirect_uris, grant_types, response_types,
 		       scopes, is_public, is_internal, token_endpoint_auth_method, organization_id,
-		       client_uri, logo_url, active, created_at, updated_at
+		       client_uri, logo_url, active, created_at, updated_at,
+		       owner_user_id, terms_of_service_url, policy_url
 		FROM identify.oauth2_clients
 		WHERE id=$1 AND active = true
 	`
@@ -74,7 +75,8 @@ func (r *oauth2ClientRepository) GetByID(ctx context.Context, id uuid.UUID) (*do
 	query := `
 		SELECT id, client_name, secret_hash, redirect_uris, grant_types, response_types,
 		       scopes, is_public, is_internal, token_endpoint_auth_method, organization_id, client_uri,
-		       logo_url, active, created_at, updated_at
+		       logo_url, active, created_at, updated_at,
+		       owner_user_id, terms_of_service_url, policy_url
 		FROM identify.oauth2_clients
 		WHERE id = $1
 	`
@@ -98,8 +100,9 @@ func (r *oauth2ClientRepository) Create(ctx context.Context, client *domain.OAut
 		INSERT INTO identify.oauth2_clients (
 			id, client_name, secret_hash, redirect_uris, grant_types, response_types,
 			scopes, is_public, is_internal, token_endpoint_auth_method, organization_id, client_uri,
-			logo_url, active, created_at, updated_at
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+			logo_url, active, created_at, updated_at,
+			owner_user_id, terms_of_service_url, policy_url
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
 	`
 
 	_, err := r.pool.Exec(ctx, query,
@@ -119,6 +122,9 @@ func (r *oauth2ClientRepository) Create(ctx context.Context, client *domain.OAut
 		client.Active,
 		client.CreatedAt,
 		client.UpdatedAt,
+		client.OwnerUserID,
+		client.TermsOfServiceURL,
+		client.PolicyURL,
 	)
 
 	return err
@@ -141,7 +147,10 @@ func (r *oauth2ClientRepository) Update(ctx context.Context, client *domain.OAut
 		    client_uri = $12,
 		    logo_url = $13,
 		    active = $14,
-		    updated_at = $15
+		    updated_at = $15,
+		    owner_user_id = $16,
+		    terms_of_service_url = $17,
+		    policy_url = $18
 		WHERE id = $1
 	`
 
@@ -161,6 +170,9 @@ func (r *oauth2ClientRepository) Update(ctx context.Context, client *domain.OAut
 		client.LogoURL,
 		client.Active,
 		client.UpdatedAt,
+		client.OwnerUserID,
+		client.TermsOfServiceURL,
+		client.PolicyURL,
 	)
 
 	return err
@@ -179,7 +191,8 @@ func (r *oauth2ClientRepository) List(ctx context.Context, organizationID *uuid.
 	baseQuery := `
 		SELECT id, client_name, secret_hash, redirect_uris, grant_types, response_types,
 		       scopes, is_public, is_internal, token_endpoint_auth_method, organization_id, client_uri,
-		       logo_url, active, created_at, updated_at
+		       logo_url, active, created_at, updated_at,
+		       owner_user_id, terms_of_service_url, policy_url
 		FROM identify.oauth2_clients
 		WHERE 1=1
 	`

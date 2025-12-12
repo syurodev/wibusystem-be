@@ -7,15 +7,15 @@ import (
 // RegisterRoutes registers volume routes
 func (h *Handler) RegisterRoutes(router *gin.RouterGroup) {
 	// Volume CRUD operations
-	router.GET("/:id", h.GetVolume)
+	router.GET("/:identifier", h.GetVolume)
 	router.POST("", h.CreateVolume)
-	router.PUT("/:id", h.UpdateVolume)
-	router.DELETE("/:id", h.DeleteVolume)
+	router.PUT("/:identifier", h.UpdateVolume)
+	router.DELETE("/:identifier", h.DeleteVolume)
 
 	// Volume operations
-	router.PUT("/:id/display-order", h.UpdateDisplayOrder)
-	router.POST("/:id/publish", h.PublishVolume)
-	router.POST("/:id/unpublish", h.UnpublishVolume)
+	router.PUT("/:identifier/display-order", h.UpdateDisplayOrder)
+	router.POST("/:identifier/publish", h.PublishVolume)
+	router.POST("/:identifier/unpublish", h.UnpublishVolume)
 }
 
 // RegisterNovelVolumesRoutes registers routes for getting volumes by novel

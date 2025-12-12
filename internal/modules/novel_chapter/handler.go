@@ -31,7 +31,7 @@ func NewHandler(chapterService ChapterService) *Handler {
 
 // CreateChapter creates a new chapter
 func (h *Handler) CreateChapter(c *gin.Context) {
-	volumeIDStr := c.Param("id")
+	volumeIDStr := c.Param("identifier")
 	volumeIDVal, err := uuid.FromString(volumeIDStr)
 	if err != nil {
 		response.Error(c, http.StatusBadRequest, "INVALID_VOLUME_ID", I18nVolumeNotFound, nil)
@@ -94,16 +94,16 @@ func (h *Handler) CreateChapter(c *gin.Context) {
 // @Tags Chapters
 // @Accept json
 // @Produce json
-// @Param id path string true "Chapter ID"
+// @Param identifier path string true "Chapter ID"
 // @Param request body UpdateChapterRequest true "Update Chapter Request"
 // @Success 200 {object} response.StandardResponse{data=ChapterDetailResponse}
 // @Failure 400 {object} response.StandardResponse
 // @Failure 404 {object} response.StandardResponse
 // @Failure 409 {object} response.StandardResponse
 // @Failure 500 {object} response.StandardResponse
-// @Router /api/v1/novels/chapters/{id} [put]
+// @Router /api/v1/novels/chapters/{identifier} [put]
 func (h *Handler) UpdateChapter(c *gin.Context) {
-	idStr := c.Param("id")
+	idStr := c.Param("identifier")
 	id, err := uuid.FromString(idStr)
 	if err != nil {
 		response.Error(c, http.StatusBadRequest, "INVALID_ID", "chapter.invalid_id", nil)
@@ -173,14 +173,14 @@ func (h *Handler) UpdateChapter(c *gin.Context) {
 // @Summary Delete a chapter
 // @Tags Chapters
 // @Produce json
-// @Param id path string true "Chapter ID"
+// @Param identifier path string true "Chapter ID"
 // @Success 200 {object} response.StandardResponse
 // @Failure 400 {object} response.StandardResponse
 // @Failure 404 {object} response.StandardResponse
 // @Failure 500 {object} response.StandardResponse
-// @Router /api/v1/novels/chapters/{id} [delete]
+// @Router /api/v1/novels/chapters/{identifier} [delete]
 func (h *Handler) DeleteChapter(c *gin.Context) {
-	idStr := c.Param("id")
+	idStr := c.Param("identifier")
 	id, err := uuid.FromString(idStr)
 	if err != nil {
 		response.Error(c, http.StatusBadRequest, "INVALID_ID", "chapter.invalid_id", nil)
@@ -204,14 +204,14 @@ func (h *Handler) DeleteChapter(c *gin.Context) {
 // @Summary Get chapter details
 // @Tags Chapters
 // @Produce json
-// @Param id path string true "Chapter ID"
+// @Param identifier path string true "Chapter ID"
 // @Success 200 {object} response.StandardResponse{data=ChapterDetailResponse}
 // @Failure 400 {object} response.StandardResponse
 // @Failure 404 {object} response.StandardResponse
 // @Failure 500 {object} response.StandardResponse
-// @Router /api/v1/novels/chapters/{id} [get]
+// @Router /api/v1/novels/chapters/{identifier} [get]
 func (h *Handler) GetChapter(c *gin.Context) {
-	idStr := c.Param("id")
+	idStr := c.Param("identifier")
 	id, err := uuid.FromString(idStr)
 	if err != nil {
 		response.Error(c, http.StatusBadRequest, "INVALID_ID", "chapter.invalid_id", nil)
@@ -240,13 +240,13 @@ func (h *Handler) GetChapter(c *gin.Context) {
 // @Summary List chapters by novel ID
 // @Tags Chapters
 // @Produce json
-// @Param id path string true "Novel ID"
+// @Param identifier path string true "Novel ID"
 // @Success 200 {object} response.StandardResponse{data=[]ChapterResponse}
 // @Failure 400 {object} response.StandardResponse
 // @Failure 500 {object} response.StandardResponse
-// @Router /api/v1/novels/{id}/chapters [get]
+// @Router /api/v1/novels/{identifier}/chapters [get]
 func (h *Handler) ListChaptersByNovel(c *gin.Context) {
-	novelIDStr := c.Param("id")
+	novelIDStr := c.Param("identifier")
 	novelID, err := uuid.FromString(novelIDStr)
 	if err != nil {
 		response.Error(c, http.StatusBadRequest, "INVALID_NOVEL_ID", "novel.invalid_id", nil)
@@ -307,13 +307,13 @@ func (h *Handler) ListChaptersByNovel(c *gin.Context) {
 // @Summary List chapters by volume ID
 // @Tags Chapters
 // @Produce json
-// @Param id path string true "Volume ID"
+// @Param identifier path string true "Volume ID"
 // @Success 200 {object} response.StandardResponse{data=[]ChapterResponse}
 // @Failure 400 {object} response.StandardResponse
 // @Failure 500 {object} response.StandardResponse
-// @Router /api/v1/novels/volumes/{id}/chapters [get]
+// @Router /api/v1/novels/volumes/{identifier}/chapters [get]
 func (h *Handler) ListChaptersByVolume(c *gin.Context) {
-	volumeIDStr := c.Param("id")
+	volumeIDStr := c.Param("identifier")
 	volumeID, err := uuid.FromString(volumeIDStr)
 	if err != nil {
 		response.Error(c, http.StatusBadRequest, "INVALID_VOLUME_ID", "volume.invalid_id", nil)
@@ -340,14 +340,14 @@ func (h *Handler) ListChaptersByVolume(c *gin.Context) {
 // @Summary Publish a chapter
 // @Tags Chapters
 // @Produce json
-// @Param id path string true "Chapter ID"
+// @Param identifier path string true "Chapter ID"
 // @Success 200 {object} response.StandardResponse
 // @Failure 400 {object} response.StandardResponse
 // @Failure 404 {object} response.StandardResponse
 // @Failure 500 {object} response.StandardResponse
-// @Router /api/v1/novels/chapters/{id}/publish [post]
+// @Router /api/v1/novels/chapters/{identifier}/publish [post]
 func (h *Handler) PublishChapter(c *gin.Context) {
-	idStr := c.Param("id")
+	idStr := c.Param("identifier")
 	id, err := uuid.FromString(idStr)
 	if err != nil {
 		response.Error(c, http.StatusBadRequest, "INVALID_ID", "chapter.invalid_id", nil)
@@ -380,15 +380,15 @@ func (h *Handler) PublishChapter(c *gin.Context) {
 // @Tags Chapters
 // @Accept json
 // @Produce json
-// @Param id path string true "Chapter ID"
+// @Param identifier path string true "Chapter ID"
 // @Param request body ScheduleChapterRequest true "Schedule Chapter Request"
 // @Success 200 {object} response.StandardResponse
 // @Failure 400 {object} response.StandardResponse
 // @Failure 404 {object} response.StandardResponse
 // @Failure 500 {object} response.StandardResponse
-// @Router /api/v1/novels/chapters/{id}/schedule [post]
+// @Router /api/v1/novels/chapters/{identifier}/schedule [post]
 func (h *Handler) ScheduleChapter(c *gin.Context) {
-	idStr := c.Param("id")
+	idStr := c.Param("identifier")
 	id, err := uuid.FromString(idStr)
 	if err != nil {
 		response.Error(c, http.StatusBadRequest, "INVALID_ID", "chapter.invalid_id", nil)
@@ -424,13 +424,13 @@ func (h *Handler) ScheduleChapter(c *gin.Context) {
 // @Summary Increment chapter view count
 // @Tags Chapters
 // @Produce json
-// @Param id path string true "Chapter ID"
+// @Param identifier path string true "Chapter ID"
 // @Success 200 {object} response.StandardResponse
 // @Failure 400 {object} response.StandardResponse
 // @Failure 500 {object} response.StandardResponse
-// @Router /api/v1/novels/chapters/{id}/view [post]
+// @Router /api/v1/novels/chapters/{identifier}/view [post]
 func (h *Handler) IncrementViewCount(c *gin.Context) {
-	idStr := c.Param("id")
+	idStr := c.Param("identifier")
 	id, err := uuid.FromString(idStr)
 	if err != nil {
 		response.Error(c, http.StatusBadRequest, "INVALID_ID", "chapter.invalid_id", nil)
@@ -450,15 +450,15 @@ func (h *Handler) IncrementViewCount(c *gin.Context) {
 // @Tags Chapters
 // @Accept json
 // @Produce json
-// @Param id path string true "Chapter ID"
+// @Param identifier path string true "Chapter ID"
 // @Param request body UpdateStatisticsRequest true "Update Statistics Request"
 // @Success 200 {object} response.StandardResponse
 // @Failure 400 {object} response.StandardResponse
 // @Failure 404 {object} response.StandardResponse
 // @Failure 500 {object} response.StandardResponse
-// @Router /api/v1/novels/chapters/{id}/statistics [put]
+// @Router /api/v1/novels/chapters/{identifier}/statistics [put]
 func (h *Handler) UpdateStatistics(c *gin.Context) {
-	idStr := c.Param("id")
+	idStr := c.Param("identifier")
 	id, err := uuid.FromString(idStr)
 	if err != nil {
 		response.Error(c, http.StatusBadRequest, "INVALID_ID", "chapter.invalid_id", nil)

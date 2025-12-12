@@ -1,0 +1,2 @@
+-- Migration: Add owner and admin to organization_member_role (Down)
+-- Postgres does not support removing values from enums

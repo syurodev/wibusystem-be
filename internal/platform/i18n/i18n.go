@@ -18,6 +18,7 @@ import (
 	genre_locale "system/internal/modules/genre/locale"
 	media_locale "system/internal/modules/media/locale"
 	oauth2_locale "system/internal/modules/oauth2/locale"
+	organization_locale "system/internal/modules/organization/locale"
 	user_locale "system/internal/modules/user/locale"
 )
 
@@ -129,6 +130,12 @@ func InitI18n(log *zap.Logger) error {
 		return err
 	}
 	log.Info("Successfully loaded media module i18n")
+
+	if err := organization_locale.RegisterI18n(bundle); err != nil {
+		log.Error("Failed to register organization i18n", zap.Error(err))
+		return err
+	}
+	log.Info("Successfully loaded organization module i18n")
 
 	return nil
 }
