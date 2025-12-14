@@ -244,6 +244,14 @@
             if (event.detail.successful) {
               try {
                 const data = JSON.parse(event.detail.xhr.responseText);
+
+                // Check if user exists first
+                if (!data.exists) {
+                  this.error =
+                    "User not found. Please check your email or username.";
+                  return;
+                }
+
                 this.hasPasskeys = data.has_passkeys;
                 this.step = this.hasPasskeys ? "passkey" : "password";
                 if (!this.hasPasskeys) {
@@ -253,7 +261,7 @@
                 this.step = "password";
               }
             } else {
-              this.step = "password";
+              this.error = "An error occurred. Please try again.";
             }
           },
 

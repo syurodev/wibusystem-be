@@ -152,7 +152,7 @@ func registerAPIRoutes(router *gin.Engine, deps *Dependencies, zapLogger *zap.Lo
 	deps.Handlers.Media.RegisterRoutes(mediaGroup)
 
 	// Auth API routes
-	registerAuthAPIRoutes(apiV1, deps)
+	registerAuthAPIRoutes(apiV1, deps, zapLogger)
 
 	// OAuth2 Admin API
 	oauth2_module.RegisterAdminRoutes(apiV1, deps.Handlers.OAuth2Admin)
@@ -200,8 +200,8 @@ func registerNovelRoutes(apiV1 *gin.RouterGroup, deps *Dependencies, authMiddlew
 }
 
 // registerAuthAPIRoutes đăng ký auth API routes
-func registerAuthAPIRoutes(apiV1 *gin.RouterGroup, deps *Dependencies) {
-	sessionAuth := middleware.RequireSessionAuth(deps.Services.OAuth2, nil)
+func registerAuthAPIRoutes(apiV1 *gin.RouterGroup, deps *Dependencies, zapLogger *zap.Logger) {
+	sessionAuth := middleware.RequireSessionAuth(deps.Services.OAuth2, zapLogger)
 	deps.Handlers.Auth.RegisterAPIRoutes(apiV1, sessionAuth)
 }
 

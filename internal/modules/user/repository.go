@@ -130,11 +130,19 @@ func (r *userRepository) Update(ctx context.Context, user *domain.User) error {
 		    phone = $7,
 		    status = $8,
 		    settings = $9::jsonb,
+		    display_name = $10,
+		    username = $11,
+		    bio = $12::jsonb,
 		    updated_at = NOW()
 		WHERE id = $1
 	`
 
 	settingsJSON, err := json.Marshal(user.Settings)
+	if err != nil {
+		return err
+	}
+
+	bioJSON, err := json.Marshal(user.Bio)
 	if err != nil {
 		return err
 	}
@@ -149,6 +157,9 @@ func (r *userRepository) Update(ctx context.Context, user *domain.User) error {
 		user.Phone,
 		user.Status,
 		string(settingsJSON),
+		user.DisplayName,
+		user.Username,
+		string(bioJSON),
 	)
 
 	return err

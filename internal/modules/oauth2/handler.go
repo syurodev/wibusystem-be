@@ -779,9 +779,18 @@ func (h *Handler) LoginCheck(c *gin.Context) {
 		return
 	}
 
+	h.logger.Info("LoginCheck: searching for user",
+		zap.String("identifier", identifier),
+		zap.Bool("is_email", strings.Contains(identifier, "@")),
+	)
+
 	// Check if user exists by email or username
 	user, err := h.oauth2Service.GetUserByIdentifier(c.Request.Context(), identifier)
 	if err != nil {
+		h.logger.Warn("LoginCheck: user not found",
+			zap.String("identifier", identifier),
+			zap.Error(err),
+		)
 		// User not found - return generic response to avoid enumeration
 		c.JSON(http.StatusOK, gin.H{
 			"exists":       false,
@@ -790,13 +799,25 @@ func (h *Handler) LoginCheck(c *gin.Context) {
 		return
 	}
 
+	h.logger.Info("LoginCheck: user found",
+		zap.String("identifier", identifier),
+		zap.String("user_id", user.ID.String()),
+		zap.String("email", user.Email),
+		zap.Any("username", user.Username),
+	)
+
 	// Check if user has passkeys
 	hasPasskeys, err := h.webauthnService.HasPasskeys(c.Request.Context(), user.ID)
 	if err != nil {
-		h.logger.Error("Failed to check passkeys", zap.Error(err))
+		h.logger.Error("Failed to check passkeys", zap.Error(err), zap.String("user_id", user.ID.String()))
 		// Default to false on error
 		hasPasskeys = false
 	}
+
+	h.logger.Info("LoginCheck: passkey check result",
+		zap.String("user_id", user.ID.String()),
+		zap.Bool("has_passkeys", hasPasskeys),
+	)
 
 	c.JSON(http.StatusOK, gin.H{
 		"exists":       true,
