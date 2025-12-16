@@ -11,7 +11,7 @@ import (
 
 // NovelService interface định nghĩa business logic cho novels
 type NovelService interface {
-	// CreateNovel tạo novel mới
+	// CreateNovel tạo novel mới (DEPRECATED: use CreateNovelUseCase.Execute instead)
 	CreateNovel(
 		ctx context.Context,
 		title string,
@@ -28,11 +28,17 @@ type NovelService interface {
 		artistIDs []uuid.UUID,
 	) (*domain.Novel, error)
 
+	// CreateNovelEntity creates only the novel entity (used by UseCase)
+	CreateNovelEntity(ctx context.Context, novel *domain.Novel) error
+
 	// UpdateNovel cập nhật thông tin novel
 	UpdateNovel(ctx context.Context, id uuid.UUID, title string, synopsis json.RawMessage, coverImageURL, thumbnailURL *string, status, originalLanguage, originalTitle *string, metadataJSON *string, isOneshot bool) (*domain.Novel, error)
 
 	// DeleteNovel xóa novel (soft delete)
 	DeleteNovel(ctx context.Context, id uuid.UUID) error
+
+	// DeleteNovelEntity deletes only the novel entity (used by UseCase)
+	DeleteNovelEntity(ctx context.Context, id uuid.UUID) error
 
 	// GetNovelByID lấy thông tin novel theo ID
 	GetNovelByID(ctx context.Context, id uuid.UUID) (*domain.Novel, error)

@@ -130,8 +130,11 @@ func NewDependencies(
 	// Start View Tracking Workers
 	worker.StartViewTrackingWorkers(&cfg.ViewTracking, services.ViewTracking, zapLogger)
 
+	// --- Transaction Manager for Use Cases ---
+	txManager := txdb.NewTransactionManager(db.Pool)
+
 	// --- Handlers ---
-	handlers := newHandlers(cfg, repos, services, oauth2Provider, zapLogger)
+	handlers := newHandlers(cfg, repos, services, oauth2Provider, txManager, zapLogger)
 
 	return &Dependencies{
 		Repos:          repos,
@@ -281,6 +284,7 @@ func newHandlers(
 	repos *Repositories,
 	services *Services,
 	oauth2Provider fosite.OAuth2Provider,
+	txManager txdb.TransactionManager,
 	zapLogger *zap.Logger,
 ) *Handlers {
 	oauth2Handler := oauth2_module.NewHandler(
@@ -293,19 +297,140 @@ func newHandlers(
 		zapLogger,
 	)
 
+	// Create Novel UseCase
+	createNovelUC := novel_module.NewCreateNovelUseCase(
+		txManager,
+		services.Novel,
+		services.Genre,
+		services.Author,
+		services.Artist,
+		services.Creator,
+	)
+
+	// Create Genre UseCases
+	createGenreUC := genre_module.NewCreateGenreUseCase(services.Genre)
+	updateGenreUC := genre_module.NewUpdateGenreUseCase(services.Genre)
+	deleteGenreUC := genre_module.NewDeleteGenreUseCase(services.Genre)
+	getGenreUC := genre_module.NewGetGenreUseCase(services.Genre)
+	listGenresUC := genre_module.NewListGenresUseCase(services.Genre)
+	listSelectUC := genre_module.NewListSelectionUseCase(services.Genre)
+	mergeGenresUC := genre_module.NewMergeGenresUseCase(services.Genre)
+	previewMergeUC := genre_module.NewPreviewMergeUseCase(services.Genre)
+
+	// Create Artist UseCases
+	createArtistUC := artist_module.NewCreateArtistUseCase(services.Artist)
+	updateArtistUC := artist_module.NewUpdateArtistUseCase(services.Artist)
+	deleteArtistUC := artist_module.NewDeleteArtistUseCase(services.Artist)
+	getArtistUC := artist_module.NewGetArtistUseCase(services.Artist)
+	listArtistsUC := artist_module.NewListArtistsUseCase(services.Artist)
+	listSelectArtistUC := artist_module.NewListSelectionUseCase(services.Artist)
+	mergeArtistsUC := artist_module.NewMergeArtistsUseCase(services.Artist)
+	previewMergeArtistUC := artist_module.NewPreviewMergeUseCase(services.Artist)
+
 	return &Handlers{
 		OAuth2:      oauth2Handler,
 		OAuth2Admin: oauth2_module.NewAdminHandler(services.OAuth2Admin),
-		Auth:        auth_module.NewHandler(services.Auth, services.Email, services.WebAuthn, services.OAuth2),
-		Genre:       genre_module.NewHandler(services.Genre, zapLogger),
-		Author:      author_module.NewHandler(services.Author, zapLogger),
-		Artist:      artist_module.NewHandler(services.Artist),
-		Novel:       novel_module.NewHandler(services.Novel, services.Volume, services.Chapter),
-		Volume:      novel_volume.NewHandler(services.Volume),
-		Chapter:     novel_chapter.NewHandler(services.Chapter),
+		Auth: func() *auth_module.Handler {
+			registerUC := auth_module.NewRegisterUserUseCase(services.Auth)
+			verifyUC := auth_module.NewVerifyEmailUseCase(services.Auth)
+			forgotUC := auth_module.NewForgotPasswordUseCase(services.Auth)
+			resetUC := auth_module.NewResetPasswordUseCase(services.Auth)
+
+			return auth_module.NewHandler(
+				services.Auth,
+				services.Email,
+				services.WebAuthn,
+				services.OAuth2,
+				registerUC, verifyUC, forgotUC, resetUC,
+			)
+		}(),
+		Genre:       genre_module.NewHandler(
+			createGenreUC, updateGenreUC, deleteGenreUC, getGenreUC,
+			listGenresUC, listSelectUC, mergeGenresUC, previewMergeUC,
+			zapLogger,
+		),
+		Author: func() *author_module.Handler {
+			createAuthorUC := author_module.NewCreateAuthorUseCase(services.Author)
+			updateAuthorUC := author_module.NewUpdateAuthorUseCase(services.Author)
+			deleteAuthorUC := author_module.NewDeleteAuthorUseCase(services.Author)
+			getAuthorUC := author_module.NewGetAuthorUseCase(services.Author)
+			listAuthorsUC := author_module.NewListAuthorsUseCase(services.Author)
+			listSelectAuthorUC := author_module.NewListSelectionUseCase(services.Author)
+			mergeAuthorsUC := author_module.NewMergeAuthorsUseCase(services.Author)
+			previewMergeAuthorUC := author_module.NewPreviewMergeUseCase(services.Author)
+			return author_module.NewHandler(
+				createAuthorUC, updateAuthorUC, deleteAuthorUC, getAuthorUC,
+				listAuthorsUC, listSelectAuthorUC, mergeAuthorsUC, previewMergeAuthorUC,
+				zapLogger,
+			)
+		}(),
+		Artist:      artist_module.NewHandler(
+			createArtistUC, updateArtistUC, deleteArtistUC, getArtistUC,
+			listArtistsUC, listSelectArtistUC, mergeArtistsUC, previewMergeArtistUC,
+		),
+		Novel: func() *novel_module.Handler {
+			updateNovelUC := novel_module.NewUpdateNovelUseCase(services.Novel)
+			deleteNovelUC := novel_module.NewDeleteNovelUseCase(
+				txManager,
+				services.Novel,
+				services.Genre,
+				services.Creator,
+			)
+			getNovelUC := novel_module.NewGetNovelUseCase(services.Novel)
+			listNovelsUC := novel_module.NewListNovelsUseCase(services.Novel)
+			viewCountUC := novel_module.NewIncrementViewCountUseCase(services.Novel)
+			getNovelFullUC := novel_module.NewGetNovelFullUseCase(services.Novel)
+			return novel_module.NewHandler(
+				services.Novel, createNovelUC,
+				updateNovelUC, deleteNovelUC, getNovelUC,
+				listNovelsUC, viewCountUC, getNovelFullUC,
+				services.Volume, services.Chapter,
+			)
+		}(),
+		Volume: func() *novel_volume.Handler {
+			createUC := novel_volume.NewCreateVolumeUseCase(services.Volume)
+			updateUC := novel_volume.NewUpdateVolumeUseCase(services.Volume)
+			deleteUC := novel_volume.NewDeleteVolumeUseCase(services.Volume)
+			getUC := novel_volume.NewGetVolumeUseCase(services.Volume)
+			listUC := novel_volume.NewListVolumesByNovelUseCase(services.Volume)
+			orderUC := novel_volume.NewUpdateDisplayOrderUseCase(services.Volume)
+			pubUC := novel_volume.NewPublishVolumeUseCase(services.Volume)
+			unpubUC := novel_volume.NewUnpublishVolumeUseCase(services.Volume)
+			return novel_volume.NewHandler(
+				services.Volume, createUC, updateUC, deleteUC,
+				getUC, listUC, orderUC, pubUC, unpubUC,
+			)
+		}(),
+		Chapter: func() *novel_chapter.Handler {
+			createUC := novel_chapter.NewCreateChapterUseCase(services.Chapter)
+			updateUC := novel_chapter.NewUpdateChapterUseCase(services.Chapter)
+			deleteUC := novel_chapter.NewDeleteChapterUseCase(services.Chapter)
+			getUC := novel_chapter.NewGetChapterUseCase(services.Chapter)
+			listNovelUC := novel_chapter.NewListChaptersByNovelUseCase(services.Chapter)
+			listVolumeUC := novel_chapter.NewListChaptersByVolumeUseCase(services.Chapter)
+			pubUC := novel_chapter.NewPublishChapterUseCase(services.Chapter)
+			schedUC := novel_chapter.NewScheduleChapterUseCase(services.Chapter)
+			viewUC := novel_chapter.NewIncrementViewCountUseCase(services.Chapter)
+			statsUC := novel_chapter.NewUpdateStatisticsUseCase(services.Chapter)
+
+			return novel_chapter.NewHandler(
+				services.Chapter,
+				createUC, updateUC, deleteUC, getUC,
+				listNovelUC, listVolumeUC,
+				pubUC, schedUC,
+				viewUC, statsUC,
+			)
+		}(),
 		User:        user_module.NewHandler(services.User),
-		Media:       media_module.NewHandler(services.Analytics, services.Media),
-		Creator:     creator_module.NewHandler(services.Creator),
+		Media: func() *media_module.Handler {
+			trendingUC := media_module.NewGetTrendingUseCase(services.Analytics)
+			homeUC := media_module.NewGetHomeDataUseCase(services.Media)
+			return media_module.NewHandler(trendingUC, homeUC)
+		}(),
+		Creator: func() *creator_module.Handler {
+			uc := creator_module.NewListCreatorsUseCase(services.Creator)
+			return creator_module.NewHandler(uc)
+		}(),
 		Organization: organization_module.NewHandler(services.Organization, zapLogger),
 	}
 }

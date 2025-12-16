@@ -31,4 +31,10 @@ const (
 	I18nInvalidInput      = "novel.invalid_input"
 	I18nSlugAlreadyExists = "novel.slug_already_exists"
 	I18nInvalidStatus     = "novel.invalid_status"
+	I18nInvalidOwnerID    = "novel.invalid_owner_id"
+	I18nInvalidGenreID    = "novel.invalid_genre_id"
+	I18nInvalidAuthorID   = "novel.invalid_author_id"
+	I18nInvalidArtistID   = "novel.invalid_artist_id"
+	I18nIncrementViewFailed = "novel.increment_view_failed"
+	I18nViewIncremented     = "novel.view_incremented"
 )

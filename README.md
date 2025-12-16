@@ -99,15 +99,63 @@ Mỗi module trong `internal/modules/` có cấu trúc:
 
 ```
 modules/{module_name}/
-├── handler.go          # HTTP handlers (Gin)
-├── service.go          # Business logic
-├── service_interfaces.go # Service interface
-├── repository.go       # Database queries
-├── request.go          # Request validation structs
-├── response.go         # Response DTOs (re-exports from dto/)
-├── i18n.go             # i18n keys
-└── errors.go           # Module-specific errors
+├── handler.go              # HTTP handlers (Gin)
+├── routes.go               # Route registration
+├── i18nkeys.go             # i18n keys
+│
+├── service.go              # Domain service (business logic)
+├── service_interfaces.go   # Service interface
+│
+├── usecase_interfaces.go   # UseCase interfaces + Input types
+├── usecase_external.go     # External service interfaces (UC prefix)
+├── usecase_create.go       # CreateXxxUseCase
+├── usecase_update.go       # UpdateXxxUseCase (future)
+├── usecase_delete.go       # DeleteXxxUseCase (future)
+│
+├── repository.go           # Database queries
+└── queries/                # Embedded SQL files
 ```
+
+### Architecture Layers
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│                      HTTP Handler                            │
+│  - Gin binding, validation                                   │
+│  - Parse DTO → UseCase Input                                 │
+└──────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌──────────────────────────────────────────────────────────────┐
+│                        UseCase                               │
+│  - Transaction management (owns RunInTx)                     │
+│  - Orchestrates multiple services                            │
+│  - Cross-domain operations                                   │
+└──────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌──────────────────────────────────────────────────────────────┐
+│                     Domain Service                           │
+│  - Pure business logic                                       │
+│  - Only interacts with its own repository                    │
+│  - Transaction-agnostic                                      │
+└──────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌──────────────────────────────────────────────────────────────┐
+│                       Repository                             │
+│  - Database access (uses db.GetDB for tx propagation)        │
+│  - Embedded SQL queries                                      │
+└──────────────────────────────────────────────────────────────┘
+```
+
+### File Naming Convention
+
+| Prefix     | Purpose                         |
+| ---------- | ------------------------------- |
+| `usecase_` | Use case files grouped together |
+| `service_` | Service-related files           |
+| `i18n`     | Internationalization keys       |
 
 ---
 

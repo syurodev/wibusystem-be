@@ -23,11 +23,19 @@ type CreatorListFilter struct {
 // CreatorWithStats represents a creator with view statistics
 type CreatorWithStats struct {
 	User
-	TotalViews          int64   // From ClickHouse
-	PopularWorkID       *string // Novel/Manga/Anime with highest views
-	PopularWorkTitle    *string
-	PopularWorkCoverURL *string
-	PopularWorkType     *string // novel, manga, anime
+	// Stats from user_statistics table
+	FollowerCount        int        `json:"follower_count"`
+	WorksCount           int        `json:"works_count"` // Computed: novel + manga + anime
+	NovelCount           int        `json:"novel_count"`
+	MangaCount           int        `json:"manga_count"`
+	AnimeCount           int        `json:"anime_count"`
+	LastContentUpdatedAt *time.Time `json:"last_content_updated_at"`
+	// From ClickHouse
+	TotalViews          int64   `json:"total_views"`
+	PopularWorkID       *string `json:"popular_work_id"`
+	PopularWorkTitle    *string `json:"popular_work_title"`
+	PopularWorkCoverURL *string `json:"popular_work_cover_url"`
+	PopularWorkType     *string `json:"popular_work_type"` // novel, manga, anime
 }
 
 // CreatorListResult represents paginated creator list result
@@ -47,9 +55,12 @@ type CreatorRepository interface {
 	// UpdateLastContentUpdatedAt updates the last content update timestamp
 	UpdateLastContentUpdatedAt(ctx context.Context, userID uuid.UUID) error
 
-	// IncrementWorksCount increments the works_count for a user
-	IncrementWorksCount(ctx context.Context, userID uuid.UUID) error
+	// IncrementNovelCount increments the novel_count for a user
+	IncrementNovelCount(ctx context.Context, userID uuid.UUID) error
 
-	// DecrementWorksCount decrements the works_count for a user
-	DecrementWorksCount(ctx context.Context, userID uuid.UUID) error
+	// DecrementNovelCount decrements the novel_count for a user
+	DecrementNovelCount(ctx context.Context, userID uuid.UUID) error
+
+	// EnsureUserStatisticsExists ensures a user_statistics record exists
+	EnsureUserStatisticsExists(ctx context.Context, userID uuid.UUID) error
 }

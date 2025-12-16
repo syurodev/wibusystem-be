@@ -17,12 +17,35 @@ import (
 )
 
 type Handler struct {
-	artistService ArtistService
+	createArtistUC  CreateArtistUseCase
+	updateArtistUC  UpdateArtistUseCase
+	deleteArtistUC  DeleteArtistUseCase
+	getArtistUC     GetArtistUseCase
+	listArtistsUC   ListArtistsUseCase
+	listSelectUC    ListSelectionUseCase
+	mergeArtistsUC  MergeArtistsUseCase
+	previewMergeUC  PreviewMergeUseCase
 }
 
-func NewHandler(artistService ArtistService) *Handler {
+func NewHandler(
+	createArtistUC CreateArtistUseCase,
+	updateArtistUC UpdateArtistUseCase,
+	deleteArtistUC DeleteArtistUseCase,
+	getArtistUC GetArtistUseCase,
+	listArtistsUC ListArtistsUseCase,
+	listSelectUC ListSelectionUseCase,
+	mergeArtistsUC MergeArtistsUseCase,
+	previewMergeUC PreviewMergeUseCase,
+) *Handler {
 	return &Handler{
-		artistService: artistService,
+		createArtistUC:  createArtistUC,
+		updateArtistUC:  updateArtistUC,
+		deleteArtistUC:  deleteArtistUC,
+		getArtistUC:     getArtistUC,
+		listArtistsUC:   listArtistsUC,
+		listSelectUC:    listSelectUC,
+		mergeArtistsUC:  mergeArtistsUC,
+		previewMergeUC:  previewMergeUC,
 	}
 }
 
@@ -58,7 +81,14 @@ func (h *Handler) CreateArtist(c *gin.Context) {
 	}
 
 	// Create artist
-	artist, err := h.artistService.CreateArtist(c.Request.Context(), req.Name, req.Biography, req.AvatarURL, req.SocialLinks, req.Specialization, createdBy)
+	artist, err := h.createArtistUC.Execute(c.Request.Context(), CreateArtistInput{
+		Name:            req.Name,
+		Biography:       req.Biography,
+		AvatarURL:       req.AvatarURL,
+		SocialLinksJSON: req.SocialLinks,
+		Specialization:  req.Specialization,
+		CreatedBy:       createdBy,
+	})
 	if err != nil {
 		if appErr, ok := pkgerrors.AsAppError(err); ok {
 			response.Error(c, appErr.StatusCode, appErr.ErrCode, appErr.I18nKey, nil)
@@ -103,7 +133,14 @@ func (h *Handler) UpdateArtist(c *gin.Context) {
 	}
 
 	// Update artist
-	artist, err := h.artistService.UpdateArtist(c.Request.Context(), id, req.Name, req.Biography, req.AvatarURL, req.SocialLinks, req.Specialization)
+	artist, err := h.updateArtistUC.Execute(c.Request.Context(), UpdateArtistInput{
+		ID:              id,
+		Name:            req.Name,
+		Biography:       req.Biography,
+		AvatarURL:       req.AvatarURL,
+		SocialLinksJSON: req.SocialLinks,
+		Specialization:  req.Specialization,
+	})
 	if err != nil {
 		if appErr, ok := pkgerrors.AsAppError(err); ok {
 			response.Error(c, appErr.StatusCode, appErr.ErrCode, appErr.I18nKey, nil)
@@ -140,7 +177,9 @@ func (h *Handler) DeleteArtist(c *gin.Context) {
 	}
 
 	// Delete artist
-	err = h.artistService.DeleteArtist(c.Request.Context(), id)
+	err = h.deleteArtistUC.Execute(c.Request.Context(), DeleteArtistInput{
+		ID: id,
+	})
 	if err != nil {
 		if appErr, ok := pkgerrors.AsAppError(err); ok {
 			response.Error(c, appErr.StatusCode, appErr.ErrCode, appErr.I18nKey, nil)
@@ -164,16 +203,13 @@ func (h *Handler) DeleteArtist(c *gin.Context) {
 // @Failure 500 {object} response.StandardResponse
 // @Router /api/v1/artists/{id} [get]
 func (h *Handler) GetArtist(c *gin.Context) {
-	// Get artist ID from path
-	idStr := c.Param("identifier")
-	id, err := uuid.FromString(idStr)
-	if err != nil {
-		response.Error(c, http.StatusBadRequest, "BadRequest", I18nInvalidID, nil)
-		return
-	}
+	// Get artist ID or slug from path
+	idOrSlug := c.Param("identifier")
 
 	// Get artist
-	artist, err := h.artistService.GetArtistByID(c.Request.Context(), id)
+	artist, err := h.getArtistUC.Execute(c.Request.Context(), GetArtistInput{
+		IDOrSlug: idOrSlug,
+	})
 	if err != nil {
 		if appErr, ok := pkgerrors.AsAppError(err); ok {
 			response.Error(c, appErr.StatusCode, appErr.ErrCode, appErr.I18nKey, nil)
@@ -224,16 +260,15 @@ func (h *Handler) ListArtists(c *gin.Context) {
 	}
 
 	// Get artists with pagination, search and sort
-	artists, totalCount, err := h.artistService.ListArtists(
-		c.Request.Context(),
-		req.Page,
-		req.Limit,
-		req.Search,
-		req.SortBy,
-		req.SortOrder,
-		req.Specialization,
-		req.IsVerified,
-	)
+	artists, totalCount, err := h.listArtistsUC.Execute(c.Request.Context(), ListArtistsInput{
+		Page:           req.Page,
+		Limit:          req.Limit,
+		Search:         req.Search,
+		SortBy:         req.SortBy,
+		SortOrder:      req.SortOrder,
+		Specialization: req.Specialization,
+		IsVerified:     req.IsVerified,
+	})
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, "InternalError", I18nListFailed, nil)
 		return
@@ -346,12 +381,11 @@ func (h *Handler) ListSelection(c *gin.Context) {
 	}
 
 	// Get artists selection
-	artists, totalCount, err := h.artistService.ListSelection(
-		c.Request.Context(),
-		req.Page,
-		req.Limit,
-		req.Search,
-	)
+	artists, totalCount, err := h.listSelectUC.Execute(c.Request.Context(), ListSelectionInput{
+		Page:   req.Page,
+		Limit:  req.Limit,
+		Search: req.Search,
+	})
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, "InternalError", I18nListFailed, nil)
 		return
@@ -414,7 +448,11 @@ func (h *Handler) MergeArtist(c *gin.Context) {
 		return
 	}
 
-	err = h.artistService.MergeArtists(c.Request.Context(), req.TargetID, req.SourceIDs, userID)
+	err = h.mergeArtistsUC.Execute(c.Request.Context(), MergeArtistsInput{
+		TargetID:  req.TargetID,
+		SourceIDs: req.SourceIDs,
+		MergedBy:  userID,
+	})
 	if err != nil {
 		if appErr, ok := pkgerrors.AsAppError(err); ok {
 			response.Error(c, appErr.StatusCode, appErr.ErrCode, appErr.I18nKey, nil)
@@ -446,7 +484,10 @@ func (h *Handler) PreviewMergeArtist(c *gin.Context) {
 		return
 	}
 
-	preview, err := h.artistService.PreviewMergeArtists(c.Request.Context(), req.TargetID, req.SourceIDs)
+	preview, err := h.previewMergeUC.Execute(c.Request.Context(), PreviewMergeInput{
+		TargetID:  req.TargetID,
+		SourceIDs: req.SourceIDs,
+	})
 	if err != nil {
 		if appErr, ok := pkgerrors.AsAppError(err); ok {
 			response.Error(c, appErr.StatusCode, appErr.ErrCode, appErr.I18nKey, nil)

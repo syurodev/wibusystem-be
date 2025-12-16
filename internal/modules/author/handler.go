@@ -18,14 +18,38 @@ import (
 )
 
 type Handler struct {
-	authorService AuthorService
-	logger        *zap.Logger
+	createAuthorUC  CreateAuthorUseCase
+	updateAuthorUC  UpdateAuthorUseCase
+	deleteAuthorUC  DeleteAuthorUseCase
+	getAuthorUC     GetAuthorUseCase
+	listAuthorsUC   ListAuthorsUseCase
+	listSelectUC    ListSelectionUseCase
+	mergeAuthorsUC  MergeAuthorsUseCase
+	previewMergeUC  PreviewMergeUseCase
+	logger          *zap.Logger
 }
 
-func NewHandler(authorService AuthorService, logger *zap.Logger) *Handler {
+func NewHandler(
+	createAuthorUC CreateAuthorUseCase,
+	updateAuthorUC UpdateAuthorUseCase,
+	deleteAuthorUC DeleteAuthorUseCase,
+	getAuthorUC GetAuthorUseCase,
+	listAuthorsUC ListAuthorsUseCase,
+	listSelectUC ListSelectionUseCase,
+	mergeAuthorsUC MergeAuthorsUseCase,
+	previewMergeUC PreviewMergeUseCase,
+	logger *zap.Logger,
+) *Handler {
 	return &Handler{
-		authorService: authorService,
-		logger:        logger,
+		createAuthorUC:  createAuthorUC,
+		updateAuthorUC:  updateAuthorUC,
+		deleteAuthorUC:  deleteAuthorUC,
+		getAuthorUC:     getAuthorUC,
+		listAuthorsUC:   listAuthorsUC,
+		listSelectUC:    listSelectUC,
+		mergeAuthorsUC:  mergeAuthorsUC,
+		previewMergeUC:  previewMergeUC,
+		logger:          logger,
 	}
 }
 
@@ -49,7 +73,13 @@ func (h *Handler) CreateAuthor(c *gin.Context) {
 		return
 	}
 
-	author, err := h.authorService.CreateAuthor(c.Request.Context(), req.Name, req.Biography, req.AvatarURL, req.SocialLinks, userID)
+	author, err := h.createAuthorUC.Execute(c.Request.Context(), CreateAuthorInput{
+		Name:            req.Name,
+		Biography:       req.Biography,
+		AvatarURL:       req.AvatarURL,
+		SocialLinksJSON: req.SocialLinks,
+		CreatedBy:       userID,
+	})
 	if err != nil {
 		if appErr, ok := pkgerrors.AsAppError(err); ok {
 			response.Error(c, appErr.StatusCode, appErr.ErrCode, appErr.I18nKey, nil)
@@ -78,7 +108,13 @@ func (h *Handler) UpdateAuthor(c *gin.Context) {
 		return
 	}
 
-	author, err := h.authorService.UpdateAuthor(c.Request.Context(), id, req.Name, req.Biography, req.AvatarURL, req.SocialLinks)
+	author, err := h.updateAuthorUC.Execute(c.Request.Context(), UpdateAuthorInput{
+		ID:              id,
+		Name:            req.Name,
+		Biography:       req.Biography,
+		AvatarURL:       req.AvatarURL,
+		SocialLinksJSON: req.SocialLinks,
+	})
 	if err != nil {
 		if appErr, ok := pkgerrors.AsAppError(err); ok {
 			response.Error(c, appErr.StatusCode, appErr.ErrCode, appErr.I18nKey, nil)
@@ -101,7 +137,9 @@ func (h *Handler) DeleteAuthor(c *gin.Context) {
 		return
 	}
 
-	err = h.authorService.DeleteAuthor(c.Request.Context(), id)
+	err = h.deleteAuthorUC.Execute(c.Request.Context(), DeleteAuthorInput{
+		ID: id,
+	})
 	if err != nil {
 		if appErr, ok := pkgerrors.AsAppError(err); ok {
 			response.Error(c, appErr.StatusCode, appErr.ErrCode, appErr.I18nKey, nil)
@@ -116,14 +154,11 @@ func (h *Handler) DeleteAuthor(c *gin.Context) {
 
 // GetAuthor lấy thông tin chi tiết author
 func (h *Handler) GetAuthor(c *gin.Context) {
-	idStr := c.Param("identifier")
-	id, err := uuid.FromString(idStr)
-	if err != nil {
-		response.Error(c, http.StatusBadRequest, "BadRequest", I18nInvalidID, nil)
-		return
-	}
+	idOrSlug := c.Param("identifier")
 
-	author, err := h.authorService.GetAuthorByID(c.Request.Context(), id)
+	author, err := h.getAuthorUC.Execute(c.Request.Context(), GetAuthorInput{
+		IDOrSlug: idOrSlug,
+	})
 	if err != nil {
 		if appErr, ok := pkgerrors.AsAppError(err); ok {
 			response.Error(c, appErr.StatusCode, appErr.ErrCode, appErr.I18nKey, nil)
@@ -156,15 +191,14 @@ func (h *Handler) ListAuthors(c *gin.Context) {
 		req.Limit = 20
 	}
 
-	authors, totalCount, err := h.authorService.ListAuthors(
-		c.Request.Context(),
-		req.Page,
-		req.Limit,
-		req.Search,
-		req.SortBy,
-		req.SortOrder,
-		req.IsVerified,
-	)
+	authors, totalCount, err := h.listAuthorsUC.Execute(c.Request.Context(), ListAuthorsInput{
+		Page:       req.Page,
+		Limit:      req.Limit,
+		Search:     req.Search,
+		SortBy:     req.SortBy,
+		SortOrder:  req.SortOrder,
+		IsVerified: req.IsVerified,
+	})
 	if err != nil {
 		h.logger.Error("Failed to list authors", zap.Error(err))
 		response.Error(c, http.StatusInternalServerError, "InternalError", I18nListFailed, nil)
@@ -259,12 +293,11 @@ func (h *Handler) ListSelection(c *gin.Context) {
 		req.Limit = 20
 	}
 
-	authors, totalCount, err := h.authorService.ListSelection(
-		c.Request.Context(),
-		req.Page,
-		req.Limit,
-		req.Search,
-	)
+	authors, totalCount, err := h.listSelectUC.Execute(c.Request.Context(), ListSelectionInput{
+		Page:   req.Page,
+		Limit:  req.Limit,
+		Search: req.Search,
+	})
 	if err != nil {
 		h.logger.Error("Failed to list authors selection", zap.Error(err))
 		response.Error(c, http.StatusInternalServerError, "InternalError", I18nListFailed, nil)
@@ -315,7 +348,11 @@ func (h *Handler) MergeAuthor(c *gin.Context) {
 		return
 	}
 
-	err = h.authorService.MergeAuthors(c.Request.Context(), req.TargetID, req.SourceIDs, userID)
+	err = h.mergeAuthorsUC.Execute(c.Request.Context(), MergeAuthorsInput{
+		TargetID:  req.TargetID,
+		SourceIDs: req.SourceIDs,
+		MergedBy:  userID,
+	})
 	if err != nil {
 		if appErr, ok := pkgerrors.AsAppError(err); ok {
 			response.Error(c, appErr.StatusCode, appErr.ErrCode, appErr.I18nKey, nil)
@@ -336,7 +373,10 @@ func (h *Handler) PreviewMergeAuthor(c *gin.Context) {
 		return
 	}
 
-	preview, err := h.authorService.PreviewMergeAuthors(c.Request.Context(), req.TargetID, req.SourceIDs)
+	preview, err := h.previewMergeUC.Execute(c.Request.Context(), PreviewMergeInput{
+		TargetID:  req.TargetID,
+		SourceIDs: req.SourceIDs,
+	})
 	if err != nil {
 		if appErr, ok := pkgerrors.AsAppError(err); ok {
 			response.Error(c, appErr.StatusCode, appErr.ErrCode, appErr.I18nKey, nil)

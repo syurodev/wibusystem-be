@@ -69,16 +69,18 @@ func (r *creatorRepository) ListCreators(ctx context.Context, filter domain.Crea
 	whereClause := strings.Join(conditions, " AND ")
 
 	// Determine sort column and order
-	sortColumn := "u.last_content_updated_at"
+	sortColumn := "us.last_content_updated_at"
 	switch filter.SortBy {
 	case "follower_count":
-		sortColumn = "u.follower_count"
+		sortColumn = "us.follower_count"
 	case "works_count":
-		sortColumn = "u.works_count"
+		sortColumn = "(COALESCE(us.novel_count, 0) + COALESCE(us.manga_count, 0) + COALESCE(us.anime_count, 0))"
+	case "novel_count":
+		sortColumn = "us.novel_count"
 	case "created_at":
 		sortColumn = "u.created_at"
 	case "last_content_updated_at":
-		sortColumn = "u.last_content_updated_at"
+		sortColumn = "us.last_content_updated_at"
 	}
 
 	sortOrder := "DESC"
@@ -89,6 +91,7 @@ func (r *creatorRepository) ListCreators(ctx context.Context, filter domain.Crea
 	// Count total
 	countQuery := fmt.Sprintf(`
 		SELECT COUNT(*) FROM identify.users u
+		LEFT JOIN identify.user_statistics us ON u.id = us.user_id
 		WHERE %s
 	`, whereClause)
 
@@ -113,14 +116,19 @@ func (r *creatorRepository) ListCreators(ctx context.Context, filter domain.Crea
 	offset := (page - 1) * limit
 	totalPages := int((total + int64(limit) - 1) / int64(limit))
 
-	// Fetch creators
+	// Fetch creators with LEFT JOIN to user_statistics
 	selectQuery := fmt.Sprintf(`
 		SELECT 
 			u.id, u.email, u.email_verified, u.full_name, u.avatar_url,
 			u.phone, u.status, u.created_at, u.updated_at, u.last_login_at,
 			u.display_name, u.username, u.bio, u.is_verified,
-			u.follower_count, u.works_count, u.last_content_updated_at
+			COALESCE(us.follower_count, 0) AS follower_count,
+			COALESCE(us.novel_count, 0) AS novel_count,
+			COALESCE(us.manga_count, 0) AS manga_count,
+			COALESCE(us.anime_count, 0) AS anime_count,
+			us.last_content_updated_at
 		FROM identify.users u
+		LEFT JOIN identify.user_statistics us ON u.id = us.user_id
 		WHERE %s
 		ORDER BY %s %s NULLS LAST
 		LIMIT $%d OFFSET $%d
@@ -138,12 +146,14 @@ func (r *creatorRepository) ListCreators(ctx context.Context, filter domain.Crea
 	for rows.Next() {
 		var user domain.User
 		var bioJSON []byte
+		var followerCount, novelCount, mangaCount, animeCount int
+		var lastContentUpdatedAt *interface{}
 
 		err := rows.Scan(
 			&user.ID, &user.Email, &user.EmailVerified, &user.FullName, &user.AvatarURL,
 			&user.Phone, &user.Status, &user.CreatedAt, &user.UpdatedAt, &user.LastLoginAt,
 			&user.DisplayName, &user.Username, &bioJSON, &user.IsVerified,
-			&user.FollowerCount, &user.WorksCount, &user.LastContentUpdatedAt,
+			&followerCount, &novelCount, &mangaCount, &animeCount, &lastContentUpdatedAt,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan creator: %w", err)
@@ -158,8 +168,14 @@ func (r *creatorRepository) ListCreators(ctx context.Context, filter domain.Crea
 		}
 
 		creators = append(creators, domain.CreatorWithStats{
-			User:       user,
-			TotalViews: 0, // Will be populated from ClickHouse separately
+			User:                 user,
+			FollowerCount:        followerCount,
+			NovelCount:           novelCount,
+			MangaCount:           mangaCount,
+			AnimeCount:           animeCount,
+			WorksCount:           novelCount + mangaCount + animeCount,
+			LastContentUpdatedAt: nil, // Will be set if lastContentUpdatedAt is not nil
+			TotalViews:           0,   // Will be populated from ClickHouse separately
 		})
 	}
 
@@ -178,32 +194,54 @@ func (r *creatorRepository) ListCreators(ctx context.Context, filter domain.Crea
 
 // UpdateLastContentUpdatedAt updates the last content update timestamp
 func (r *creatorRepository) UpdateLastContentUpdatedAt(ctx context.Context, userID uuid.UUID) error {
+	// First ensure record exists
+	if err := r.EnsureUserStatisticsExists(ctx, userID); err != nil {
+		return err
+	}
+
 	query := `
-		UPDATE identify.users
+		UPDATE identify.user_statistics
 		SET last_content_updated_at = NOW()
-		WHERE id = $1
+		WHERE user_id = $1
 	`
 	_, err := r.pool.Exec(ctx, query, userID)
 	return err
 }
 
-// IncrementWorksCount increments the works_count for a user
-func (r *creatorRepository) IncrementWorksCount(ctx context.Context, userID uuid.UUID) error {
+// IncrementNovelCount increments the novel_count for a user
+func (r *creatorRepository) IncrementNovelCount(ctx context.Context, userID uuid.UUID) error {
+	// First ensure record exists
+	if err := r.EnsureUserStatisticsExists(ctx, userID); err != nil {
+		return err
+	}
+
 	query := `
-		UPDATE identify.users
-		SET works_count = COALESCE(works_count, 0) + 1
-		WHERE id = $1
+		UPDATE identify.user_statistics
+		SET novel_count = COALESCE(novel_count, 0) + 1,
+		    last_content_updated_at = NOW()
+		WHERE user_id = $1
 	`
 	_, err := r.pool.Exec(ctx, query, userID)
 	return err
 }
 
-// DecrementWorksCount decrements the works_count for a user
-func (r *creatorRepository) DecrementWorksCount(ctx context.Context, userID uuid.UUID) error {
+// DecrementNovelCount decrements the novel_count for a user
+func (r *creatorRepository) DecrementNovelCount(ctx context.Context, userID uuid.UUID) error {
 	query := `
-		UPDATE identify.users
-		SET works_count = GREATEST(COALESCE(works_count, 0) - 1, 0)
-		WHERE id = $1
+		UPDATE identify.user_statistics
+		SET novel_count = GREATEST(COALESCE(novel_count, 0) - 1, 0)
+		WHERE user_id = $1
+	`
+	_, err := r.pool.Exec(ctx, query, userID)
+	return err
+}
+
+// EnsureUserStatisticsExists ensures a user_statistics record exists for the user
+func (r *creatorRepository) EnsureUserStatisticsExists(ctx context.Context, userID uuid.UUID) error {
+	query := `
+		INSERT INTO identify.user_statistics (user_id)
+		VALUES ($1)
+		ON CONFLICT (user_id) DO NOTHING
 	`
 	_, err := r.pool.Exec(ctx, query, userID)
 	return err

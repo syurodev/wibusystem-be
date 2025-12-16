@@ -246,3 +246,17 @@ func (s *authorServiceImpl) PreviewMergeAuthors(ctx context.Context, targetID uu
 	return s.authorRepo.GetMergePreview(ctx, targetID, sourceIDs)
 }
 
+// AddNovelAuthors thêm authors cho novel
+// Used by CreateNovelUseCase for orchestrated creation
+func (s *authorServiceImpl) AddNovelAuthors(ctx context.Context, novelID uuid.UUID, authorIDs []uuid.UUID) error {
+	for i, authorID := range authorIDs {
+		// Verify author exists
+		if _, err := s.authorRepo.GetByID(ctx, authorID); err != nil {
+			return fmt.Errorf("author %s not found: %w", authorID, err)
+		}
+		if err := s.authorRepo.AddNovelAuthor(ctx, novelID, authorID, i); err != nil {
+			return fmt.Errorf("failed to add author %s: %w", authorID, err)
+		}
+	}
+	return nil
+}

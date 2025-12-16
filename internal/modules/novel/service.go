@@ -152,12 +152,18 @@ func (s *novelServiceImpl) CreateNovel(
 	}
 
 	if ownerType == "user" {
-		if err := s.creatorRepo.IncrementWorksCount(ctx, ownerID); err != nil {
-			fmt.Printf("Failed to increment works count for user %s: %v\n", ownerID, err)
+		if err := s.creatorRepo.IncrementNovelCount(ctx, ownerID); err != nil {
+			fmt.Printf("Failed to increment novel count for user %s: %v\n", ownerID, err)
 		}
 	}
 
 	return s.novelRepo.GetByID(ctx, id)
+}
+
+// CreateNovelEntity creates only the novel entity without relations
+// This is used by CreateNovelUseCase for orchestrated creation
+func (s *novelServiceImpl) CreateNovelEntity(ctx context.Context, novel *domain.Novel) error {
+	return s.novelRepo.Create(ctx, novel)
 }
 
 // UpdateNovel cập nhật thông tin novel
@@ -247,12 +253,18 @@ func (s *novelServiceImpl) DeleteNovel(ctx context.Context, id uuid.UUID) error 
 	}
 
 	if novel.OwnerType == "user" {
-		if err := s.creatorRepo.DecrementWorksCount(ctx, novel.OwnerID); err != nil {
-			fmt.Printf("Failed to decrement works count for user %s: %v\n", novel.OwnerID, err)
+		if err := s.creatorRepo.DecrementNovelCount(ctx, novel.OwnerID); err != nil {
+			fmt.Printf("Failed to decrement novel count for user %s: %v\n", novel.OwnerID, err)
 		}
 	}
 
 	return nil
+}
+
+// DeleteNovelEntity deletes only the novel entity without relations logic
+// This is used by DeleteNovelUseCase for orchestrated deletion
+func (s *novelServiceImpl) DeleteNovelEntity(ctx context.Context, id uuid.UUID) error {
+	return s.novelRepo.Delete(ctx, id)
 }
 
 

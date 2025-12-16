@@ -382,3 +382,55 @@ func (s *genreServiceImpl) PreviewMergeGenres(ctx context.Context, targetID uuid
 	return s.genreRepo.GetMergePreview(ctx, target.ID, sourceIDs)
 }
 
+// AddNovelGenres thêm genres cho novel và increment counts
+// Used by CreateNovelUseCase for orchestrated creation
+func (s *genreServiceImpl) AddNovelGenres(ctx context.Context, novelID uuid.UUID, genreIDs []uuid.UUID, createdBy uuid.UUID) error {
+	if len(genreIDs) == 0 {
+		return nil
+	}
+
+	if err := s.genreRepo.AddNovelGenres(ctx, novelID, genreIDs, createdBy); err != nil {
+		return fmt.Errorf("failed to add novel genres: %w", err)
+	}
+
+	increments := make(map[uuid.UUID]int)
+	for _, gid := range genreIDs {
+		increments[gid] = 1
+	}
+	if err := s.genreRepo.BatchIncrementNovelCount(ctx, increments); err != nil {
+		return fmt.Errorf("failed to increment genre counts: %w", err)
+	}
+
+	return nil
+}
+
+// RemoveNovelGenres xóa genres khỏi novel và decrement counts
+func (s *genreServiceImpl) RemoveNovelGenres(ctx context.Context, novelID uuid.UUID) error {
+	// Get current genres before delete
+	genres, err := s.genreRepo.GetNovelGenres(ctx, novelID)
+	if err != nil {
+		return fmt.Errorf("failed to get novel genres: %w", err)
+	}
+
+	// Decrement counts
+	if len(genres) > 0 {
+		increments := make(map[uuid.UUID]int)
+		for _, g := range genres {
+			increments[g.ID] = -1
+		}
+		if err := s.genreRepo.BatchIncrementNovelCount(ctx, increments); err != nil {
+			return fmt.Errorf("failed to decrement genre counts: %w", err)
+		}
+	}
+	return nil
+}
+
+// GetNovelGenres lấy danh sách genre của novel
+func (s *genreServiceImpl) GetNovelGenres(ctx context.Context, novelID uuid.UUID) ([]*domain.Genre, error) {
+	return s.genreRepo.GetNovelGenres(ctx, novelID)
+}
+
+// BatchIncrementNovelCount cập nhật số lượng novel cho nhiều genres
+func (s *genreServiceImpl) BatchIncrementNovelCount(ctx context.Context, increments map[uuid.UUID]int) error {
+	return s.genreRepo.BatchIncrementNovelCount(ctx, increments)
+}

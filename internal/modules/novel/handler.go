@@ -22,21 +22,42 @@ import (
 
 // Handler handles novel-related HTTP requests
 type Handler struct {
-	novelService   NovelService
-	volumeService  novel_volume.VolumeService
-	chapterService novel_chapter.ChapterService
+	novelService    NovelService
+	createNovelUC   CreateNovelUseCase
+	updateNovelUC   UpdateNovelUseCase
+	deleteNovelUC   DeleteNovelUseCase
+	getNovelUC      GetNovelUseCase
+	listNovelsUC    ListNovelsUseCase
+	viewCountUC     IncrementViewCountUseCase
+	getNovelFullUC  GetNovelFullUseCase
+	volumeService   novel_volume.VolumeService
+	chapterService  novel_chapter.ChapterService
 }
 
 // NewHandler creates a new novel Handler instance
 func NewHandler(
 	novelService NovelService,
+	createNovelUC CreateNovelUseCase,
+	updateNovelUC UpdateNovelUseCase,
+	deleteNovelUC DeleteNovelUseCase,
+	getNovelUC GetNovelUseCase,
+	listNovelsUC ListNovelsUseCase,
+	viewCountUC IncrementViewCountUseCase,
+	getNovelFullUC GetNovelFullUseCase,
 	volumeService novel_volume.VolumeService,
 	chapterService novel_chapter.ChapterService,
 ) *Handler {
 	return &Handler{
-		novelService:   novelService,
-		volumeService:  volumeService,
-		chapterService: chapterService,
+		novelService:    novelService,
+		createNovelUC:   createNovelUC,
+		updateNovelUC:   updateNovelUC,
+		deleteNovelUC:   deleteNovelUC,
+		getNovelUC:      getNovelUC,
+		listNovelsUC:    listNovelsUC,
+		viewCountUC:     viewCountUC,
+		getNovelFullUC:  getNovelFullUC,
+		volumeService:   volumeService,
+		chapterService:  chapterService,
 	}
 }
 
@@ -44,25 +65,25 @@ func NewHandler(
 func (h *Handler) CreateNovel(c *gin.Context) {
 	userIDStr, exists := middleware.GetUserID(c)
 	if !exists {
-		response.Error(c, http.StatusUnauthorized, "UNAUTHORIZED", "auth.unauthorized", nil)
+		response.Error(c, http.StatusUnauthorized, "UNAUTHORIZED", I18nAuthUnauthorized, nil)
 		return
 	}
 
 	userID, err := uuid.FromString(userIDStr)
 	if err != nil {
-		response.Error(c, http.StatusUnauthorized, "INVALID_USER_ID", "auth.invalid_user_id", nil)
+		response.Error(c, http.StatusUnauthorized, "INVALID_USER_ID", I18nAuthInvalidUserID, nil)
 		return
 	}
 
 	var req noveldto.CreateNovelRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Error(c, http.StatusBadRequest, "VALIDATION_FAILED", "validation.failed", err.Error())
+		response.Error(c, http.StatusBadRequest, "VALIDATION_FAILED", I18nValidationFailed, err.Error())
 		return
 	}
 
 	ownerID, err := uuid.FromString(req.OwnerID)
 	if err != nil {
-		response.Error(c, http.StatusBadRequest, "INVALID_OWNER_ID", "novel.invalid_owner_id", nil)
+		response.Error(c, http.StatusBadRequest, "INVALID_OWNER_ID", I18nInvalidOwnerID, nil)
 		return
 	}
 
@@ -70,7 +91,7 @@ func (h *Handler) CreateNovel(c *gin.Context) {
 	for _, idStr := range req.GenreIDs {
 		id, err := uuid.FromString(idStr)
 		if err != nil {
-			response.Error(c, http.StatusBadRequest, "INVALID_GENRE_ID", "novel.invalid_genre_id", nil)
+			response.Error(c, http.StatusBadRequest, "INVALID_GENRE_ID", I18nInvalidGenreID, nil)
 			return
 		}
 		genreIDs = append(genreIDs, id)
@@ -80,7 +101,7 @@ func (h *Handler) CreateNovel(c *gin.Context) {
 	for _, idStr := range req.AuthorIDs {
 		id, err := uuid.FromString(idStr)
 		if err != nil {
-			response.Error(c, http.StatusBadRequest, "INVALID_AUTHOR_ID", "novel.invalid_author_id", nil)
+			response.Error(c, http.StatusBadRequest, "INVALID_AUTHOR_ID", I18nInvalidAuthorID, nil)
 			return
 		}
 		authorIDs = append(authorIDs, id)
@@ -90,30 +111,29 @@ func (h *Handler) CreateNovel(c *gin.Context) {
 	for _, idStr := range req.ArtistIDs {
 		id, err := uuid.FromString(idStr)
 		if err != nil {
-			response.Error(c, http.StatusBadRequest, "INVALID_ARTIST_ID", "novel.invalid_artist_id", nil)
+			response.Error(c, http.StatusBadRequest, "INVALID_ARTIST_ID", I18nInvalidArtistID, nil)
 			return
 		}
 		artistIDs = append(artistIDs, id)
 	}
 
-	novel, err := h.novelService.CreateNovel(
-		c.Request.Context(),
-		req.Title,
-		req.Synopsis,
-		req.CoverImageURL,
-		req.ThumbnailURL,
-		&req.Status,
-		req.OriginalLanguage,
-		req.OriginalTitle,
-		req.Metadata,
-		req.IsOneshot,
-		ownerID,
-		req.OwnerType,
-		userID,
-		genreIDs,
-		authorIDs,
-		artistIDs,
-	)
+	novel, err := h.createNovelUC.Execute(c.Request.Context(), CreateNovelInput{
+		Title:            req.Title,
+		Synopsis:         req.Synopsis,
+		CoverImageURL:    req.CoverImageURL,
+		ThumbnailURL:     req.ThumbnailURL,
+		Status:           req.Status,
+		IsOneshot:        req.IsOneshot,
+		OriginalLanguage: req.OriginalLanguage,
+		OriginalTitle:    req.OriginalTitle,
+		MetadataJSON:     req.Metadata,
+		OwnerID:          ownerID,
+		OwnerType:        req.OwnerType,
+		CreatedBy:        userID,
+		GenreIDs:         genreIDs,
+		AuthorIDs:        authorIDs,
+		ArtistIDs:        artistIDs,
+	})
 	if err != nil {
 		if appErr, ok := pkgerrors.AsAppError(err); ok {
 			response.Error(c, appErr.StatusCode, appErr.ErrCode, appErr.I18nKey, nil)
@@ -138,23 +158,22 @@ func (h *Handler) UpdateNovel(c *gin.Context) {
 
 	var req noveldto.UpdateNovelRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Error(c, http.StatusBadRequest, "VALIDATION_FAILED", "validation.failed", err.Error())
+		response.Error(c, http.StatusBadRequest, "VALIDATION_FAILED", I18nValidationFailed, err.Error())
 		return
 	}
 
-	novel, err := h.novelService.UpdateNovel(
-		c.Request.Context(),
-		id,
-		req.Title,
-		req.Synopsis,
-		req.CoverImageURL,
-		req.ThumbnailURL,
-		&req.Status,
-		req.OriginalLanguage,
-		req.OriginalTitle,
-		req.Metadata,
-		req.IsOneshot,
-	)
+	novel, err := h.updateNovelUC.Execute(c.Request.Context(), UpdateNovelInput{
+		ID:               id,
+		Title:            req.Title,
+		Synopsis:         req.Synopsis,
+		CoverImageURL:    req.CoverImageURL,
+		ThumbnailURL:     req.ThumbnailURL,
+		Status:           req.Status,
+		IsOneshot:        req.IsOneshot,
+		OriginalLanguage: req.OriginalLanguage,
+		OriginalTitle:    req.OriginalTitle,
+		MetadataJSON:     req.Metadata,
+	})
 	if err != nil {
 		if appErr, ok := pkgerrors.AsAppError(err); ok {
 			response.Error(c, appErr.StatusCode, appErr.ErrCode, appErr.I18nKey, nil)
@@ -177,7 +196,7 @@ func (h *Handler) DeleteNovel(c *gin.Context) {
 		return
 	}
 
-	err = h.novelService.DeleteNovel(c.Request.Context(), id)
+	err = h.deleteNovelUC.Execute(c.Request.Context(), DeleteNovelInput{ID: id})
 	if err != nil {
 		if appErr, ok := pkgerrors.AsAppError(err); ok {
 			response.Error(c, appErr.StatusCode, appErr.ErrCode, appErr.I18nKey, nil)
@@ -194,15 +213,9 @@ func (h *Handler) DeleteNovel(c *gin.Context) {
 func (h *Handler) GetNovel(c *gin.Context) {
 	idOrSlug := c.Param("identifier")
 
-	var novel *domain.Novel
-	var err error
-
-	id, parseErr := uuid.FromString(idOrSlug)
-	if parseErr == nil {
-		novel, err = h.novelService.GetNovelByID(c.Request.Context(), id)
-	} else {
-		novel, err = h.novelService.GetNovelBySlug(c.Request.Context(), idOrSlug)
-	}
+	novel, err := h.getNovelUC.Execute(c.Request.Context(), GetNovelInput{
+		IDOrSlug: idOrSlug,
+	})
 
 	if err != nil {
 		if appErr, ok := pkgerrors.AsAppError(err); ok {
@@ -297,7 +310,7 @@ func (h *Handler) GetNovel(c *gin.Context) {
 func (h *Handler) ListNovels(c *gin.Context) {
 	var req noveldto.ListNovelsRequest
 	if err := c.ShouldBindQuery(&req); err != nil {
-		response.Error(c, http.StatusBadRequest, "VALIDATION_FAILED", "validation.failed", err.Error())
+		response.Error(c, http.StatusBadRequest, "VALIDATION_FAILED", I18nValidationFailed, err.Error())
 		return
 	}
 
@@ -312,7 +325,7 @@ func (h *Handler) ListNovels(c *gin.Context) {
 	if req.Owner != "" {
 		id, err := uuid.FromString(req.Owner)
 		if err != nil {
-			response.Error(c, http.StatusBadRequest, "INVALID_OWNER_ID", "novel.invalid_owner_id", nil)
+			response.Error(c, http.StatusBadRequest, "INVALID_OWNER_ID", I18nInvalidOwnerID, nil)
 			return
 		}
 		ownerID = &id
@@ -322,27 +335,26 @@ func (h *Handler) ListNovels(c *gin.Context) {
 	for _, idStr := range req.GenreIDs {
 		id, err := uuid.FromString(idStr)
 		if err != nil {
-			response.Error(c, http.StatusBadRequest, "INVALID_GENRE_ID", "novel.invalid_genre_id", nil)
+			response.Error(c, http.StatusBadRequest, "INVALID_GENRE_ID", I18nInvalidGenreID, nil)
 			return
 		}
 		genreIDs = append(genreIDs, id)
 	}
 
-	novels, totalCount, err := h.novelService.ListNovels(
-		c.Request.Context(),
-		req.Page,
-		req.Limit,
-		ownerID,
-		req.KeySearch,
-		genreIDs,
-		req.Statuses,
-		req.OriginalLanguage,
-		req.SortBy,
-		req.SortOrder,
-	)
+	novels, totalCount, err := h.listNovelsUC.Execute(c.Request.Context(), ListNovelsInput{
+		Page:             req.Page,
+		Limit:            req.Limit,
+		OwnerID:          ownerID,
+		KeySearch:        req.KeySearch,
+		GenreIDs:         genreIDs,
+		StatusStrs:       req.Statuses,
+		OriginalLanguage: req.OriginalLanguage,
+		SortBy:           req.SortBy,
+		SortOrder:        req.SortOrder,
+	})
 	if err != nil {
 		fmt.Printf("❌ [Handler] ListNovels Error: %v\n", err)
-		response.Error(c, http.StatusInternalServerError, "LIST_FAILED", "novel.list_failed", nil)
+		response.Error(c, http.StatusInternalServerError, "LIST_FAILED", I18nListFailed, nil)
 		return
 	}
 
@@ -359,7 +371,7 @@ func (h *Handler) ListNovels(c *gin.Context) {
 		TotalPages: totalPages,
 	}
 
-	response.Success(c, http.StatusOK, "novel.list_success", novelResponses, meta)
+	response.Success(c, http.StatusOK, I18nListSuccess, novelResponses, meta)
 }
 
 // IncrementViewCount tăng view count của novel
@@ -375,17 +387,17 @@ func (h *Handler) IncrementViewCount(c *gin.Context) {
 	idStr := c.Param("identifier")
 	id, err := uuid.FromString(idStr)
 	if err != nil {
-		response.Error(c, http.StatusBadRequest, "INVALID_ID", "novel.invalid_id", nil)
+		response.Error(c, http.StatusBadRequest, "INVALID_ID", I18nInvalidID, nil)
 		return
 	}
 
-	err = h.novelService.IncrementViewCount(c.Request.Context(), id)
+	err = h.viewCountUC.Execute(c.Request.Context(), IncrementViewCountInput{ID: id})
 	if err != nil {
-		response.Error(c, http.StatusInternalServerError, "INCREMENT_FAILED", "novel.increment_view_failed", nil)
+		response.Error(c, http.StatusInternalServerError, "INCREMENT_FAILED", I18nIncrementViewFailed, nil)
 		return
 	}
 
-	response.Success(c, http.StatusOK, "novel.view_incremented", nil, nil)
+	response.Success(c, http.StatusOK, I18nViewIncremented, nil, nil)
 }
 
 // GetNovelFull lấy thông tin đầy đủ novel (public API)
@@ -400,7 +412,9 @@ func (h *Handler) IncrementViewCount(c *gin.Context) {
 func (h *Handler) GetNovelFull(c *gin.Context) {
 	identifier := c.Param("identifier")
 
-	data, err := h.novelService.GetNovelFull(c.Request.Context(), identifier)
+	data, err := h.getNovelFullUC.Execute(c.Request.Context(), GetNovelFullInput{
+		Slug: identifier,
+	})
 	if err != nil {
 		if errors.Is(err, pkgerrors.ErrNovelNotFound) || errors.Is(err, pgx.ErrNoRows) {
 			response.Error(c, http.StatusNotFound, "NOVEL_NOT_FOUND", I18nNotFound, nil)

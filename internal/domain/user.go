@@ -18,26 +18,23 @@ const (
 
 // User là domain model cho người dùng trong hệ thống
 type User struct {
-	ID                   uuid.UUID      `json:"id"`
-	Email                string         `json:"email"`
-	EmailVerified        bool           `json:"email_verified"`
-	PasswordHash         string         `json:"-"`
-	FullName             *string        `json:"full_name"`
-	AvatarURL            *string        `json:"avatar_url"`
-	Phone                *string        `json:"phone"`
-	Status               UserStatus     `json:"status"`
-	CreatedAt            time.Time      `json:"created_at"`
-	UpdatedAt            time.Time      `json:"updated_at"`
-	LastLoginAt          *time.Time     `json:"last_login_at"`
-	Settings             map[string]any `json:"settings"`
-	// Creator fields
-	DisplayName          *string    `json:"display_name"`
-	Username             *string    `json:"username"`
-	Bio                  []any      `json:"bio"` // JSONB array (platejs TNode[])
-	IsVerified           bool       `json:"is_verified"`
-	FollowerCount        int        `json:"follower_count"`
-	WorksCount           int        `json:"works_count"`
-	LastContentUpdatedAt *time.Time `json:"last_content_updated_at"`
+	ID            uuid.UUID      `json:"id"`
+	Email         string         `json:"email"`
+	EmailVerified bool           `json:"email_verified"`
+	PasswordHash  string         `json:"-"`
+	FullName      *string        `json:"full_name"`
+	AvatarURL     *string        `json:"avatar_url"`
+	Phone         *string        `json:"phone"`
+	Status        UserStatus     `json:"status"`
+	CreatedAt     time.Time      `json:"created_at"`
+	UpdatedAt     time.Time      `json:"updated_at"`
+	LastLoginAt   *time.Time     `json:"last_login_at"`
+	Settings      map[string]any `json:"settings"`
+	// Profile fields
+	DisplayName *string `json:"display_name"`
+	Username    *string `json:"username"`
+	Bio         []any   `json:"bio"` // JSONB array (platejs TNode[])
+	IsVerified  bool    `json:"is_verified"`
 }
 
 // UserRepository định nghĩa interface cho việc truy cập dữ liệu user

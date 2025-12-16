@@ -18,14 +18,47 @@ import (
 )
 
 // Handler handles chapter-related HTTP requests
+// Handler handles chapter-related HTTP requests
 type Handler struct {
-	chapterService ChapterService
+	chapterService            ChapterService
+	createChapterUC           CreateChapterUseCase
+	updateChapterUC           UpdateChapterUseCase
+	deleteChapterUC           DeleteChapterUseCase
+	getChapterUC              GetChapterUseCase
+	listChaptersByNovelUC     ListChaptersByNovelUseCase
+	listChaptersByVolumeUC    ListChaptersByVolumeUseCase
+	publishChapterUC          PublishChapterUseCase
+	scheduleChapterUC         ScheduleChapterUseCase
+	incrementViewCountUC      IncrementViewCountUseCase
+	updateStatisticsUC        UpdateStatisticsUseCase
 }
 
 // NewHandler creates a new chapter Handler instance
-func NewHandler(chapterService ChapterService) *Handler {
+func NewHandler(
+	chapterService ChapterService,
+	createChapterUC CreateChapterUseCase,
+	updateChapterUC UpdateChapterUseCase,
+	deleteChapterUC DeleteChapterUseCase,
+	getChapterUC GetChapterUseCase,
+	listChaptersByNovelUC ListChaptersByNovelUseCase,
+	listChaptersByVolumeUC ListChaptersByVolumeUseCase,
+	publishChapterUC PublishChapterUseCase,
+	scheduleChapterUC ScheduleChapterUseCase,
+	incrementViewCountUC IncrementViewCountUseCase,
+	updateStatisticsUC UpdateStatisticsUseCase,
+) *Handler {
 	return &Handler{
-		chapterService: chapterService,
+		chapterService:            chapterService,
+		createChapterUC:           createChapterUC,
+		updateChapterUC:           updateChapterUC,
+		deleteChapterUC:           deleteChapterUC,
+		getChapterUC:              getChapterUC,
+		listChaptersByNovelUC:     listChaptersByNovelUC,
+		listChaptersByVolumeUC:    listChaptersByVolumeUC,
+		publishChapterUC:          publishChapterUC,
+		scheduleChapterUC:         scheduleChapterUC,
+		incrementViewCountUC:      incrementViewCountUC,
+		updateStatisticsUC:        updateStatisticsUC,
 	}
 }
 
@@ -57,24 +90,23 @@ func (h *Handler) CreateChapter(c *gin.Context) {
 		return
 	}
 
-	chapter, err := h.chapterService.CreateChapter(
-		c.Request.Context(),
-		novelID,
-		volumeIDVal,
-		req.ChapterNumber,
-		req.Title,
-		req.Content,
-		req.WordCount,
-		req.CharacterCount,
-		req.AuthorNotes,
-		req.IsFree,
-		req.Price,
-		req.Currency,
-		req.Status,
-		req.DisplayOrder,
-		req.ScheduledAt,
-		userID,
-	)
+	chapter, err := h.createChapterUC.Execute(c.Request.Context(), CreateChapterInput{
+		NovelID:        novelID,
+		VolumeID:       volumeIDVal,
+		ChapterNumber:  req.ChapterNumber,
+		Title:          req.Title,
+		Content:        req.Content,
+		WordCount:      req.WordCount,
+		CharacterCount: req.CharacterCount,
+		AuthorNotes:    req.AuthorNotes,
+		IsFree:         req.IsFree,
+		Price:          req.Price,
+		Currency:       req.Currency,
+		Status:         req.Status,
+		DisplayOrder:   req.DisplayOrder,
+		ScheduledAt:    req.ScheduledAt,
+		CreatedBy:      userID,
+	})
 	if err != nil {
 		if appErr, ok := pkgerrors.AsAppError(err); ok {
 			response.Error(c, appErr.StatusCode, appErr.ErrCode, appErr.I18nKey, nil)
@@ -137,25 +169,24 @@ func (h *Handler) UpdateChapter(c *gin.Context) {
 		return
 	}
 
-	chapter, err := h.chapterService.UpdateChapter(
-		c.Request.Context(),
-		id,
-		volumeID,
-		req.ChapterNumber,
-		req.Title,
-		req.Content,
-		req.WordCount,
-		req.CharacterCount,
-		req.AuthorNotes,
-		req.IsFree,
-		req.Price,
-		req.Currency,
-		req.Status,
-		req.DisplayOrder,
-		req.ScheduledAt,
-		userID,
-		nil,
-	)
+	chapter, err := h.updateChapterUC.Execute(c.Request.Context(), UpdateChapterInput{
+		ID:             id,
+		VolumeID:       volumeID,
+		ChapterNumber:  req.ChapterNumber,
+		Title:          req.Title,
+		Content:        req.Content,
+		WordCount:      req.WordCount,
+		CharacterCount: req.CharacterCount,
+		AuthorNotes:    req.AuthorNotes,
+		IsFree:         req.IsFree,
+		Price:          req.Price,
+		Currency:       req.Currency,
+		Status:         req.Status,
+		DisplayOrder:   req.DisplayOrder,
+		ScheduledAt:    req.ScheduledAt,
+		ChangedBy:      userID,
+		RequestContext: nil,
+	})
 	if err != nil {
 		if appErr, ok := pkgerrors.AsAppError(err); ok {
 			response.Error(c, appErr.StatusCode, appErr.ErrCode, appErr.I18nKey, nil)
@@ -187,7 +218,7 @@ func (h *Handler) DeleteChapter(c *gin.Context) {
 		return
 	}
 
-	err = h.chapterService.DeleteChapter(c.Request.Context(), id)
+	err = h.deleteChapterUC.Execute(c.Request.Context(), DeleteChapterInput{ID: id})
 	if err != nil {
 		if appErr, ok := pkgerrors.AsAppError(err); ok {
 			response.Error(c, appErr.StatusCode, appErr.ErrCode, appErr.I18nKey, nil)
@@ -218,7 +249,7 @@ func (h *Handler) GetChapter(c *gin.Context) {
 		return
 	}
 
-	chapter, err := h.chapterService.GetChapterByID(c.Request.Context(), id)
+	chapter, err := h.getChapterUC.Execute(c.Request.Context(), GetChapterInput{ID: id})
 	if err != nil {
 		if appErr, ok := pkgerrors.AsAppError(err); ok {
 			response.Error(c, appErr.StatusCode, appErr.ErrCode, appErr.I18nKey, nil)
@@ -289,7 +320,10 @@ func (h *Handler) ListChaptersByNovel(c *gin.Context) {
 		filter.Offset = offset
 	}
 
-	chapters, err := h.chapterService.GetChaptersByNovelID(c.Request.Context(), novelID, filter)
+	chapters, err := h.listChaptersByNovelUC.Execute(c.Request.Context(), ListChaptersByNovelInput{
+		NovelID: novelID,
+		Filter:  filter,
+	})
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, "LIST_FAILED", "chapter.list_failed", nil)
 		return
@@ -322,7 +356,10 @@ func (h *Handler) ListChaptersByVolume(c *gin.Context) {
 
 	publishedOnly := c.Query("published_only") == "true"
 
-	chapters, err := h.chapterService.GetChaptersByVolumeID(c.Request.Context(), volumeID, publishedOnly)
+	chapters, err := h.listChaptersByVolumeUC.Execute(c.Request.Context(), ListChaptersByVolumeInput{
+		VolumeID:      volumeID,
+		PublishedOnly: publishedOnly,
+	})
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, "LIST_FAILED", "chapter.list_failed", nil)
 		return
@@ -362,7 +399,11 @@ func (h *Handler) PublishChapter(c *gin.Context) {
 
 	requestContext := extractRequestContext(c)
 
-	err = h.chapterService.PublishChapter(c.Request.Context(), id, changedBy, requestContext)
+	err = h.publishChapterUC.Execute(c.Request.Context(), PublishChapterInput{
+		ID:             id,
+		ChangedBy:      changedBy,
+		RequestContext: requestContext,
+	})
 	if err != nil {
 		if errors.Is(err, pkgerrors.ErrChapterNotFound) {
 			response.Error(c, http.StatusNotFound, "CHAPTER_NOT_FOUND", "chapter.not_found", nil)
@@ -407,7 +448,10 @@ func (h *Handler) ScheduleChapter(c *gin.Context) {
 		return
 	}
 
-	err = h.chapterService.ScheduleChapter(c.Request.Context(), id, scheduledAt)
+	err = h.scheduleChapterUC.Execute(c.Request.Context(), ScheduleChapterInput{
+		ID:          id,
+		ScheduledAt: scheduledAt,
+	})
 	if err != nil {
 		if errors.Is(err, pkgerrors.ErrChapterNotFound) {
 			response.Error(c, http.StatusNotFound, "CHAPTER_NOT_FOUND", "chapter.not_found", nil)
@@ -437,7 +481,7 @@ func (h *Handler) IncrementViewCount(c *gin.Context) {
 		return
 	}
 
-	err = h.chapterService.IncrementViewCount(c.Request.Context(), id)
+	err = h.incrementViewCountUC.Execute(c.Request.Context(), IncrementViewCountInput{ID: id})
 	if err != nil {
 		_ = err // Log but don't fail
 	}
@@ -477,7 +521,10 @@ func (h *Handler) UpdateStatistics(c *gin.Context) {
 		CommentCount: req.CommentCount,
 	}
 
-	err = h.chapterService.UpdateStatistics(c.Request.Context(), id, stats)
+	err = h.updateStatisticsUC.Execute(c.Request.Context(), UpdateStatisticsInput{
+		ID:    id,
+		Stats: stats,
+	})
 	if err != nil {
 		if errors.Is(err, pkgerrors.ErrChapterNotFound) {
 			response.Error(c, http.StatusNotFound, "CHAPTER_NOT_FOUND", "chapter.not_found", nil)

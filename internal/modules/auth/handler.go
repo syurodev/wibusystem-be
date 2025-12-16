@@ -24,18 +24,35 @@ type OAuth2SessionCreator interface {
 }
 
 type Handler struct {
-	authService     AuthService
-	emailService    email.EmailService
-	webauthnService WebAuthnService
-	oauth2Service   OAuth2SessionCreator
+	authService      AuthService
+	emailService     email.EmailService
+	webauthnService  WebAuthnService
+	oauth2Service    OAuth2SessionCreator
+	registerUserUC   RegisterUserUseCase
+	verifyEmailUC    VerifyEmailUseCase
+	forgotPasswordUC ForgotPasswordUseCase
+	resetPasswordUC  ResetPasswordUseCase
 }
 
-func NewHandler(authService AuthService, emailService email.EmailService, webauthnService WebAuthnService, oauth2Service OAuth2SessionCreator) *Handler {
+func NewHandler(
+	authService AuthService,
+	emailService email.EmailService,
+	webauthnService WebAuthnService,
+	oauth2Service OAuth2SessionCreator,
+	registerUserUC RegisterUserUseCase,
+	verifyEmailUC VerifyEmailUseCase,
+	forgotPasswordUC ForgotPasswordUseCase,
+	resetPasswordUC ResetPasswordUseCase,
+) *Handler {
 	return &Handler{
-		authService:     authService,
-		emailService:    emailService,
-		webauthnService: webauthnService,
-		oauth2Service:   oauth2Service,
+		authService:      authService,
+		emailService:     emailService,
+		webauthnService:  webauthnService,
+		oauth2Service:    oauth2Service,
+		registerUserUC:   registerUserUC,
+		verifyEmailUC:    verifyEmailUC,
+		forgotPasswordUC: forgotPasswordUC,
+		resetPasswordUC:  resetPasswordUC,
 	}
 }
 
@@ -61,8 +78,12 @@ func (h *Handler) Register(c *gin.Context) {
 		return
 	}
 
-	// Register user
-	user, verificationToken, err := h.authService.RegisterUser(c.Request.Context(), req.Email, req.Password, req.FullName)
+	// Register user via UseCase
+	result, err := h.registerUserUC.Execute(c.Request.Context(), RegisterUserInput{
+		Email:    req.Email,
+		Password: req.Password,
+		FullName: req.FullName,
+	})
 	if err != nil {
 		if errors.Is(err, pkgerrors.ErrEmailAlreadyExists) {
 			response.Error(c, http.StatusConflict, "EMAIL_EXISTS", "auth.email_already_exists", nil)
@@ -72,6 +93,9 @@ func (h *Handler) Register(c *gin.Context) {
 		zap.L().Error("Registration failed", zap.Error(err))
 		return
 	}
+	
+	user := result.User
+	verificationToken := result.VerificationToken
 
 	// Send verification email
 	userName := req.FullName
@@ -138,7 +162,7 @@ func (h *Handler) VerifyEmail(c *gin.Context) {
 		token = req.Token
 	}
 
-	if err := h.authService.VerifyEmail(c.Request.Context(), token); err != nil {
+	if err := h.verifyEmailUC.Execute(c.Request.Context(), VerifyEmailInput{Token: token}); err != nil {
 		if errors.Is(err, pkgerrors.ErrInvalidToken) {
 			response.Error(c, http.StatusBadRequest, "INVALID_TOKEN", "auth.invalid_token", nil)
 			return
@@ -171,7 +195,7 @@ func (h *Handler) ForgotPassword(c *gin.Context) {
 		return
 	}
 
-	resetToken, err := h.authService.CreatePasswordResetToken(c.Request.Context(), req.Email)
+	resetToken, err := h.forgotPasswordUC.Execute(c.Request.Context(), ForgotPasswordInput{Email: req.Email})
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, "RESET_FAILED", "auth.reset_failed", nil)
 		return
@@ -211,7 +235,10 @@ func (h *Handler) ResetPassword(c *gin.Context) {
 		return
 	}
 
-	if err := h.authService.ResetPassword(c.Request.Context(), req.Token, req.NewPassword); err != nil {
+	if err := h.resetPasswordUC.Execute(c.Request.Context(), ResetPasswordInput{
+		Token:       req.Token,
+		NewPassword: req.NewPassword,
+	}); err != nil {
 		if errors.Is(err, pkgerrors.ErrInvalidToken) {
 			response.Error(c, http.StatusBadRequest, "INVALID_TOKEN", "auth.invalid_token", nil)
 			return

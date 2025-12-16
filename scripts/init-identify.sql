@@ -17,10 +17,7 @@ CREATE TABLE IF NOT EXISTS users
     display_name            VARCHAR(255),
     username                VARCHAR(100),
     bio                     jsonb,
-    is_verified             BOOLEAN                  DEFAULT FALSE,
-    follower_count          INTEGER                  DEFAULT 0,
-    works_count             INTEGER                  DEFAULT 0,
-    last_content_updated_at TIMESTAMP WITH TIME ZONE
+    is_verified             BOOLEAN                  DEFAULT FALSE
 );
 
 COMMENT ON TABLE users IS 'Bảng toàn cục chứa tất cả người dùng trong hệ thống';
@@ -46,13 +43,73 @@ CREATE UNIQUE INDEX idx_users_username ON users ( username ) WHERE (username IS 
 
 CREATE INDEX idx_users_is_verified ON users ( is_verified );
 
-CREATE INDEX idx_users_last_content_updated_at ON users ( last_content_updated_at );
-
-CREATE INDEX idx_users_follower_count ON users ( follower_count );
-
 CREATE TRIGGER update_users_updated_at
     BEFORE UPDATE
     ON users
+    FOR EACH ROW
+EXECUTE PROCEDURE public.update_updated_at_column( );
+
+CREATE TABLE IF NOT EXISTS user_statistics
+(
+    user_id                 uuid                                                         NOT NULL PRIMARY KEY REFERENCES users ( id ) ON DELETE CASCADE,
+    -- Social stats
+    follower_count          INTEGER                  DEFAULT 0                           NOT NULL,
+    following_count         INTEGER                  DEFAULT 0                           NOT NULL,
+    -- Content counts (by type)
+    novel_count             INTEGER                  DEFAULT 0                           NOT NULL,
+    manga_count             INTEGER                  DEFAULT 0                           NOT NULL,
+    anime_count             INTEGER                  DEFAULT 0                           NOT NULL,
+    -- Chapter/Episode counts
+    novel_chapter_count     INTEGER                  DEFAULT 0                           NOT NULL,
+    manga_chapter_count     INTEGER                  DEFAULT 0                           NOT NULL,
+    anime_episode_count     INTEGER                  DEFAULT 0                           NOT NULL,
+    -- Engagement stats
+    total_views             BIGINT                   DEFAULT 0                           NOT NULL,
+    -- Activity timestamps
+    last_content_updated_at TIMESTAMP WITH TIME ZONE,
+    last_activity_at        TIMESTAMP WITH TIME ZONE,
+    created_at              TIMESTAMP WITH TIME ZONE DEFAULT NOW( )                      NOT NULL,
+    updated_at              TIMESTAMP WITH TIME ZONE DEFAULT NOW( )                      NOT NULL,
+    -- Constraints
+    CONSTRAINT user_statistics_counts_check CHECK (
+        novel_count >= 0 AND manga_count >= 0 AND anime_count >= 0 AND
+        novel_chapter_count >= 0 AND manga_chapter_count >= 0 AND anime_episode_count >= 0 AND
+        follower_count >= 0 AND following_count >= 0 AND total_views >= 0
+    )
+);
+
+COMMENT ON TABLE user_statistics IS 'Bảng lưu trữ các chỉ số thống kê của user';
+
+COMMENT ON COLUMN user_statistics.novel_count IS 'Số lượng novel đã đăng';
+
+COMMENT ON COLUMN user_statistics.manga_count IS 'Số lượng manga đã đăng';
+
+COMMENT ON COLUMN user_statistics.anime_count IS 'Số lượng anime đã đăng';
+
+COMMENT ON COLUMN user_statistics.novel_chapter_count IS 'Tổng số chapter novel đã đăng';
+
+COMMENT ON COLUMN user_statistics.manga_chapter_count IS 'Tổng số chapter manga đã đăng';
+
+COMMENT ON COLUMN user_statistics.anime_episode_count IS 'Tổng số episode anime đã đăng';
+
+COMMENT ON COLUMN user_statistics.total_views IS 'Tổng lượt xem tất cả nội dung';
+
+COMMENT ON COLUMN user_statistics.last_content_updated_at IS 'Thời điểm cập nhật nội dung gần nhất';
+
+ALTER TABLE user_statistics
+    OWNER TO system_dev;
+
+CREATE INDEX idx_user_statistics_follower_count ON user_statistics ( follower_count DESC );
+
+CREATE INDEX idx_user_statistics_novel_count ON user_statistics ( novel_count DESC );
+
+CREATE INDEX idx_user_statistics_total_views ON user_statistics ( total_views DESC );
+
+CREATE INDEX idx_user_statistics_last_content_updated_at ON user_statistics ( last_content_updated_at DESC NULLS LAST );
+
+CREATE TRIGGER update_user_statistics_updated_at
+    BEFORE UPDATE
+    ON user_statistics
     FOR EACH ROW
 EXECUTE PROCEDURE public.update_updated_at_column( );
 

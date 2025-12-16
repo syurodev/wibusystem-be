@@ -13,12 +13,12 @@ import (
 )
 
 type Handler struct {
-	creatorService CreatorService
+	listCreatorsUC ListCreatorsUseCase
 }
 
-func NewHandler(creatorService CreatorService) *Handler {
+func NewHandler(listCreatorsUC ListCreatorsUseCase) *Handler {
 	return &Handler{
-		creatorService: creatorService,
+		listCreatorsUC: listCreatorsUC,
 	}
 }
 
@@ -136,8 +136,8 @@ func (h *Handler) ListCreators(c *gin.Context) {
 		}
 	}
 
-	// Call service
-	result, err := h.creatorService.ListCreators(c.Request.Context(), filter)
+	// Call UseCase
+	result, err := h.listCreatorsUC.Execute(c.Request.Context(), ListCreatorsInput{Filter: filter})
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, "LIST_CREATORS_ERROR", I18nCreatorListFailed, nil)
 		return
@@ -153,8 +153,8 @@ func (h *Handler) ListCreators(c *gin.Context) {
 			AvatarURL:           getValue(creator.User.AvatarURL),
 			CreatedAt:           creator.User.CreatedAt.Format(time.RFC3339),
 			UpdatedAt:           creator.User.UpdatedAt.Format(time.RFC3339),
-			FollowerCount:       creator.User.FollowerCount,
-			WorksCount:          creator.User.WorksCount,
+			FollowerCount:       creator.FollowerCount,
+			WorksCount:          creator.WorksCount,
 			TotalViews:          creator.TotalViews,
 			IsVerified:          creator.User.IsVerified,
 			Bio:                 creator.User.Bio,

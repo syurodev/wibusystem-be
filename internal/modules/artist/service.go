@@ -276,3 +276,17 @@ func (s *artistServiceImpl) PreviewMergeArtists(ctx context.Context, targetID uu
 	return s.artistRepo.GetMergePreview(ctx, targetID, sourceIDs)
 }
 
+// AddNovelArtists thêm artists cho novel
+// Used by CreateNovelUseCase for orchestrated creation
+func (s *artistServiceImpl) AddNovelArtists(ctx context.Context, novelID uuid.UUID, artistIDs []uuid.UUID) error {
+	for i, artistID := range artistIDs {
+		// Verify artist exists
+		if _, err := s.artistRepo.GetByID(ctx, artistID); err != nil {
+			return fmt.Errorf("artist %s not found: %w", artistID, err)
+		}
+		if err := s.artistRepo.AddNovelArtist(ctx, novelID, artistID, i); err != nil {
+			return fmt.Errorf("failed to add artist %s: %w", artistID, err)
+		}
+	}
+	return nil
+}

@@ -25,7 +25,7 @@ func (r *userRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.Use
 	query := `
 		SELECT id, email, email_verified, password_hash, full_name, avatar_url,
 		       phone, status, created_at, updated_at, last_login_at, settings,
-		       display_name, username, bio, is_verified, follower_count, works_count, last_content_updated_at
+		       display_name, username, bio, is_verified
 		FROM identify.users
 		WHERE id = $1 AND status != 'deleted'
 	`
@@ -48,7 +48,7 @@ func (r *userRepository) GetByEmail(ctx context.Context, email string) (*domain.
 	query := `
 		SELECT id, email, email_verified, password_hash, full_name, avatar_url,
 		       phone, status, created_at, updated_at, last_login_at, settings,
-		       display_name, username, bio, is_verified, follower_count, works_count, last_content_updated_at
+		       display_name, username, bio, is_verified
 		FROM identify.users
 		WHERE email = $1 AND status != 'deleted'
 	`
@@ -71,7 +71,7 @@ func (r *userRepository) GetByUsername(ctx context.Context, username string) (*d
 	query := `
 		SELECT id, email, email_verified, password_hash, full_name, avatar_url,
 		       phone, status, created_at, updated_at, last_login_at, settings,
-		       display_name, username, bio, is_verified, follower_count, works_count, last_content_updated_at
+		       display_name, username, bio, is_verified
 		FROM identify.users
 		WHERE LOWER(username) = LOWER($1) AND status != 'deleted'
 	`

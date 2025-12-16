@@ -15,14 +15,41 @@ import (
 )
 
 // Handler handles volume-related HTTP requests
+// Handler handles volume-related HTTP requests
 type Handler struct {
-	volumeService VolumeService
+	volumeService             VolumeService
+	createVolumeUC            CreateVolumeUseCase
+	updateVolumeUC            UpdateVolumeUseCase
+	deleteVolumeUC            DeleteVolumeUseCase
+	getVolumeUC               GetVolumeUseCase
+	listVolumesByNovelUC      ListVolumesByNovelUseCase
+	updateDisplayOrderUC      UpdateDisplayOrderUseCase
+	publishVolumeUC           PublishVolumeUseCase
+	unpublishVolumeUC         UnpublishVolumeUseCase
 }
 
 // NewHandler creates a new volume Handler instance
-func NewHandler(volumeService VolumeService) *Handler {
+func NewHandler(
+	volumeService VolumeService,
+	createVolumeUC CreateVolumeUseCase,
+	updateVolumeUC UpdateVolumeUseCase,
+	deleteVolumeUC DeleteVolumeUseCase,
+	getVolumeUC GetVolumeUseCase,
+	listVolumesByNovelUC ListVolumesByNovelUseCase,
+	updateDisplayOrderUC UpdateDisplayOrderUseCase,
+	publishVolumeUC PublishVolumeUseCase,
+	unpublishVolumeUC UnpublishVolumeUseCase,
+) *Handler {
 	return &Handler{
-		volumeService: volumeService,
+		volumeService:             volumeService,
+		createVolumeUC:            createVolumeUC,
+		updateVolumeUC:            updateVolumeUC,
+		deleteVolumeUC:            deleteVolumeUC,
+		getVolumeUC:               getVolumeUC,
+		listVolumesByNovelUC:      listVolumesByNovelUC,
+		updateDisplayOrderUC:      updateDisplayOrderUC,
+		publishVolumeUC:           publishVolumeUC,
+		unpublishVolumeUC:         unpublishVolumeUC,
 	}
 }
 
@@ -53,16 +80,15 @@ func (h *Handler) CreateVolume(c *gin.Context) {
 		return
 	}
 
-	volume, err := h.volumeService.CreateVolume(
-		c.Request.Context(),
-		novelID,
-		req.Title,
-		req.Description,
-		req.CoverImageURL,
-		req.DisplayOrder,
-		req.IsPublished,
-		userID,
-	)
+	volume, err := h.createVolumeUC.Execute(c.Request.Context(), CreateVolumeInput{
+		NovelID:       novelID,
+		Title:         req.Title,
+		Description:   req.Description,
+		CoverImageURL: req.CoverImageURL,
+		DisplayOrder:  req.DisplayOrder,
+		IsPublished:   req.IsPublished,
+		CreatedBy:     userID,
+	})
 	if err != nil {
 		if appErr, ok := pkgerrors.AsAppError(err); ok {
 			response.Error(c, appErr.StatusCode, appErr.ErrCode, appErr.I18nKey, nil)
@@ -99,18 +125,17 @@ func (h *Handler) UpdateVolume(c *gin.Context) {
 
 	requestContext := extractRequestContext(c)
 
-	volume, err := h.volumeService.UpdateVolume(
-		c.Request.Context(),
-		id,
-		req.VolumeNumber,
-		req.Title,
-		req.Description,
-		req.CoverImageURL,
-		req.DisplayOrder,
-		req.IsPublished,
-		changedBy,
-		requestContext,
-	)
+	volume, err := h.updateVolumeUC.Execute(c.Request.Context(), UpdateVolumeInput{
+		ID:             id,
+		VolumeNumber:   req.VolumeNumber,
+		Title:          req.Title,
+		Description:    req.Description,
+		CoverImageURL:  req.CoverImageURL,
+		DisplayOrder:   req.DisplayOrder,
+		IsPublished:    req.IsPublished,
+		ChangedBy:      changedBy,
+		RequestContext: requestContext,
+	})
 	if err != nil {
 		if appErr, ok := pkgerrors.AsAppError(err); ok {
 			response.Error(c, appErr.StatusCode, appErr.ErrCode, appErr.I18nKey, nil)
@@ -133,7 +158,7 @@ func (h *Handler) DeleteVolume(c *gin.Context) {
 		return
 	}
 
-	err = h.volumeService.DeleteVolume(c.Request.Context(), id)
+	err = h.deleteVolumeUC.Execute(c.Request.Context(), DeleteVolumeInput{ID: id})
 	if err != nil {
 		if appErr, ok := pkgerrors.AsAppError(err); ok {
 			response.Error(c, appErr.StatusCode, appErr.ErrCode, appErr.I18nKey, nil)
@@ -155,7 +180,7 @@ func (h *Handler) GetVolume(c *gin.Context) {
 		return
 	}
 
-	volume, err := h.volumeService.GetVolumeByID(c.Request.Context(), id)
+	volume, err := h.getVolumeUC.Execute(c.Request.Context(), GetVolumeInput{ID: id})
 	if err != nil {
 		if appErr, ok := pkgerrors.AsAppError(err); ok {
 			response.Error(c, appErr.StatusCode, appErr.ErrCode, appErr.I18nKey, nil)
@@ -188,7 +213,10 @@ func (h *Handler) ListVolumesByNovel(c *gin.Context) {
 		return
 	}
 
-	volumes, err := h.volumeService.GetVolumesByNovelID(c.Request.Context(), novelID, req.PublishedOnly)
+	volumes, err := h.listVolumesByNovelUC.Execute(c.Request.Context(), ListVolumesByNovelInput{
+		NovelID:       novelID,
+		PublishedOnly: req.PublishedOnly,
+	})
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, "LIST_FAILED", I18nListFailed, nil)
 		return
@@ -217,7 +245,10 @@ func (h *Handler) UpdateDisplayOrder(c *gin.Context) {
 		return
 	}
 
-	err = h.volumeService.UpdateDisplayOrder(c.Request.Context(), id, req.DisplayOrder)
+	err = h.updateDisplayOrderUC.Execute(c.Request.Context(), UpdateDisplayOrderInput{
+		ID:           id,
+		DisplayOrder: req.DisplayOrder,
+	})
 	if err != nil {
 		if appErr, ok := pkgerrors.AsAppError(err); ok {
 			response.Error(c, appErr.StatusCode, appErr.ErrCode, appErr.I18nKey, nil)
@@ -247,7 +278,11 @@ func (h *Handler) PublishVolume(c *gin.Context) {
 
 	requestContext := extractRequestContext(c)
 
-	err = h.volumeService.PublishVolume(c.Request.Context(), id, changedBy, requestContext)
+	err = h.publishVolumeUC.Execute(c.Request.Context(), PublishVolumeInput{
+		ID:             id,
+		ChangedBy:      changedBy,
+		RequestContext: requestContext,
+	})
 	if err != nil {
 		if appErr, ok := pkgerrors.AsAppError(err); ok {
 			response.Error(c, appErr.StatusCode, appErr.ErrCode, appErr.I18nKey, nil)
@@ -277,7 +312,11 @@ func (h *Handler) UnpublishVolume(c *gin.Context) {
 
 	requestContext := extractRequestContext(c)
 
-	err = h.volumeService.UnpublishVolume(c.Request.Context(), id, changedBy, requestContext)
+	err = h.unpublishVolumeUC.Execute(c.Request.Context(), UnpublishVolumeInput{
+		ID:             id,
+		ChangedBy:      changedBy,
+		RequestContext: requestContext,
+	})
 	if err != nil {
 		if appErr, ok := pkgerrors.AsAppError(err); ok {
 			response.Error(c, appErr.StatusCode, appErr.ErrCode, appErr.I18nKey, nil)

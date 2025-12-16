@@ -1,12 +1,9 @@
 package media
 
 import (
-	"encoding/json"
 	"net/http"
 	"strconv"
 
-	mediadto "system/internal/dto/media"
-	analytics_module "system/internal/modules/analytics"
 	"system/pkg/util/response"
 
 	"github.com/gin-gonic/gin"
@@ -15,15 +12,15 @@ import (
 // Handler handles media API endpoints
 // Cung cấp APIs cho tất cả media types (anime, manga, novel) combined
 type Handler struct {
-	analyticsService analytics_module.AnalyticsService
-	mediaService     MediaService
+	getTrendingUC GetTrendingUseCase
+	getHomeDataUC GetHomeDataUseCase
 }
 
 // NewHandler creates a new media Handler instance
-func NewHandler(analyticsService analytics_module.AnalyticsService, mediaService MediaService) *Handler {
+func NewHandler(getTrendingUC GetTrendingUseCase, getHomeDataUC GetHomeDataUseCase) *Handler {
 	return &Handler{
-		analyticsService: analyticsService,
-		mediaService:     mediaService,
+		getTrendingUC: getTrendingUC,
+		getHomeDataUC: getHomeDataUC,
 	}
 }
 
@@ -36,7 +33,7 @@ func NewHandler(analyticsService analytics_module.AnalyticsService, mediaService
 // @Param type query string false "Media type (novel, manga, anime)"
 // @Param range query string false "Time range (day, week, month)"
 // @Param limit query int false "Limit (default 20)"
-// @Success 200 {array} MediaSeriesResponse
+// @Success 200 {array} mediadto.MediaSeriesResponse
 // @Router /api/v1/media/trending [get]
 func (h *Handler) GetTrending(c *gin.Context) {
 	mediaType := c.Query("type")
@@ -50,25 +47,20 @@ func (h *Handler) GetTrending(c *gin.Context) {
 		}
 	}
 
-	results, err := h.analyticsService.GetTopTrending(c.Request.Context(), mediaType, timeRange, limit)
+	// Call UseCase
+	results, err := h.getTrendingUC.Execute(c.Request.Context(), GetTrendingInput{
+		MediaType: mediaType,
+		Range:     timeRange,
+		Limit:     limit,
+	})
 	if err != nil {
+		// Since logic is moved to usecase, we can't distinguish serialization error easily unless we wrap errors,
+		// but generic error message is fine for now.
 		response.Error(c, http.StatusInternalServerError, "GET_TRENDING_FAILED", I18nAnalyticsGetTrendingFailed, err.Error())
 		return
 	}
 
-	// Convert map to typed response for consistency
-	var resp []mediadto.MediaSeriesResponse
-	bytes, err := json.Marshal(results)
-	if err != nil {
-		response.Error(c, http.StatusInternalServerError, "SERIALIZATION_FAILED", I18nAnalyticsSerializationFailed, nil)
-		return
-	}
-	if err := json.Unmarshal(bytes, &resp); err != nil {
-		response.Error(c, http.StatusInternalServerError, "MAPPING_FAILED", I18nAnalyticsMappingFailed, nil)
-		return
-	}
-
-	response.Success(c, http.StatusOK, I18nAnalyticsGetTrendingSuccess, resp, nil)
+	response.Success(c, http.StatusOK, I18nAnalyticsGetTrendingSuccess, results, nil)
 }
 
 // GetHomeData returns aggregated data for the home page
@@ -76,11 +68,11 @@ func (h *Handler) GetTrending(c *gin.Context) {
 // @Description Get aggregated data for home page (hero, trending, creators, genres) across all media types
 // @Tags Media
 // @Produce json
-// @Success 200 {object} response.StandardResponse{data=HomeData}
+// @Success 200 {object} response.StandardResponse{data=mediadto.HomeData}
 // @Failure 500 {object} response.StandardResponse
 // @Router /api/v1/media/home [get]
 func (h *Handler) GetHomeData(c *gin.Context) {
-	homeData, err := h.mediaService.GetHomeData(c.Request.Context())
+	homeData, err := h.getHomeDataUC.Execute(c.Request.Context(), GetHomeDataInput{})
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, "GET_HOME_DATA_FAILED", I18nMediaGetHomeFailed, nil)
 		return

@@ -17,14 +17,38 @@ import (
 )
 
 type Handler struct {
-	genreService GenreService
-	logger       *zap.Logger
+	createGenreUC  CreateGenreUseCase
+	updateGenreUC  UpdateGenreUseCase
+	deleteGenreUC  DeleteGenreUseCase
+	getGenreUC     GetGenreUseCase
+	listGenresUC   ListGenresUseCase
+	listSelectUC   ListSelectionUseCase
+	mergeGenresUC  MergeGenresUseCase
+	previewMergeUC PreviewMergeUseCase
+	logger         *zap.Logger
 }
 
-func NewHandler(genreService GenreService, logger *zap.Logger) *Handler {
+func NewHandler(
+	createGenreUC CreateGenreUseCase,
+	updateGenreUC UpdateGenreUseCase,
+	deleteGenreUC DeleteGenreUseCase,
+	getGenreUC GetGenreUseCase,
+	listGenresUC ListGenresUseCase,
+	listSelectUC ListSelectionUseCase,
+	mergeGenresUC MergeGenresUseCase,
+	previewMergeUC PreviewMergeUseCase,
+	logger *zap.Logger,
+) *Handler {
 	return &Handler{
-		genreService: genreService,
-		logger:       logger,
+		createGenreUC:  createGenreUC,
+		updateGenreUC:  updateGenreUC,
+		deleteGenreUC:  deleteGenreUC,
+		getGenreUC:     getGenreUC,
+		listGenresUC:   listGenresUC,
+		listSelectUC:   listSelectUC,
+		mergeGenresUC:  mergeGenresUC,
+		previewMergeUC: previewMergeUC,
+		logger:         logger,
 	}
 }
 
@@ -58,7 +82,12 @@ func (h *Handler) CreateGenre(c *gin.Context) {
 		parentID = &pid
 	}
 
-	genre, err := h.genreService.CreateGenre(c.Request.Context(), req.Name, req.Description, parentID, userID)
+	genre, err := h.createGenreUC.Execute(c.Request.Context(), CreateGenreInput{
+		Name:        req.Name,
+		Description: req.Description,
+		ParentID:    parentID,
+		UserID:      userID,
+	})
 	if err != nil {
 		if appErr, ok := pkgerrors.AsAppError(err); ok {
 			response.Error(c, appErr.StatusCode, appErr.ErrCode, appErr.I18nKey, nil)
@@ -109,7 +138,14 @@ func (h *Handler) UpdateGenre(c *gin.Context) {
 		parentID = &pid
 	}
 
-	genre, err := h.genreService.UpdateGenre(c.Request.Context(), id, req.Name, req.Description, parentID, req.IsActive, userID)
+	genre, err := h.updateGenreUC.Execute(c.Request.Context(), UpdateGenreInput{
+		ID:          id,
+		Name:        req.Name,
+		Description: req.Description,
+		ParentID:    parentID,
+		IsActive:    req.IsActive,
+		UserID:      userID,
+	})
 	if err != nil {
 		if appErr, ok := pkgerrors.AsAppError(err); ok {
 			response.Error(c, appErr.StatusCode, appErr.ErrCode, appErr.I18nKey, nil)
@@ -144,7 +180,10 @@ func (h *Handler) DeleteGenre(c *gin.Context) {
 		return
 	}
 
-	err = h.genreService.DeleteGenre(c.Request.Context(), id, userID)
+	err = h.deleteGenreUC.Execute(c.Request.Context(), DeleteGenreInput{
+		ID:     id,
+		UserID: userID,
+	})
 	if err != nil {
 		if appErr, ok := pkgerrors.AsAppError(err); ok {
 			response.Error(c, appErr.StatusCode, appErr.ErrCode, appErr.I18nKey, nil)
@@ -159,14 +198,11 @@ func (h *Handler) DeleteGenre(c *gin.Context) {
 
 // GetGenre lấy thông tin chi tiết genre
 func (h *Handler) GetGenre(c *gin.Context) {
-	idStr := c.Param("identifier")
-	id, err := uuid.FromString(idStr)
-	if err != nil {
-		response.Error(c, http.StatusBadRequest, "BadRequest", I18nInvalidID, nil)
-		return
-	}
+	idOrSlug := c.Param("identifier")
 
-	genre, err := h.genreService.GetGenreByID(c.Request.Context(), id)
+	genre, err := h.getGenreUC.Execute(c.Request.Context(), GetGenreInput{
+		IDOrSlug: idOrSlug,
+	})
 	if err != nil {
 		if appErr, ok := pkgerrors.AsAppError(err); ok {
 			response.Error(c, appErr.StatusCode, appErr.ErrCode, appErr.I18nKey, nil)
@@ -206,15 +242,14 @@ func (h *Handler) ListGenres(c *gin.Context) {
 		req.Limit = 20
 	}
 
-	genresWithTrend, totalCount, err := h.genreService.ListGenres(
-		c.Request.Context(),
-		req.Page,
-		req.Limit,
-		req.Search,
-		req.SortBy,
-		req.SortOrder,
-		req.ActiveOnly,
-	)
+	genresWithTrend, totalCount, err := h.listGenresUC.Execute(c.Request.Context(), ListGenresInput{
+		Page:       req.Page,
+		Limit:      req.Limit,
+		Search:     req.Search,
+		SortBy:     req.SortBy,
+		SortOrder:  req.SortOrder,
+		ActiveOnly: req.ActiveOnly,
+	})
 	if err != nil {
 		h.logger.Error("Failed to list genres", zap.Error(err))
 		response.Error(c, http.StatusInternalServerError, "InternalError", I18nListFailed, nil)
@@ -287,12 +322,11 @@ func (h *Handler) ListSelection(c *gin.Context) {
 		req.Limit = 20
 	}
 
-	genres, totalCount, err := h.genreService.ListSelection(
-		c.Request.Context(),
-		req.Page,
-		req.Limit,
-		req.Search,
-	)
+	genres, totalCount, err := h.listSelectUC.Execute(c.Request.Context(), ListSelectionInput{
+		Page:   req.Page,
+		Limit:  req.Limit,
+		Search: req.Search,
+	})
 	if err != nil {
 		h.logger.Error("Failed to list genres selection", zap.Error(err))
 		response.Error(c, http.StatusInternalServerError, "InternalError", "genre.list_failed", nil)
@@ -343,7 +377,11 @@ func (h *Handler) MergeGenre(c *gin.Context) {
 		return
 	}
 
-	err = h.genreService.MergeGenres(c.Request.Context(), req.TargetID, req.SourceIDs, userID)
+	err = h.mergeGenresUC.Execute(c.Request.Context(), MergeGenresInput{
+		TargetID:  req.TargetID,
+		SourceIDs: req.SourceIDs,
+		MergedBy:  userID,
+	})
 	if err != nil {
 		if appErr, ok := pkgerrors.AsAppError(err); ok {
 			response.Error(c, appErr.StatusCode, appErr.ErrCode, appErr.I18nKey, nil)
@@ -366,7 +404,10 @@ func (h *Handler) PreviewMergeGenre(c *gin.Context) {
 		return
 	}
 
-	preview, err := h.genreService.PreviewMergeGenres(c.Request.Context(), req.TargetID, req.SourceIDs)
+	preview, err := h.previewMergeUC.Execute(c.Request.Context(), PreviewMergeInput{
+		TargetID:  req.TargetID,
+		SourceIDs: req.SourceIDs,
+	})
 	if err != nil {
 		if appErr, ok := pkgerrors.AsAppError(err); ok {
 			response.Error(c, appErr.StatusCode, appErr.ErrCode, appErr.I18nKey, nil)

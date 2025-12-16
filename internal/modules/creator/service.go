@@ -132,3 +132,13 @@ func (s *creatorServiceImpl) getPopularWorkMetadata(ctx context.Context, popular
 	return novelInfoMap
 }
 
+// IncrementNovelCount tăng novel_count cho user trong user_statistics
+// Used by CreateNovelUseCase for orchestrated creation
+func (s *creatorServiceImpl) IncrementNovelCount(ctx context.Context, userID uuid.UUID) error {
+	return s.creatorRepo.IncrementNovelCount(ctx, userID)
+}
+
+// DecrementNovelCount giảm novel_count cho user trong user_statistics
+func (s *creatorServiceImpl) DecrementNovelCount(ctx context.Context, userID uuid.UUID) error {
+	return s.creatorRepo.DecrementNovelCount(ctx, userID)
+}
