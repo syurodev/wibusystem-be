@@ -37,8 +37,8 @@ type UpdateNovelRequest struct {
 
 // ListNovelsRequest là DTO cho việc lấy danh sách novels
 type ListNovelsRequest struct {
-	Page             int      `form:"page" binding:"omitempty,min=1,default=1"`
-	Limit            int      `form:"limit" binding:"omitempty,min=1,max=100,default=20"`
+	Page             int      `form:"page" binding:"omitempty,min=1"`
+	Limit            int      `form:"limit" binding:"omitempty,min=1,max=100"`
 	Owner            string   `form:"owner" binding:"omitempty,uuid"`
 	KeySearch        string   `form:"key_search" binding:"omitempty,max=200"`
 	GenreIDs         []string `form:"genre_ids" binding:"omitempty,dive,uuid"`

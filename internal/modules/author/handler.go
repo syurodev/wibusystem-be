@@ -81,6 +81,11 @@ func (h *Handler) CreateAuthor(c *gin.Context) {
 		CreatedBy:       userID,
 	})
 	if err != nil {
+		h.logger.Error("CreateAuthor failed",
+			zap.Error(err),
+			zap.String("name", req.Name),
+			zap.String("userID", userIDStr),
+		)
 		if appErr, ok := pkgerrors.AsAppError(err); ok {
 			response.Error(c, appErr.StatusCode, appErr.ErrCode, appErr.I18nKey, nil)
 			return

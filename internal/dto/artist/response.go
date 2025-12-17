@@ -15,6 +15,7 @@ type ArtistResponse struct {
 	Description    *string `json:"description,omitempty"`
 	NovelCount     int     `json:"novel_count"`
 	Specialization *string `json:"specialization,omitempty"`
+	PortfolioURL   *string `json:"portfolio_url,omitempty"`
 	CreatedAt      string  `json:"created_at"`
 }
 
@@ -27,6 +28,7 @@ type ArtistDetailResponse struct {
 	AvatarURL      *string `json:"avatar_url,omitempty"`
 	SocialLinks    *string `json:"social_links,omitempty"`
 	Specialization *string `json:"specialization,omitempty"`
+	PortfolioURL   *string `json:"portfolio_url,omitempty"`
 	NovelCount     int     `json:"novel_count"`
 	ArtworkCount   int     `json:"artwork_count"`
 	FollowerCount  int     `json:"follower_count"`

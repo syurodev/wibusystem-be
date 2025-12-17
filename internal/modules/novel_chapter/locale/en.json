@@ -1,0 +1,21 @@
+{
+  "chapter.created_success": "Chapter created successfully.",
+  "chapter.updated_success": "Chapter updated successfully.",
+  "chapter.deleted_success": "Chapter deleted successfully.",
+  "chapter.get_success": "Chapter retrieved successfully.",
+  "chapter.list_success": "Chapters list retrieved successfully.",
+  "chapter.reorder_success": "Chapters reordered successfully.",
+  "chapter.bulk_create_success": "Chapters created successfully.",
+  "chapter.create_failed": "Failed to create chapter. Please try again.",
+  "chapter.update_failed": "Failed to update chapter. Please try again.",
+  "chapter.delete_failed": "Failed to delete chapter. Please try again.",
+  "chapter.get_failed": "Failed to retrieve chapter information.",
+  "chapter.list_failed": "Failed to load chapters list.",
+  "chapter.reorder_failed": "Failed to reorder chapters.",
+  "chapter.not_found": "Chapter not found.",
+  "chapter.invalid_id": "Invalid chapter ID.",
+  "chapter.invalid_input": "Invalid input data.",
+  "chapter.volume_not_found": "Volume not found.",
+  "chapter.chapter_number_exists": "Chapter number already exists.",
+  "chapter.invalid_chapter_status": "Invalid chapter status."
+}

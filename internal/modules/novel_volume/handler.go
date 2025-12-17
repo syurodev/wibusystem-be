@@ -223,11 +223,22 @@ func (h *Handler) ListVolumesByNovel(c *gin.Context) {
 	}
 
 	volumeResponses := make([]volumedto.VolumeResponse, len(volumes))
+	novelTitle := ""
 	for i, volume := range volumes {
 		volumeResponses[i] = mapToVolumeResponse(volume)
+		if novelTitle == "" && volume.NovelTitle != "" {
+			novelTitle = volume.NovelTitle
+		}
 	}
 
-	response.Success(c, http.StatusOK, I18nListSuccess, volumeResponses, nil)
+	// Wrap response to match client expectations
+	resp := volumedto.ListVolumesResponse{
+		NovelID:    novelIDStr,
+		NovelTitle: novelTitle,
+		Volumes:    volumeResponses,
+	}
+
+	response.Success(c, http.StatusOK, I18nListSuccess, resp, nil)
 }
 
 // UpdateDisplayOrder updates the display order of a volume

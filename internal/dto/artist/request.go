@@ -9,6 +9,7 @@ type CreateArtistRequest struct {
 	AvatarURL      *string `json:"avatar_url,omitempty" binding:"omitempty,url"`
 	SocialLinks    *string `json:"social_links,omitempty"` // JSON string
 	Specialization *string `json:"specialization,omitempty" binding:"omitempty,max=100"`
+	PortfolioURL   *string `json:"portfolio_url,omitempty" binding:"omitempty,url"`
 }
 
 // UpdateArtistRequest là DTO cho việc cập nhật artist
@@ -18,6 +19,7 @@ type UpdateArtistRequest struct {
 	AvatarURL      *string `json:"avatar_url,omitempty" binding:"omitempty,url"`
 	SocialLinks    *string `json:"social_links,omitempty"` // JSON string
 	Specialization *string `json:"specialization,omitempty" binding:"omitempty,max=100"`
+	PortfolioURL   *string `json:"portfolio_url,omitempty" binding:"omitempty,url"`
 }
 
 // MergeArtistRequest là DTO cho việc gộp artists

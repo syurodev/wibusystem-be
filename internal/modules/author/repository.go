@@ -28,7 +28,7 @@ func (r *authorRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.A
 	query := `
 		SELECT id, user_id, name, slug, biography, avatar_url, social_links,
 		       novel_count, total_chapters, total_views, follower_count,
-		       is_verified, created_by, updated_by, created_at, updated_at, deleted_at, deleted_by
+		       is_verified, metadata, version, created_by, updated_by, created_at, updated_at, deleted_at, deleted_by
 		FROM catalog.authors
 		WHERE id = $1 AND deleted_at IS NULL
 	`
@@ -51,7 +51,7 @@ func (r *authorRepository) GetBySlug(ctx context.Context, slug string) (*domain.
 	query := `
 		SELECT id, user_id, name, slug, biography, avatar_url, social_links,
 		       novel_count, total_chapters, total_views, follower_count,
-		       is_verified, created_by, updated_by, created_at, updated_at, deleted_at, deleted_by
+		       is_verified, metadata, version, created_by, updated_by, created_at, updated_at, deleted_at, deleted_by
 		FROM catalog.authors
 		WHERE slug = $1 AND deleted_at IS NULL
 	`
@@ -74,7 +74,7 @@ func (r *authorRepository) GetByUserID(ctx context.Context, userID uuid.UUID) (*
 	query := `
 		SELECT id, user_id, name, slug, biography, avatar_url, social_links,
 		       novel_count, total_chapters, total_views, follower_count,
-		       is_verified, created_by, updated_by, created_at, updated_at, deleted_at, deleted_by
+		       is_verified, metadata, version, created_by, updated_by, created_at, updated_at, deleted_at, deleted_by
 		FROM catalog.authors
 		WHERE user_id = $1 AND deleted_at IS NULL
 	`
@@ -137,7 +137,7 @@ func (r *authorRepository) List(ctx context.Context, filter domain.AuthorFilter)
 	query := fmt.Sprintf(`
 		SELECT id, user_id, name, slug, biography, avatar_url, social_links,
 		       novel_count, total_chapters, total_views, follower_count,
-		       is_verified, created_by, updated_by, created_at, updated_at, deleted_at, deleted_by
+		       is_verified, metadata, version, created_by, updated_by, created_at, updated_at, deleted_at, deleted_by
 		FROM catalog.authors
 		WHERE %s
 		ORDER BY %s

@@ -27,8 +27,8 @@ func NewArtistRepository(pool *pgxpool.Pool) domain.ArtistRepository {
 func (r *artistRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.Artist, error) {
 	query := `
 		SELECT id, user_id, name, slug, biography, avatar_url, social_links,
-		       specialization, novel_count, artwork_count, follower_count,
-		       is_verified, created_by, updated_by, created_at, updated_at, deleted_at, deleted_by
+		       specialization, portfolio_url, novel_count, artwork_count, follower_count,
+		       is_verified, metadata, version, created_by, updated_by, created_at, updated_at, deleted_at, deleted_by
 		FROM catalog.artists
 		WHERE id = $1 AND deleted_at IS NULL
 	`
@@ -50,8 +50,8 @@ func (r *artistRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.A
 func (r *artistRepository) GetBySlug(ctx context.Context, slug string) (*domain.Artist, error) {
 	query := `
 		SELECT id, user_id, name, slug, biography, avatar_url, social_links,
-		       specialization, novel_count, artwork_count, follower_count,
-		       is_verified, created_by, updated_by, created_at, updated_at, deleted_at, deleted_by
+		       specialization, portfolio_url, novel_count, artwork_count, follower_count,
+		       is_verified, metadata, version, created_by, updated_by, created_at, updated_at, deleted_at, deleted_by
 		FROM catalog.artists
 		WHERE slug = $1 AND deleted_at IS NULL
 	`
@@ -73,8 +73,8 @@ func (r *artistRepository) GetBySlug(ctx context.Context, slug string) (*domain.
 func (r *artistRepository) GetByUserID(ctx context.Context, userID uuid.UUID) (*domain.Artist, error) {
 	query := `
 		SELECT id, user_id, name, slug, biography, avatar_url, social_links,
-		       specialization, novel_count, artwork_count, follower_count,
-		       is_verified, created_by, updated_by, created_at, updated_at, deleted_at, deleted_by
+		       specialization, portfolio_url, novel_count, artwork_count, follower_count,
+		       is_verified, metadata, version, created_by, updated_by, created_at, updated_at, deleted_at, deleted_by
 		FROM catalog.artists
 		WHERE user_id = $1 AND deleted_at IS NULL
 	`
@@ -142,8 +142,8 @@ func (r *artistRepository) List(ctx context.Context, filter domain.ArtistFilter)
 	// Main query
 	query := fmt.Sprintf(`
 		SELECT id, user_id, name, slug, biography, avatar_url, social_links,
-		       specialization, novel_count, artwork_count, follower_count,
-		       is_verified, created_by, updated_by, created_at, updated_at, deleted_at, deleted_by
+		       specialization, portfolio_url, novel_count, artwork_count, follower_count,
+		       is_verified, metadata, version, created_by, updated_by, created_at, updated_at, deleted_at, deleted_by
 		FROM catalog.artists
 		WHERE %s
 		ORDER BY %s
@@ -232,8 +232,8 @@ func (r *artistRepository) Create(ctx context.Context, artist *domain.Artist) er
 	query := `
 		INSERT INTO catalog.artists (
 			id, user_id, name, slug, biography, avatar_url, social_links,
-			specialization, is_verified, created_by
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+			specialization, portfolio_url, is_verified, created_by
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 	`
 
 	// Ensure social_links is not null
@@ -250,6 +250,7 @@ func (r *artistRepository) Create(ctx context.Context, artist *domain.Artist) er
 		artist.AvatarURL,
 		artist.SocialLinks,
 		artist.Specialization,
+		artist.PortfolioURL,
 		artist.IsVerified,
 		artist.CreatedBy,
 	)

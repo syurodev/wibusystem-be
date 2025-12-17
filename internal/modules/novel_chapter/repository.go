@@ -29,7 +29,7 @@ func (r *chapterRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.
 		       word_count, character_count, is_free, price, currency, status,
 		       view_count, like_count, comment_count, display_order, author_notes,
 		       published_at, scheduled_at, created_at, updated_at, deleted_at,
-		       created_by, updated_by
+		       created_by, updated_by, deleted_by, version
 		FROM catalog.novel_chapters
 		WHERE id = $1 AND deleted_at IS NULL
 	`
@@ -54,7 +54,7 @@ func (r *chapterRepository) GetByNovelIDAndNumber(ctx context.Context, novelID u
 		       word_count, character_count, is_free, price, currency, status,
 		       view_count, like_count, comment_count, display_order, author_notes,
 		       published_at, scheduled_at, created_at, updated_at, deleted_at,
-		       created_by, updated_by
+		       created_by, updated_by, deleted_by, version
 		FROM catalog.novel_chapters
 		WHERE novel_id = $1 AND chapter_number = $2 AND deleted_at IS NULL
 	`
@@ -132,7 +132,7 @@ func (r *chapterRepository) GetByNovelID(ctx context.Context, novelID uuid.UUID,
 		       word_count, character_count, is_free, price, currency, status,
 		       view_count, like_count, comment_count, display_order, author_notes,
 		       published_at, scheduled_at, created_at, updated_at, deleted_at,
-		       created_by, updated_by
+		       created_by, updated_by, deleted_by, version
 		FROM catalog.novel_chapters
 		WHERE %s
 		ORDER BY %s
@@ -169,7 +169,7 @@ func (r *chapterRepository) GetByVolumeID(ctx context.Context, volumeID uuid.UUI
 		       word_count, character_count, is_free, price, currency, status,
 		       view_count, like_count, comment_count, display_order, author_notes,
 		       published_at, scheduled_at, created_at, updated_at, deleted_at,
-		       created_by, updated_by
+		       created_by, updated_by, deleted_by, version
 		FROM catalog.novel_chapters
 		WHERE volume_id = $1 AND deleted_at IS NULL
 	`
@@ -317,7 +317,7 @@ func (r *chapterRepository) GetScheduledChapters(ctx context.Context, before tim
 		       word_count, character_count, is_free, price, currency, status,
 		       view_count, like_count, comment_count, display_order, author_notes,
 		       published_at, scheduled_at, created_at, updated_at, deleted_at,
-		       created_by, updated_by
+		       created_by, updated_by, deleted_by, version
 		FROM catalog.novel_chapters
 		WHERE status = 'scheduled'
 		  AND scheduled_at <= $1

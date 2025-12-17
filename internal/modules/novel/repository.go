@@ -67,7 +67,8 @@ func NewNovelRepository(pool *pgxpool.Pool) domain.NovelRepository {
 
 // GetByID lấy novel từ database theo ID
 func (r *novelRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.Novel, error) {
-	rows, err := r.pool.Query(ctx, getByIDQuery, id)
+	conn := db.GetDB(ctx, r.pool)
+	rows, err := conn.Query(ctx, getByIDQuery, id)
 	if err != nil {
 		return nil, err
 	}
@@ -540,12 +541,13 @@ func (r *novelRepository) GetNovelFullBySlug(ctx context.Context, slug string) (
 	type authorJSON struct {
 		ID   uuid.UUID `json:"id"`
 		Name string    `json:"name"`
+		Slug string    `json:"slug"`
 	}
 	var authors []authorJSON
 	if err := json.Unmarshal(authorsJSON, &authors); err == nil {
 		for _, a := range authors {
 			result.Authors = append(result.Authors, &domain.NovelAuthor{
-				Author: &domain.Author{ID: a.ID, Name: a.Name},
+				Author: &domain.Author{ID: a.ID, Name: a.Name, Slug: a.Slug},
 			})
 		}
 	}
@@ -554,12 +556,13 @@ func (r *novelRepository) GetNovelFullBySlug(ctx context.Context, slug string) (
 	type artistJSON struct {
 		ID   uuid.UUID `json:"id"`
 		Name string    `json:"name"`
+		Slug string    `json:"slug"`
 	}
 	var artists []artistJSON
 	if err := json.Unmarshal(artistsJSON, &artists); err == nil {
 		for _, a := range artists {
 			result.Artists = append(result.Artists, &domain.NovelArtist{
-				Artist: &domain.Artist{ID: a.ID, Name: a.Name},
+				Artist: &domain.Artist{ID: a.ID, Name: a.Name, Slug: a.Slug},
 			})
 		}
 	}

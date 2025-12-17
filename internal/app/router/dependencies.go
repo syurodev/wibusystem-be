@@ -367,6 +367,7 @@ func newHandlers(
 		Artist:      artist_module.NewHandler(
 			createArtistUC, updateArtistUC, deleteArtistUC, getArtistUC,
 			listArtistsUC, listSelectArtistUC, mergeArtistsUC, previewMergeArtistUC,
+			zapLogger,
 		),
 		Novel: func() *novel_module.Handler {
 			updateNovelUC := novel_module.NewUpdateNovelUseCase(services.Novel)

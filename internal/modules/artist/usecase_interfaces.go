@@ -19,6 +19,7 @@ type CreateArtistInput struct {
 	AvatarURL       *string
 	SocialLinksJSON *string
 	Specialization  *string
+	PortfolioURL    *string
 	CreatedBy       uuid.UUID
 }
 
@@ -30,6 +31,7 @@ type UpdateArtistInput struct {
 	AvatarURL       *string
 	SocialLinksJSON *string
 	Specialization  *string
+	PortfolioURL    *string
 }
 
 // DeleteArtistInput là input cho DeleteArtistUseCase

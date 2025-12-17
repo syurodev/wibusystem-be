@@ -1,0 +1,21 @@
+{
+  "chapter.created_success": "Chương đã được tạo thành công.",
+  "chapter.updated_success": "Chương đã được cập nhật thành công.",
+  "chapter.deleted_success": "Chương đã được xóa thành công.",
+  "chapter.get_success": "Lấy thông tin chương thành công.",
+  "chapter.list_success": "Lấy danh sách chương thành công.",
+  "chapter.reorder_success": "Sắp xếp lại chương thành công.",
+  "chapter.bulk_create_success": "Tạo nhiều chương thành công.",
+  "chapter.create_failed": "Không thể tạo chương. Vui lòng thử lại.",
+  "chapter.update_failed": "Không thể cập nhật chương. Vui lòng thử lại.",
+  "chapter.delete_failed": "Không thể xóa chương. Vui lòng thử lại.",
+  "chapter.get_failed": "Không thể lấy thông tin chương.",
+  "chapter.list_failed": "Không thể tải danh sách chương.",
+  "chapter.reorder_failed": "Không thể sắp xếp lại chương.",
+  "chapter.not_found": "Không tìm thấy chương.",
+  "chapter.invalid_id": "ID chương không hợp lệ.",
+  "chapter.invalid_input": "Dữ liệu đầu vào không hợp lệ.",
+  "chapter.volume_not_found": "Không tìm thấy tập.",
+  "chapter.chapter_number_exists": "Số chương đã tồn tại.",
+  "chapter.invalid_chapter_status": "Trạng thái chương không hợp lệ."
+}

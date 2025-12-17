@@ -64,3 +64,11 @@ type VolumeInfoResponseWithChapters struct {
 	PublishedAt   *string                            `json:"published_at,omitempty"`
 	Chapters      []chapterres.ChapterSummaryResponse `json:"chapters"`
 }
+
+// ListVolumesResponse - wrapper response for listing volumes by novel
+type ListVolumesResponse struct {
+	NovelID    string           `json:"novel_id"`
+	NovelTitle string           `json:"novel_title"`
+	Volumes    []VolumeResponse `json:"volumes"`
+}
+

@@ -10,8 +10,8 @@ import (
 
 // ArtistService interface định nghĩa business logic cho Artist module
 type ArtistService interface {
-	CreateArtist(ctx context.Context, name, biography string, avatarURL *string, socialLinksJSON *string, specialization *string, createdBy uuid.UUID) (*domain.Artist, error)
-	UpdateArtist(ctx context.Context, id uuid.UUID, name, biography string, avatarURL *string, socialLinksJSON *string, specialization *string) (*domain.Artist, error)
+	CreateArtist(ctx context.Context, name, biography string, avatarURL *string, socialLinksJSON *string, specialization *string, portfolioURL *string, createdBy uuid.UUID) (*domain.Artist, error)
+	UpdateArtist(ctx context.Context, id uuid.UUID, name, biography string, avatarURL *string, socialLinksJSON *string, specialization *string, portfolioURL *string) (*domain.Artist, error)
 	DeleteArtist(ctx context.Context, id uuid.UUID) error
 	GetArtistByID(ctx context.Context, id uuid.UUID) (*domain.Artist, error)
 	GetArtistBySlug(ctx context.Context, slug string) (*domain.Artist, error)

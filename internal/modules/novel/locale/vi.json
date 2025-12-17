@@ -1,0 +1,23 @@
+{
+  "novel.created_success": "Novel đã được tạo thành công.",
+  "novel.updated_success": "Novel đã được cập nhật thành công.",
+  "novel.deleted_success": "Novel đã được xóa thành công.",
+  "novel.get_success": "Lấy thông tin novel thành công.",
+  "novel.list_success": "Lấy danh sách novel thành công.",
+  "novel.create_failed": "Không thể tạo novel. Vui lòng thử lại.",
+  "novel.update_failed": "Không thể cập nhật novel. Vui lòng thử lại.",
+  "novel.delete_failed": "Không thể xóa novel. Vui lòng thử lại.",
+  "novel.get_failed": "Không thể lấy thông tin novel.",
+  "novel.list_failed": "Không thể tải danh sách novel.",
+  "novel.not_found": "Không tìm thấy novel.",
+  "novel.invalid_id": "ID novel không hợp lệ.",
+  "novel.invalid_input": "Dữ liệu đầu vào không hợp lệ.",
+  "novel.slug_already_exists": "Tên novel đã tồn tại.",
+  "novel.invalid_status": "Trạng thái novel không hợp lệ.",
+  "novel.invalid_owner_id": "ID chủ sở hữu không hợp lệ.",
+  "novel.invalid_genre_id": "ID thể loại không hợp lệ.",
+  "novel.invalid_author_id": "ID tác giả không hợp lệ.",
+  "novel.invalid_artist_id": "ID họa sĩ không hợp lệ.",
+  "novel.increment_view_failed": "Không thể tăng lượt xem.",
+  "novel.view_incremented": "Đã tăng lượt xem."
+}

@@ -27,7 +27,8 @@ func NewService(artistRepo domain.ArtistRepository) *artistServiceImpl {
 }
 
 // CreateArtist tạo artist mới
-func (s *artistServiceImpl) CreateArtist(ctx context.Context, name, biography string, avatarURL *string, socialLinksJSON *string, specialization *string, createdBy uuid.UUID) (*domain.Artist, error) {
+// CreateArtist tạo artist mới
+func (s *artistServiceImpl) CreateArtist(ctx context.Context, name, biography string, avatarURL *string, socialLinksJSON *string, specialization *string, portfolioURL *string, createdBy uuid.UUID) (*domain.Artist, error) {
 	// Validate input
 	if name == "" {
 		return nil, pkgerrors.BadRequest(I18nInvalidInput, "name is required")
@@ -42,7 +43,12 @@ func (s *artistServiceImpl) CreateArtist(ctx context.Context, name, biography st
 	// Prepare biography JSON
 	var biographyJSON json.RawMessage
 	if biography != "" {
-		biographyJSON = json.RawMessage(fmt.Sprintf(`{"text": "%s"}`, biography))
+		bioMap := map[string]string{"text": biography}
+		bioBytes, err := json.Marshal(bioMap)
+		if err != nil {
+			return nil, pkgerrors.BadRequest(I18nInvalidInput, "invalid biography")
+		}
+		biographyJSON = json.RawMessage(bioBytes)
 	} else {
 		biographyJSON = json.RawMessage("{}")
 	}
@@ -73,6 +79,7 @@ func (s *artistServiceImpl) CreateArtist(ctx context.Context, name, biography st
 		AvatarURL:      avatarURL,
 		SocialLinks:    socialLinks,
 		Specialization: specialization,
+		PortfolioURL:   portfolioURL,
 		IsVerified:     false,
 		CreatedBy:      createdBy,
 	}
@@ -91,7 +98,7 @@ func (s *artistServiceImpl) CreateArtist(ctx context.Context, name, biography st
 }
 
 // UpdateArtist cập nhật thông tin artist
-func (s *artistServiceImpl) UpdateArtist(ctx context.Context, id uuid.UUID, name, biography string, avatarURL *string, socialLinksJSON *string, specialization *string) (*domain.Artist, error) {
+func (s *artistServiceImpl) UpdateArtist(ctx context.Context, id uuid.UUID, name, biography string, avatarURL *string, socialLinksJSON *string, specialization *string, portfolioURL *string) (*domain.Artist, error) {
 	// Validate input
 	if name == "" {
 		return nil, pkgerrors.BadRequest(I18nInvalidInput, "name is required")
@@ -118,10 +125,16 @@ func (s *artistServiceImpl) UpdateArtist(ctx context.Context, id uuid.UUID, name
 	artist.Name = name
 	artist.AvatarURL = avatarURL
 	artist.Specialization = specialization
+	artist.PortfolioURL = portfolioURL
 
 	// Update biography JSON
 	if biography != "" {
-		artist.Biography = json.RawMessage(fmt.Sprintf(`{"text": "%s"}`, biography))
+		bioMap := map[string]string{"text": biography}
+		bioBytes, err := json.Marshal(bioMap)
+		if err != nil {
+			return nil, pkgerrors.BadRequest(I18nInvalidInput, "invalid biography")
+		}
+		artist.Biography = json.RawMessage(bioBytes)
 	} else {
 		artist.Biography = json.RawMessage("{}")
 	}

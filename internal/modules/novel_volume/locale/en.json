@@ -1,0 +1,20 @@
+{
+  "volume.created_success": "Volume created successfully.",
+  "volume.updated_success": "Volume updated successfully.",
+  "volume.deleted_success": "Volume deleted successfully.",
+  "volume.get_success": "Volume retrieved successfully.",
+  "volume.list_success": "Volumes list retrieved successfully.",
+  "volume.reorder_success": "Volumes reordered successfully.",
+  "volume.create_failed": "Failed to create volume. Please try again.",
+  "volume.update_failed": "Failed to update volume. Please try again.",
+  "volume.delete_failed": "Failed to delete volume. Please try again.",
+  "volume.get_failed": "Failed to retrieve volume information.",
+  "volume.list_failed": "Failed to load volumes list.",
+  "volume.reorder_failed": "Failed to reorder volumes.",
+  "volume.not_found": "Volume not found.",
+  "volume.invalid_id": "Invalid volume ID.",
+  "volume.invalid_input": "Invalid input data.",
+  "volume.novel_not_found": "Novel not found.",
+  "volume.volume_number_exists": "Volume number already exists.",
+  "volume.has_chapters": "Cannot delete volume with existing chapters."
+}

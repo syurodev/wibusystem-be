@@ -39,7 +39,12 @@ func (s *authorServiceImpl) CreateAuthor(ctx context.Context, name, biography st
 
 	var biographyJSON json.RawMessage
 	if biography != "" {
-		biographyJSON = json.RawMessage(fmt.Sprintf(`{"text": "%s"}`, biography))
+		bioMap := map[string]string{"text": biography}
+		bioBytes, err := json.Marshal(bioMap)
+		if err != nil {
+			return nil, pkgerrors.BadRequest(I18nInvalidInput, "invalid biography")
+		}
+		biographyJSON = json.RawMessage(bioBytes)
 	} else {
 		biographyJSON = json.RawMessage("{}")
 	}
@@ -105,7 +110,12 @@ func (s *authorServiceImpl) UpdateAuthor(ctx context.Context, id uuid.UUID, name
 	author.AvatarURL = avatarURL
 
 	if biography != "" {
-		author.Biography = json.RawMessage(fmt.Sprintf(`{"text": "%s"}`, biography))
+		bioMap := map[string]string{"text": biography}
+		bioBytes, err := json.Marshal(bioMap)
+		if err != nil {
+			return nil, pkgerrors.BadRequest(I18nInvalidInput, "invalid biography")
+		}
+		author.Biography = json.RawMessage(bioBytes)
 	} else {
 		author.Biography = json.RawMessage("{}")
 	}

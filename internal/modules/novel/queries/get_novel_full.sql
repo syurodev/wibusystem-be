@@ -29,7 +29,8 @@ genres_data AS (
 authors_data AS (
     SELECT json_agg(json_build_object(
         'id', a.id,
-        'name', a.name
+        'name', a.name,
+        'slug', a.slug
     ) ORDER BY na.display_order) as authors
     FROM catalog.authors a
     INNER JOIN catalog.novel_authors na ON a.id = na.author_id
@@ -38,7 +39,8 @@ authors_data AS (
 artists_data AS (
     SELECT json_agg(json_build_object(
         'id', a.id,
-        'name', a.name
+        'name', a.name,
+        'slug', a.slug
     ) ORDER BY nart.display_order) as artists
     FROM catalog.artists a
     INNER JOIN catalog.novel_artists nart ON a.id = nart.artist_id

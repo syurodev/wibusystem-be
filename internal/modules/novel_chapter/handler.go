@@ -2,7 +2,9 @@ package novel_chapter
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -108,8 +110,14 @@ func (h *Handler) CreateChapter(c *gin.Context) {
 		CreatedBy:      userID,
 	})
 	if err != nil {
+		fmt.Printf("[DEBUG] CreateChapter failed: %v\n", err)
 		if appErr, ok := pkgerrors.AsAppError(err); ok {
 			response.Error(c, appErr.StatusCode, appErr.ErrCode, appErr.I18nKey, nil)
+			return
+		}
+		// Check for PostgreSQL duplicate key constraint violation
+		if strings.Contains(err.Error(), "23505") || strings.Contains(err.Error(), "duplicate key") {
+			response.Error(c, http.StatusConflict, "CHAPTER_NUMBER_EXISTS", I18nChapterNumberExists, nil)
 			return
 		}
 		response.Error(c, http.StatusInternalServerError, "CREATE_FAILED", I18nCreateFailed, nil)
@@ -366,11 +374,23 @@ func (h *Handler) ListChaptersByVolume(c *gin.Context) {
 	}
 
 	chapterResponses := make([]chapterdto.ChapterResponse, len(chapters))
+	volumeTitle := ""
 	for i, chapter := range chapters {
 		chapterResponses[i] = mapToChapterResponse(chapter)
+		// Extract volume title from chapter's volume if available
+		if volumeTitle == "" && chapter.Volume != nil {
+			volumeTitle = chapter.Volume.Title
+		}
 	}
 
-	response.Success(c, http.StatusOK, "chapter.list_success", chapterResponses, nil)
+	// Wrap response to match client expectations
+	resp := chapterdto.ListChaptersResponse{
+		VolumeID:    volumeIDStr,
+		VolumeTitle: volumeTitle,
+		Chapters:    chapterResponses,
+	}
+
+	response.Success(c, http.StatusOK, "chapter.list_success", resp, nil)
 }
 
 // PublishChapter publishes a chapter immediately

@@ -11,6 +11,7 @@ import (
 // Aliases for common types from media
 type GenreInfo = mediares.GenreInfo
 type OwnerInfo = mediares.OwnerInfo
+type CreatorInfo = mediares.CreatorInfo
 type LatestChapterInfo = mediares.LatestChapterInfo
 
 // NovelResponse là DTO cho response novel (cho danh sách)
@@ -38,8 +39,8 @@ type NovelDetailResponse struct {
 	AuthorIDs        []string        `json:"author_ids"`
 	ArtistIDs        []string        `json:"artist_ids"`
 	Genres           []GenreInfo     `json:"genres"`
-	Authors          []OwnerInfo     `json:"authors"`
-	Artists          []OwnerInfo     `json:"artists"`
+	Authors          []CreatorInfo   `json:"authors"`
+	Artists          []CreatorInfo   `json:"artists"`
 	OriginalLanguage *string         `json:"original_language,omitempty"`
 	OriginalTitle    *string         `json:"original_title,omitempty"`
 	TotalVolumes     int             `json:"total_volumes"`

@@ -7,6 +7,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/gofrs/uuid/v5"
 	"github.com/jackc/pgx/v5"
+	"go.uber.org/zap"
 
 	"system/internal/app/middleware"
 	"system/internal/domain"
@@ -25,6 +26,7 @@ type Handler struct {
 	listSelectUC    ListSelectionUseCase
 	mergeArtistsUC  MergeArtistsUseCase
 	previewMergeUC  PreviewMergeUseCase
+	logger          *zap.Logger
 }
 
 func NewHandler(
@@ -36,6 +38,7 @@ func NewHandler(
 	listSelectUC ListSelectionUseCase,
 	mergeArtistsUC MergeArtistsUseCase,
 	previewMergeUC PreviewMergeUseCase,
+	logger *zap.Logger,
 ) *Handler {
 	return &Handler{
 		createArtistUC:  createArtistUC,
@@ -46,6 +49,7 @@ func NewHandler(
 		listSelectUC:    listSelectUC,
 		mergeArtistsUC:  mergeArtistsUC,
 		previewMergeUC:  previewMergeUC,
+		logger:          logger,
 	}
 }
 
@@ -87,6 +91,7 @@ func (h *Handler) CreateArtist(c *gin.Context) {
 		AvatarURL:       req.AvatarURL,
 		SocialLinksJSON: req.SocialLinks,
 		Specialization:  req.Specialization,
+		PortfolioURL:    req.PortfolioURL,
 		CreatedBy:       createdBy,
 	})
 	if err != nil {
@@ -140,6 +145,7 @@ func (h *Handler) UpdateArtist(c *gin.Context) {
 		AvatarURL:       req.AvatarURL,
 		SocialLinksJSON: req.SocialLinks,
 		Specialization:  req.Specialization,
+		PortfolioURL:    req.PortfolioURL,
 	})
 	if err != nil {
 		if appErr, ok := pkgerrors.AsAppError(err); ok {
@@ -299,6 +305,7 @@ func mapToArtistDetailResponse(artist *domain.Artist) artistdto.ArtistDetailResp
 		Name:           artist.Name,
 		Slug:           artist.Slug,
 		Specialization: artist.Specialization,
+		PortfolioURL:   artist.PortfolioURL,
 		NovelCount:     artist.NovelCount,
 		ArtworkCount:   artist.ArtworkCount,
 		FollowerCount:  artist.FollowerCount,
@@ -338,6 +345,7 @@ func mapToArtistResponse(artist *domain.Artist) artistdto.ArtistResponse {
 		Slug:           artist.Slug,
 		NovelCount:     artist.NovelCount,
 		Specialization: artist.Specialization,
+		PortfolioURL:   artist.PortfolioURL,
 		CreatedAt:      artist.CreatedAt.Format(timeutil.ISO8601Layout),
 	}
 

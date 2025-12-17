@@ -40,6 +40,14 @@ type MediaSeriesResponse struct {
 type GenreInfo struct {
 	ID   string `json:"id"`
 	Name string `json:"name"`
+	Slug string `json:"slug"`
+}
+
+// CreatorInfo là DTO cho author/artist trong media response
+type CreatorInfo struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+	Slug string `json:"slug"`
 }
 
 type OwnerInfo struct {
@@ -47,6 +55,7 @@ type OwnerInfo struct {
 	DisplayName string  `json:"display_name"`
 	Username    string  `json:"username"`
 	AvatarURL   *string `json:"avatar_url,omitempty"`
+	Slug        *string `json:"slug,omitempty"`
 }
 
 type LatestChapterInfo struct {

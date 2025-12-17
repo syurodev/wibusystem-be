@@ -135,6 +135,7 @@ func (h *Handler) CreateNovel(c *gin.Context) {
 		ArtistIDs:        artistIDs,
 	})
 	if err != nil {
+		fmt.Printf("[DEBUG] CreateNovel failed: %v\n", err)
 		if appErr, ok := pkgerrors.AsAppError(err); ok {
 			response.Error(c, appErr.StatusCode, appErr.ErrCode, appErr.I18nKey, nil)
 			return
@@ -237,8 +238,8 @@ func (h *Handler) GetNovel(c *gin.Context) {
 	resp.AuthorIDs = make([]string, 0)
 	resp.ArtistIDs = make([]string, 0)
 	resp.Genres = make([]noveldto.GenreInfo, 0)
-	resp.Authors = make([]noveldto.OwnerInfo, 0)
-	resp.Artists = make([]noveldto.OwnerInfo, 0)
+	resp.Authors = make([]noveldto.CreatorInfo, 0)
+	resp.Artists = make([]noveldto.CreatorInfo, 0)
 
 	// Load relations
 	genreIDs, err := h.novelService.GetNovelGenres(c.Request.Context(), novel.ID)
@@ -269,26 +270,26 @@ func (h *Handler) GetNovel(c *gin.Context) {
 	if err == nil {
 		resp.Genres = make([]noveldto.GenreInfo, len(genres))
 		for i, g := range genres {
-			resp.Genres[i] = noveldto.GenreInfo{ID: g.ID.String(), Name: g.Name}
+			resp.Genres[i] = noveldto.GenreInfo{ID: g.ID.String(), Name: g.Name, Slug: g.Slug}
 		}
 	}
 
 	authors, err := h.novelService.GetNovelAuthorsDetails(c.Request.Context(), novel.ID)
 	if err == nil {
-		resp.Authors = make([]noveldto.OwnerInfo, len(authors))
+		resp.Authors = make([]noveldto.CreatorInfo, len(authors))
 		for i, na := range authors {
 			if na.Author != nil {
-				resp.Authors[i] = noveldto.OwnerInfo{ID: na.Author.ID.String(), DisplayName: na.Author.Name}
+				resp.Authors[i] = noveldto.CreatorInfo{ID: na.Author.ID.String(), Name: na.Author.Name, Slug: na.Author.Slug}
 			}
 		}
 	}
 
 	artists, err := h.novelService.GetNovelArtistsDetails(c.Request.Context(), novel.ID)
 	if err == nil {
-		resp.Artists = make([]noveldto.OwnerInfo, len(artists))
+		resp.Artists = make([]noveldto.CreatorInfo, len(artists))
 		for i, na := range artists {
 			if na.Artist != nil {
-				resp.Artists[i] = noveldto.OwnerInfo{ID: na.Artist.ID.String(), DisplayName: na.Artist.Name}
+				resp.Artists[i] = noveldto.CreatorInfo{ID: na.Artist.ID.String(), Name: na.Artist.Name, Slug: na.Artist.Slug}
 			}
 		}
 	}
@@ -441,8 +442,8 @@ func mapNovelFullDataToResponse(data *NovelFullData) noveldto.NovelFullResponse 
 	resp.AuthorIDs = make([]string, 0)
 	resp.ArtistIDs = make([]string, 0)
 	resp.Genres = make([]noveldto.GenreInfo, 0)
-	resp.Authors = make([]noveldto.OwnerInfo, 0)
-	resp.Artists = make([]noveldto.OwnerInfo, 0)
+	resp.Authors = make([]noveldto.CreatorInfo, 0)
+	resp.Artists = make([]noveldto.CreatorInfo, 0)
 	resp.Volumes = make([]noveldto.VolumeInfoResponseWithChapters, 0)
 	resp.Chapters = make([]noveldto.ChapterSummaryResponse, 0)
 
@@ -464,20 +465,20 @@ func mapNovelFullDataToResponse(data *NovelFullData) noveldto.NovelFullResponse 
 
 	// Map genres
 	for _, g := range data.Genres {
-		resp.Genres = append(resp.Genres, noveldto.GenreInfo{ID: g.ID.String(), Name: g.Name})
+		resp.Genres = append(resp.Genres, noveldto.GenreInfo{ID: g.ID.String(), Name: g.Name, Slug: g.Slug})
 	}
 
 	// Map authors
 	for _, na := range data.Authors {
 		if na.Author != nil {
-			resp.Authors = append(resp.Authors, noveldto.OwnerInfo{ID: na.Author.ID.String(), DisplayName: na.Author.Name})
+			resp.Authors = append(resp.Authors, noveldto.CreatorInfo{ID: na.Author.ID.String(), Name: na.Author.Name, Slug: na.Author.Slug})
 		}
 	}
 
 	// Map artists
 	for _, na := range data.Artists {
 		if na.Artist != nil {
-			resp.Artists = append(resp.Artists, noveldto.OwnerInfo{ID: na.Artist.ID.String(), DisplayName: na.Artist.Name})
+			resp.Artists = append(resp.Artists, noveldto.CreatorInfo{ID: na.Artist.ID.String(), Name: na.Artist.Name, Slug: na.Artist.Slug})
 		}
 	}
 
@@ -587,7 +588,7 @@ func mapToNovelResponse(novel *domain.Novel) noveldto.NovelResponse {
 	genres := make([]noveldto.GenreInfo, 0)
 	if novel.Genres != nil && len(novel.Genres) > 0 {
 		for _, genre := range novel.Genres {
-			genres = append(genres, noveldto.GenreInfo{ID: genre.ID.String(), Name: genre.Name})
+			genres = append(genres, noveldto.GenreInfo{ID: genre.ID.String(), Name: genre.Name, Slug: genre.Slug})
 		}
 	}
 

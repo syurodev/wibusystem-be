@@ -27,6 +27,7 @@ func (uc *createArtistUseCase) Execute(ctx context.Context, input CreateArtistIn
 		input.AvatarURL,
 		input.SocialLinksJSON,
 		input.Specialization,
+		input.PortfolioURL, // This line was already present, assuming the instruction implies ensuring it's there and correctly positioned.
 		input.CreatedBy,
 	)
 }

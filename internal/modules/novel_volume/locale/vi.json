@@ -1,0 +1,20 @@
+{
+  "volume.created_success": "Tập đã được tạo thành công.",
+  "volume.updated_success": "Tập đã được cập nhật thành công.",
+  "volume.deleted_success": "Tập đã được xóa thành công.",
+  "volume.get_success": "Lấy thông tin tập thành công.",
+  "volume.list_success": "Lấy danh sách tập thành công.",
+  "volume.reorder_success": "Sắp xếp lại tập thành công.",
+  "volume.create_failed": "Không thể tạo tập. Vui lòng thử lại.",
+  "volume.update_failed": "Không thể cập nhật tập. Vui lòng thử lại.",
+  "volume.delete_failed": "Không thể xóa tập. Vui lòng thử lại.",
+  "volume.get_failed": "Không thể lấy thông tin tập.",
+  "volume.list_failed": "Không thể tải danh sách tập.",
+  "volume.reorder_failed": "Không thể sắp xếp lại tập.",
+  "volume.not_found": "Không tìm thấy tập.",
+  "volume.invalid_id": "ID tập không hợp lệ.",
+  "volume.invalid_input": "Dữ liệu đầu vào không hợp lệ.",
+  "volume.novel_not_found": "Không tìm thấy truyện.",
+  "volume.volume_number_exists": "Số tập đã tồn tại.",
+  "volume.has_chapters": "Không thể xóa tập đang có chương."
+}

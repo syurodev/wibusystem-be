@@ -28,5 +28,6 @@ func (uc *updateArtistUseCase) Execute(ctx context.Context, input UpdateArtistIn
 		input.AvatarURL,
 		input.SocialLinksJSON,
 		input.Specialization,
+		input.PortfolioURL,
 	)
 }

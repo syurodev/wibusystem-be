@@ -1,0 +1,23 @@
+{
+  "novel.created_success": "Novel created successfully.",
+  "novel.updated_success": "Novel updated successfully.",
+  "novel.deleted_success": "Novel deleted successfully.",
+  "novel.get_success": "Novel retrieved successfully.",
+  "novel.list_success": "Novels list retrieved successfully.",
+  "novel.create_failed": "Failed to create novel. Please try again.",
+  "novel.update_failed": "Failed to update novel. Please try again.",
+  "novel.delete_failed": "Failed to delete novel. Please try again.",
+  "novel.get_failed": "Failed to retrieve novel information.",
+  "novel.list_failed": "Failed to load novels list.",
+  "novel.not_found": "Novel not found.",
+  "novel.invalid_id": "Invalid novel ID.",
+  "novel.invalid_input": "Invalid input data.",
+  "novel.slug_already_exists": "Novel title already exists.",
+  "novel.invalid_status": "Invalid novel status.",
+  "novel.invalid_owner_id": "Invalid owner ID.",
+  "novel.invalid_genre_id": "Invalid genre ID.",
+  "novel.invalid_author_id": "Invalid author ID.",
+  "novel.invalid_artist_id": "Invalid artist ID.",
+  "novel.increment_view_failed": "Failed to increment view count.",
+  "novel.view_incremented": "View count incremented."
+}
