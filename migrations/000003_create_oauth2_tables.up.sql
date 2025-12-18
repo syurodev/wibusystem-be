@@ -276,35 +276,3 @@ END;
 $$ LANGUAGE plpgsql;
 
 COMMENT ON FUNCTION revoke_all_user_tokens IS 'Revoke tất cả tokens của một user (global logout)';
-
--- =====================================================
--- Seed Data: Demo OAuth2 Client
--- Description: Tạo một demo client cho testing
--- =====================================================
-
--- Insert a demo first-party client (tenant_id = NULL)
-INSERT INTO oauth2_clients (
-    id,
-    client_name,
-    secret_hash,
-    redirect_uris,
-    grant_types,
-    response_types,
-    scopes,
-    is_public,
-    organization_id,
-    token_endpoint_auth_method
-) VALUES (
-    gen_random_uuid(),
-    'System Admin Dashboard',
-    '$2a$10$demo.hash.for.testing.only', -- In production, use proper bcrypt hash
-    ARRAY['http://localhost:3000/callback', 'http://localhost:3000/auth/callback'],
-    ARRAY['authorization_code', 'refresh_token'],
-    ARRAY['code'],
-    ARRAY['openid', 'profile', 'email', 'offline_access'],
-    FALSE, -- Confidential client
-    NULL, -- Global first-party client
-    'client_secret_basic'
-);
-
-COMMENT ON TABLE oauth2_clients IS 'Seeded với demo admin dashboard client';
