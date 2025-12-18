@@ -160,6 +160,10 @@ func registerAPIRoutes(router *gin.Engine, deps *Dependencies, zapLogger *zap.Lo
 	// Organization routes
 	orgGroup := apiV1.Group("/organizations")
 	deps.Handlers.Organization.RegisterRoutes(orgGroup, authMiddleware)
+
+	// Embedding routes (similar content)
+	embeddingGroup := apiV1.Group("/embeddings")
+	deps.Handlers.Embedding.RegisterRoutes(embeddingGroup)
 }
 
 // registerNovelRoutes đăng ký novel, volume, chapter routes

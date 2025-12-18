@@ -9,22 +9,19 @@ import (
 
 // updateNovelUseCase implements UpdateNovelUseCase
 type updateNovelUseCase struct {
-	novelService NovelService
-	// TODO: Add external services when relations update is needed
-	// genreService  UCGenreService
-	// authorService UCAuthorService
-	// artistService UCArtistService
+	novelService     NovelService
+	embeddingService UCEmbeddingService
 }
 
 // NewUpdateNovelUseCase creates a new UpdateNovelUseCase instance
-func NewUpdateNovelUseCase(novelService NovelService) UpdateNovelUseCase {
+func NewUpdateNovelUseCase(novelService NovelService, embeddingService UCEmbeddingService) UpdateNovelUseCase {
 	return &updateNovelUseCase{
-		novelService: novelService,
+		novelService:     novelService,
+		embeddingService: embeddingService,
 	}
 }
 
 // Execute updates an existing novel
-// Note: Currently only updates basic novel info. Relations update to be added in future.
 func (uc *updateNovelUseCase) Execute(ctx context.Context, input UpdateNovelInput) (*domain.Novel, error) {
 	// Convert input to service call
 	var status *string
@@ -43,7 +40,7 @@ func (uc *updateNovelUseCase) Execute(ctx context.Context, input UpdateNovelInpu
 		synopsis = input.Synopsis
 	}
 
-	return uc.novelService.UpdateNovel(
+	result, err := uc.novelService.UpdateNovel(
 		ctx,
 		input.ID,
 		input.Title,
@@ -57,10 +54,14 @@ func (uc *updateNovelUseCase) Execute(ctx context.Context, input UpdateNovelInpu
 		input.IsOneshot,
 	)
 
-	// TODO: Future implementation for relations update:
-	// 1. Begin transaction
-	// 2. Update novel entity
-	// 3. Remove old relations (genres, authors, artists)
-	// 4. Add new relations
-	// 5. Commit transaction
+	if err != nil {
+		return nil, err
+	}
+
+	// Queue for re-embedding (content changed)
+	if uc.embeddingService != nil {
+		_ = uc.embeddingService.QueueNovelForEmbedding(ctx, result.ID)
+	}
+
+	return result, nil
 }

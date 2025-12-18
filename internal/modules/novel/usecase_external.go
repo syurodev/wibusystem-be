@@ -38,3 +38,8 @@ type UCCreatorService interface {
 	IncrementNovelCount(ctx context.Context, userID uuid.UUID) error
 	DecrementNovelCount(ctx context.Context, userID uuid.UUID) error
 }
+
+// UCEmbeddingService interface cho embedding queue operations
+type UCEmbeddingService interface {
+	QueueNovelForEmbedding(ctx context.Context, novelID uuid.UUID) error
+}

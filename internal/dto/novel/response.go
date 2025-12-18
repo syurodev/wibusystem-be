@@ -25,6 +25,15 @@ type AffectedNovel struct {
 	CoverImageURL *string `json:"cover_image_url,omitempty"`
 }
 
+// SimilarNovelResponse là response cho API similar novels
+type SimilarNovelResponse struct {
+	ID            string  `json:"id"`
+	Title         string  `json:"title"`
+	Slug          string  `json:"slug"`
+	CoverImageURL *string `json:"cover_image_url,omitempty"`
+	Distance      float32 `json:"distance"` // Cosine distance (0 = identical, 2 = opposite)
+}
+
 // NovelDetailResponse là DTO chi tiết cho novel
 type NovelDetailResponse struct {
 	ID               string          `json:"id"`

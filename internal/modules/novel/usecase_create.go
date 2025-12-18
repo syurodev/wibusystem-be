@@ -15,12 +15,13 @@ import (
 // createNovelUseCase orchestrates novel creation across multiple services
 // It owns the transaction lifecycle
 type createNovelUseCase struct {
-	txManager      db.TransactionManager
-	novelService   UCNovelService
-	genreService   UCGenreService
-	authorService  UCAuthorService
-	artistService  UCArtistService
-	creatorService UCCreatorService
+	txManager        db.TransactionManager
+	novelService     UCNovelService
+	genreService     UCGenreService
+	authorService    UCAuthorService
+	artistService    UCArtistService
+	creatorService   UCCreatorService
+	embeddingService UCEmbeddingService
 }
 
 // NewCreateNovelUseCase creates a new CreateNovelUseCase instance
@@ -31,14 +32,16 @@ func NewCreateNovelUseCase(
 	authorService UCAuthorService,
 	artistService UCArtistService,
 	creatorService UCCreatorService,
+	embeddingService UCEmbeddingService,
 ) CreateNovelUseCase {
 	return &createNovelUseCase{
-		txManager:      txManager,
-		novelService:   novelService,
-		genreService:   genreService,
-		authorService:  authorService,
-		artistService:  artistService,
-		creatorService: creatorService,
+		txManager:        txManager,
+		novelService:     novelService,
+		genreService:     genreService,
+		authorService:    authorService,
+		artistService:    artistService,
+		creatorService:   creatorService,
+		embeddingService: embeddingService,
 	}
 }
 
@@ -145,6 +148,11 @@ func (uc *createNovelUseCase) Execute(ctx context.Context, input CreateNovelInpu
 
 	if err != nil {
 		return nil, err
+	}
+
+	// Queue for embedding generation (fire and forget, don't block response)
+	if uc.embeddingService != nil {
+		_ = uc.embeddingService.QueueNovelForEmbedding(ctx, result.ID)
 	}
 
 	return result, nil

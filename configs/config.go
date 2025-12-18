@@ -20,6 +20,7 @@ type Config struct {
 	Redis        RedisConfig
 	ClickHouse   ClickHouseConfig
 	ViewTracking ViewTrackingConfig
+	Embedding    EmbeddingConfig
 	CORS         CORSConfig
 	Log          LogConfig
 	OAuth2       OAuthConfig
@@ -92,6 +93,16 @@ type ViewTrackingConfig struct {
 	BatchSize           int  // PostgreSQL batch size (default: 1000)
 	ClickHouseBatchSize int  // ClickHouse batch size (default: 500)
 	WorkerEnabled       bool // Enable background worker (default: true)
+}
+
+// EmbeddingConfig chứa cấu hình cho hệ thống embedding vector.
+type EmbeddingConfig struct {
+	ModelName        string // HuggingFace model name (default: all-MiniLM-L6-v2)
+	Dimensions       int    // Vector dimensions (default: 384 for MiniLM)
+	WorkerEnabled    bool   // Enable background embedding worker (default: true)
+	SyncIntervalMins int    // Interval between embedding syncs in minutes (default: 5)
+	BatchSize        int    // Number of novels to process per batch (default: 50)
+	RedisQueueKey    string // Redis key for pending embeddings queue (default: embedding:pending)
 }
 
 // CORSConfig chứa cấu hình CORS cho Gin.
@@ -192,6 +203,14 @@ func LoadConfig(envPath string) (*Config, error) {
 	cfg.ViewTracking.BatchSize = getEnvAsInt("VIEW_BATCH_SIZE", 1000)
 	cfg.ViewTracking.ClickHouseBatchSize = getEnvAsInt("VIEW_CLICKHOUSE_BATCH_SIZE", 500)
 	cfg.ViewTracking.WorkerEnabled = getEnvAsBool("VIEW_WORKER_ENABLED", true)
+
+	// EMBEDDING CONFIG
+	cfg.Embedding.ModelName = getEnv("EMBEDDING_MODEL_NAME", "sentence-transformers/all-MiniLM-L6-v2")
+	cfg.Embedding.Dimensions = getEnvAsInt("EMBEDDING_DIMENSIONS", 384)
+	cfg.Embedding.WorkerEnabled = getEnvAsBool("EMBEDDING_WORKER_ENABLED", true)
+	cfg.Embedding.SyncIntervalMins = getEnvAsInt("EMBEDDING_SYNC_INTERVAL_MINS", 5)
+	cfg.Embedding.BatchSize = getEnvAsInt("EMBEDDING_BATCH_SIZE", 50)
+	cfg.Embedding.RedisQueueKey = getEnv("EMBEDDING_REDIS_QUEUE_KEY", "embedding:pending")
 
 	// CORS CONFIG
 	cfg.CORS.AllowOrigins = getEnvAsSlice("CORS_ALLOW_ORIGINS", nil)

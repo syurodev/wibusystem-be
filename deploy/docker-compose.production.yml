@@ -73,7 +73,7 @@ services:
 
   # PostgreSQL Database
   system_prod:
-    image: postgres:18.1-alpine
+    image: pgvector/pgvector:pg18
     container_name: system_prod
     restart: unless-stopped
     environment:

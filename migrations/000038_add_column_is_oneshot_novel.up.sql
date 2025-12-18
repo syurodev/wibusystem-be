@@ -1,0 +1,2 @@
+ALTER TABLE catalog.novels
+    ADD COLUMN is_oneshot BOOLEAN DEFAULT FALSE NOT NULL;

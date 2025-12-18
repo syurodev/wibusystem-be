@@ -1,0 +1,11 @@
+{
+  "embedding.invalid_id": "ID không hợp lệ.",
+  "embedding.missing_id": "Thiếu ID.",
+  "embedding.missing_type": "Thiếu loại nội dung (type).",
+  "embedding.unsupported_type": "Loại nội dung chưa được hỗ trợ. Hiện tại chỉ hỗ trợ: novel.",
+  "embedding.not_found": "Không tìm thấy embedding cho nội dung này.",
+  "embedding.fetch_failed": "Không thể lấy thông tin nội dung.",
+  "embedding.similar_found": "Đã tìm thấy nội dung tương tự.",
+  "embedding.status_found": "Đã lấy trạng thái embedding.",
+  "embedding.invalid_params": "Tham số không hợp lệ."
+}

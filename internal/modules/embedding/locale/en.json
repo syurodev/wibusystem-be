@@ -1,0 +1,11 @@
+{
+  "embedding.invalid_id": "Invalid ID.",
+  "embedding.missing_id": "Missing ID.",
+  "embedding.missing_type": "Missing content type.",
+  "embedding.unsupported_type": "Unsupported content type. Currently only supported: novel.",
+  "embedding.not_found": "Embedding not found for this content.",
+  "embedding.fetch_failed": "Failed to fetch content information.",
+  "embedding.similar_found": "Similar content found.",
+  "embedding.status_found": "Embedding status retrieved.",
+  "embedding.invalid_params": "Invalid parameters."
+}

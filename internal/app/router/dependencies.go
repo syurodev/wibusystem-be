@@ -1,6 +1,7 @@
 package router
 
 import (
+	"context"
 	"system/configs"
 	"system/internal/app/worker"
 	"system/internal/domain"
@@ -10,6 +11,7 @@ import (
 	author_module "system/internal/modules/author"
 	creator_module "system/internal/modules/creator"
 	"system/internal/modules/email"
+	embedding_module "system/internal/modules/embedding"
 	genre_module "system/internal/modules/genre"
 	media_module "system/internal/modules/media"
 	novel_module "system/internal/modules/novel"
@@ -77,23 +79,25 @@ type Services struct {
 	WebAuthn     auth_module.WebAuthnService
 	User         user_module.UserService
 	Organization organization_module.OrganizationService
+	Embedding    *embedding_module.Service
 }
 
 // Handlers chứa tất cả handler instances
 type Handlers struct {
-	OAuth2      *oauth2_module.Handler
-	OAuth2Admin *oauth2_module.AdminHandler
-	Auth        *auth_module.Handler
-	Genre       *genre_module.Handler
-	Author      *author_module.Handler
-	Artist      *artist_module.Handler
-	Novel       *novel_module.Handler
-	Volume      *novel_volume.Handler
-	Chapter     *novel_chapter.Handler
-	User        *user_module.Handler
-	Media       *media_module.Handler
-	Creator     *creator_module.Handler
+	OAuth2       *oauth2_module.Handler
+	OAuth2Admin  *oauth2_module.AdminHandler
+	Auth         *auth_module.Handler
+	Genre        *genre_module.Handler
+	Author       *author_module.Handler
+	Artist       *artist_module.Handler
+	Novel        *novel_module.Handler
+	Volume       *novel_volume.Handler
+	Chapter      *novel_chapter.Handler
+	User         *user_module.Handler
+	Media        *media_module.Handler
+	Creator      *creator_module.Handler
 	Organization *organization_module.Handler
+	Embedding    *embedding_module.Handler
 }
 
 // Dependencies chứa tất cả dependencies của ứng dụng
@@ -129,6 +133,10 @@ func NewDependencies(
 
 	// Start View Tracking Workers
 	worker.StartViewTrackingWorkers(&cfg.ViewTracking, services.ViewTracking, zapLogger)
+
+	// Start Embedding Worker
+	embeddingWorker := worker.NewEmbeddingWorker(services.Embedding, services.Novel, zapLogger, &cfg.Embedding)
+	embeddingWorker.Start(context.Background())
 
 	// --- Transaction Manager for Use Cases ---
 	txManager := txdb.NewTransactionManager(db.Pool)
@@ -256,6 +264,11 @@ func newServices(
 
 
 
+	// Embedding Service
+	embeddingRepo := embedding_module.NewRepository(db.Pool)
+	embedder := embedding_module.NewNoopEmbedder(cfg.Embedding.Dimensions)
+	embeddingSvc := embedding_module.NewService(embeddingRepo, embedder, rdb.Client, zapLogger, &cfg.Embedding)
+
 	return &Services{
 		OAuth2:       oauth2Svc,
 		OAuth2Admin:  oauth2AdminSvc,
@@ -275,6 +288,7 @@ func newServices(
 		WebAuthn:     webauthnSvc,
 		User:         userSvc,
 		Organization: organization_module.NewService(repos.Organization),
+		Embedding:    embeddingSvc,
 	}, nil
 }
 
@@ -305,6 +319,7 @@ func newHandlers(
 		services.Author,
 		services.Artist,
 		services.Creator,
+		services.Embedding,
 	)
 
 	// Create Genre UseCases
@@ -370,7 +385,7 @@ func newHandlers(
 			zapLogger,
 		),
 		Novel: func() *novel_module.Handler {
-			updateNovelUC := novel_module.NewUpdateNovelUseCase(services.Novel)
+			updateNovelUC := novel_module.NewUpdateNovelUseCase(services.Novel, services.Embedding)
 			deleteNovelUC := novel_module.NewDeleteNovelUseCase(
 				txManager,
 				services.Novel,
@@ -433,5 +448,6 @@ func newHandlers(
 			return creator_module.NewHandler(uc)
 		}(),
 		Organization: organization_module.NewHandler(services.Organization, zapLogger),
+		Embedding:    embedding_module.NewHandler(services.Embedding, services.Novel, services.Cache),
 	}
 }

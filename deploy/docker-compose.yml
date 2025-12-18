@@ -1,6 +1,6 @@
 services:
   system_dev:
-    image: postgres:18.0
+    image: pgvector/pgvector:pg18
     container_name: system_dev
     restart: unless-stopped
     environment:
