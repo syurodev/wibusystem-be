@@ -113,6 +113,7 @@ modules/{module_name}/
 ├── usecase_delete.go       # DeleteXxxUseCase (future)
 │
 ├── repository.go           # Database queries
+├── locale/                 # i18n locale files
 └── queries/                # Embedded SQL files
 ```
 

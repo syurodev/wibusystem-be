@@ -60,6 +60,9 @@ func NewRouter(cfg *configs.Config, i18nInstance *i18n.I18n, zapLogger *zap.Logg
 	registerOAuth2Routes(router, deps)
 	registerAuthRoutes(router, deps.Handlers, deps.Services, zapLogger)
 
+	// WebSocket
+	router.GET("/ws", deps.Handlers.Socket.HandleWebSocket)
+
 	return router
 }
 
@@ -164,6 +167,16 @@ func registerAPIRoutes(router *gin.Engine, deps *Dependencies, zapLogger *zap.Lo
 	// Embedding routes (similar content)
 	embeddingGroup := apiV1.Group("/embeddings")
 	deps.Handlers.Embedding.RegisterRoutes(embeddingGroup)
+
+	// Admin routes
+	adminGroup := apiV1.Group("/admin")
+	deps.Handlers.PaymentConfig.RegisterRoutes(adminGroup, authMiddleware)
+
+	// Wallet & Payment routes
+	deps.Handlers.Wallet.RegisterWalletRoutes(apiV1, authMiddleware)
+	
+	// Webhook routes (Public)
+	deps.Handlers.Webhook.RegisterWebhookRoutes(router)
 }
 
 // registerNovelRoutes đăng ký novel, volume, chapter routes

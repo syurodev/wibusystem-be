@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"slices"
+	"strconv"
 	"strings"
 	"system/pkg/util/response"
 
@@ -34,14 +35,25 @@ func RequireAuth(provider OAuth2Provider, logger *zap.Logger) gin.HandlerFunc {
 		// DEBUG LOGGING
 		logger.Info("Auth Middleware: Checking Authorization header", 
 			zap.String("path", c.Request.URL.Path),
-			zap.String("auth_header_len", string(len(authHeader))),
+			zap.String("auth_header_len", strconv.Itoa(len(authHeader))),
 			zap.Bool("has_auth_header", authHeader != ""),
 		)
 
 		if authHeader == "" {
-			logger.Warn("Auth Middleware: Missing Authorization header")
-			response.AbortWithError(c, http.StatusUnauthorized, "E4014", "auth.missing_authorization_header")
-			return
+			// Try getting token from query parameter "token" or "access_token"
+			token := c.Query("token")
+			if token == "" {
+				token = c.Query("access_token")
+			}
+
+			if token != "" {
+				// Artificial Bearer prefix for consistent processing below
+				authHeader = "Bearer " + token
+			} else {
+				logger.Warn("Auth Middleware: Missing Authorization header and token query param")
+				response.AbortWithError(c, http.StatusUnauthorized, "E4014", "auth.missing_authorization_header")
+				return
+			}
 		}
 
 		// Parse Bearer token

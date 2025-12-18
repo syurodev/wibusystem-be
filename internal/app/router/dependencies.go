@@ -19,6 +19,7 @@ import (
 	novel_volume "system/internal/modules/novel_volume"
 	oauth2_module "system/internal/modules/oauth2"
 	organization_module "system/internal/modules/organization"
+	payment_module "system/internal/modules/payment"
 	user_module "system/internal/modules/user"
 	"system/internal/platform/cache"
 	"system/internal/platform/database"
@@ -26,6 +27,7 @@ import (
 	"system/internal/platform/oauth2"
 	fosite_storage "system/internal/platform/oauth2/storage"
 	"system/internal/platform/resend"
+	socket "system/internal/platform/socket"
 
 	"github.com/ory/fosite"
 	"go.uber.org/zap"
@@ -56,6 +58,11 @@ type Repositories struct {
 	Role               domain.RoleRepository
 	Creator            domain.CreatorRepository
 	Organization       domain.OrganizationRepository
+	PaymentConfig      domain.PaymentConfigurationRepository
+	Wallet             domain.WalletRepository
+	CoinPackage        domain.CoinPackageRepository
+	TopupOrder         domain.TopupOrderRepository
+	Transaction        domain.TransactionRepository
 }
 
 // Services chứa tất cả service instances
@@ -80,6 +87,11 @@ type Services struct {
 	User         user_module.UserService
 	Organization organization_module.OrganizationService
 	Embedding    *embedding_module.Service
+	PaymentConfig payment_module.ConfigUseCase
+	Wallet        payment_module.WalletUseCase
+	Topup         payment_module.TopupUseCase
+	TransactionSvc payment_module.TransactionUseCase
+	SocketHub     *socket.Hub
 }
 
 // Handlers chứa tất cả handler instances
@@ -98,6 +110,10 @@ type Handlers struct {
 	Creator      *creator_module.Handler
 	Organization *organization_module.Handler
 	Embedding    *embedding_module.Handler
+	PaymentConfig *payment_module.Handler
+	Wallet        *payment_module.WalletHandler
+	Webhook       *payment_module.WebhookHandler
+	Socket        *socket.Handler
 }
 
 // Dependencies chứa tất cả dependencies của ứng dụng
@@ -180,6 +196,11 @@ func newRepositories(db *database.PostgresDB, rdb *database.RedisClient, ch *dat
 		Role:               user_module.NewRoleRepository(db.Pool),
 		Creator:            creator_module.NewCreatorRepository(db.Pool),
 		Organization:       organization_module.NewRepository(db.Pool),
+		PaymentConfig:      payment_module.NewConfigurationRepository(db.Pool),
+		Wallet:             payment_module.NewWalletRepository(db.Pool),
+		CoinPackage:        payment_module.NewCoinPackageRepository(db.Pool),
+		TopupOrder:         payment_module.NewTopupOrderRepository(db.Pool),
+		Transaction:        payment_module.NewTransactionRepository(db.Pool),
 	}
 }
 
@@ -269,6 +290,30 @@ func newServices(
 	embedder := embedding_module.NewNoopEmbedder(cfg.Embedding.Dimensions)
 	embeddingSvc := embedding_module.NewService(embeddingRepo, embedder, rdb.Client, zapLogger, &cfg.Embedding)
 
+	// Payment Config Service
+	paymentConfigUC := payment_module.NewConfigUseCase(repos.PaymentConfig)
+
+	// Socket Hub
+	socketHub := socket.NewHub(zapLogger)
+	go socketHub.Run()
+
+	// Wallet Services
+	walletUC := payment_module.NewWalletUseCase(repos.Wallet, zapLogger)
+	transactionUC := payment_module.NewTransactionUseCase(repos.Transaction, zapLogger)
+	topupUC := payment_module.NewTopupUseCase(
+		db.Pool,
+		repos.Wallet,
+		repos.CoinPackage,
+		repos.TopupOrder,
+		repos.Transaction,
+		paymentConfigUC,
+		socketHub,
+		zapLogger,
+	)
+
+	// Start Payment Workers
+	worker.StartPaymentWorkers(topupUC, zapLogger)
+
 	return &Services{
 		OAuth2:       oauth2Svc,
 		OAuth2Admin:  oauth2AdminSvc,
@@ -289,6 +334,11 @@ func newServices(
 		User:         userSvc,
 		Organization: organization_module.NewService(repos.Organization),
 		Embedding:    embeddingSvc,
+		PaymentConfig: paymentConfigUC,
+		Wallet:        walletUC,
+		Topup:         topupUC,
+		TransactionSvc: transactionUC,
+		SocketHub:     socketHub,
 	}, nil
 }
 
@@ -449,5 +499,9 @@ func newHandlers(
 		}(),
 		Organization: organization_module.NewHandler(services.Organization, zapLogger),
 		Embedding:    embedding_module.NewHandler(services.Embedding, services.Novel, services.Cache),
+		PaymentConfig: payment_module.NewHandler(services.PaymentConfig, zapLogger),
+		Wallet:        payment_module.NewWalletHandler(services.Wallet, services.Topup, services.TransactionSvc, zapLogger),
+		Webhook:       payment_module.NewWebhookHandler(services.Topup, services.PaymentConfig, zapLogger),
+		Socket:        socket.NewHandler(services.SocketHub, zapLogger),
 	}
 }

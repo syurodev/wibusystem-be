@@ -1,0 +1,43 @@
+{
+  "payment.config.list_success": "Configurations retrieved successfully.",
+  "payment.config.get_success": "Configuration retrieved successfully.",
+  "payment.config.update_success": "Configuration updated successfully.",
+  "payment.config.create_success": "Configuration created successfully.",
+  "payment.config.delete_success": "Configuration deleted successfully.",
+  "payment.config.not_found": "Configuration not found.",
+  "payment.config.already_exists": "Configuration key already exists.",
+  "payment.config.invalid_value": "Invalid value for this configuration type.",
+  "payment.config.list_failed": "Failed to retrieve configurations.",
+  "payment.config.get_failed": "Failed to retrieve configuration.",
+  "payment.config.update_failed": "Failed to update configuration.",
+  "payment.config.create_failed": "Failed to create configuration.",
+  "payment.config.delete_failed": "Failed to delete configuration.",
+
+  "payment.wallet.get_success": "Wallet information retrieved successfully.",
+  "payment.wallet.history_success": "Transaction history retrieved successfully.",
+  "payment.wallet.not_found": "Wallet not found.",
+  "payment.wallet.get_failed": "Failed to retrieve wallet information.",
+  "payment.wallet.insufficient_balance": "Insufficient coin balance.",
+
+  "payment.package.list_success": "Coin packages retrieved successfully.",
+  "payment.package.not_found": "Coin package not found.",
+  "payment.package.list_failed": "Failed to retrieve coin packages.",
+  "payment.package.inactive": "This coin package is currently unavailable.",
+
+  "payment.topup.create_success": "Top-up order created successfully. Please transfer within 15 minutes.",
+  "payment.topup.get_success": "Top-up order retrieved successfully.",
+  "payment.topup.list_success": "Top-up orders retrieved successfully.",
+  "payment.topup.cancel_success": "Top-up order cancelled successfully.",
+  "payment.topup.complete_success": "Top-up completed! Coins have been added to your wallet.",
+  "payment.topup.not_found": "Top-up order not found.",
+  "payment.topup.create_failed": "Failed to create top-up order.",
+  "payment.topup.already_pending": "You already have a pending top-up order. Please complete or cancel it first.",
+  "payment.topup.expired": "This top-up order has expired.",
+  "payment.topup.already_completed": "This top-up order has already been completed.",
+  "payment.topup.invalid_webhook": "Invalid webhook request.",
+  "payment.topup.amount_mismatch": "Transfer amount does not match the order.",
+  "payment.topup.notification.success": "Top-up completed successfully. You received {amount} coins.",
+
+  "payment.transaction.list_success": "Transactions retrieved successfully.",
+  "payment.transaction.list_failed": "Failed to retrieve transactions."
+}

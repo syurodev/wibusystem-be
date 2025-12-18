@@ -1,0 +1,43 @@
+{
+  "payment.config.list_success": "Lấy danh sách cấu hình thành công.",
+  "payment.config.get_success": "Lấy thông tin cấu hình thành công.",
+  "payment.config.update_success": "Cập nhật cấu hình thành công.",
+  "payment.config.create_success": "Tạo cấu hình thành công.",
+  "payment.config.delete_success": "Xóa cấu hình thành công.",
+  "payment.config.not_found": "Không tìm thấy cấu hình.",
+  "payment.config.already_exists": "Key cấu hình đã tồn tại.",
+  "payment.config.invalid_value": "Giá trị không hợp lệ cho loại cấu hình này.",
+  "payment.config.list_failed": "Lỗi khi lấy danh sách cấu hình.",
+  "payment.config.get_failed": "Lỗi khi lấy thông tin cấu hình.",
+  "payment.config.update_failed": "Lỗi khi cập nhật cấu hình.",
+  "payment.config.create_failed": "Lỗi khi tạo cấu hình.",
+  "payment.config.delete_failed": "Lỗi khi xóa cấu hình.",
+
+  "payment.wallet.get_success": "Lấy thông tin ví thành công.",
+  "payment.wallet.history_success": "Lấy lịch sử giao dịch thành công.",
+  "payment.wallet.not_found": "Không tìm thấy ví.",
+  "payment.wallet.get_failed": "Lỗi khi lấy thông tin ví.",
+  "payment.wallet.insufficient_balance": "Số dư Coin không đủ.",
+
+  "payment.package.list_success": "Lấy danh sách gói nạp thành công.",
+  "payment.package.not_found": "Không tìm thấy gói nạp.",
+  "payment.package.list_failed": "Lỗi khi lấy danh sách gói nạp.",
+  "payment.package.inactive": "Gói nạp này hiện không khả dụng.",
+
+  "payment.topup.create_success": "Tạo đơn nạp thành công. Vui lòng chuyển khoản trong vòng 15 phút.",
+  "payment.topup.get_success": "Lấy thông tin đơn nạp thành công.",
+  "payment.topup.list_success": "Lấy danh sách đơn nạp thành công.",
+  "payment.topup.cancel_success": "Hủy đơn nạp thành công.",
+  "payment.topup.complete_success": "Nạp tiền thành công! Coin đã được cộng vào ví của bạn.",
+  "payment.topup.not_found": "Không tìm thấy đơn nạp.",
+  "payment.topup.create_failed": "Lỗi khi tạo đơn nạp.",
+  "payment.topup.already_pending": "Bạn đã có một đơn nạp đang chờ. Vui lòng hoàn thành hoặc hủy trước khi tạo đơn mới.",
+  "payment.topup.expired": "Đơn nạp này đã hết hạn.",
+  "payment.topup.already_completed": "Đơn nạp này đã được xử lý.",
+  "payment.topup.invalid_webhook": "Request webhook không hợp lệ.",
+  "payment.topup.amount_mismatch": "Số tiền chuyển khoản không khớp với đơn nạp.",
+  "payment.topup.notification.success": "Nạp tiền thành công. Bạn đã nhận được {amount} coin.",
+
+  "payment.transaction.list_success": "Lấy danh sách giao dịch thành công.",
+  "payment.transaction.list_failed": "Lỗi khi lấy danh sách giao dịch."
+}
