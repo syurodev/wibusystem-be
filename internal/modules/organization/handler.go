@@ -3,6 +3,7 @@ package organization
 import (
 	"encoding/json"
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gofrs/uuid/v5"
@@ -12,20 +13,23 @@ import (
 	"system/internal/app/middleware"
 	"system/internal/domain"
 	orgdto "system/internal/dto/organization"
+	analytics_module "system/internal/modules/analytics"
 	pkgerrors "system/pkg/errors"
 	"system/pkg/util/response"
 	"system/pkg/util/timeutil"
 )
 
 type Handler struct {
-	orgService OrganizationService
-	logger     *zap.Logger
+	orgService   OrganizationService
+	analyticsSvc analytics_module.AnalyticsService
+	logger       *zap.Logger
 }
 
-func NewHandler(orgService OrganizationService, logger *zap.Logger) *Handler {
+func NewHandler(orgService OrganizationService, analyticsSvc analytics_module.AnalyticsService, logger *zap.Logger) *Handler {
 	return &Handler{
-		orgService: orgService,
-		logger:     logger,
+		orgService:   orgService,
+		analyticsSvc: analyticsSvc,
+		logger:       logger,
 	}
 }
 
@@ -686,3 +690,52 @@ func mapToReportResponse(r *domain.OrganizationReport) orgdto.ReportResponse {
 
 	return resp
 }
+
+// GetTopOrgsByViews returns top organizations by view count
+// @Summary Get top organizations by views
+// @Description Get organizations with highest view counts for a calendar-based time period
+// @Tags Organizations
+// @Produce json
+// @Param period query string false "Time period (day, week, month, year)" default(week)
+// @Param offset query int false "0 = current period, 1 = previous period" default(0)
+// @Param limit query int false "Limit (default 10)" default(10)
+// @Success 200 {object} response.StandardResponse{data=[]orgdto.OrganizationResponse}
+// @Failure 500 {object} response.StandardResponse
+// @Router /api/v1/organizations/top [get]
+func (h *Handler) GetTopOrgsByViews(c *gin.Context) {
+	period := c.DefaultQuery("period", "week")
+	offsetStr := c.DefaultQuery("offset", "0")
+	limitStr := c.DefaultQuery("limit", "10")
+
+	// Validate period
+	validPeriods := map[string]bool{"day": true, "week": true, "month": true, "year": true}
+	if !validPeriods[period] {
+		period = "week"
+	}
+
+	offset := 0
+	if o, err := strconv.Atoi(offsetStr); err == nil && o >= 0 && o <= 52 {
+		offset = o
+	}
+
+	limit := 10
+	if l, err := strconv.Atoi(limitStr); err == nil && l > 0 && l <= 100 {
+		limit = l
+	}
+
+	orgs, err := h.analyticsSvc.GetTopOrgsByViews(c.Request.Context(), period, offset, limit)
+	if err != nil {
+		h.logger.Error("Failed to get top orgs by views", zap.Error(err))
+		response.Error(c, http.StatusInternalServerError, "GET_TOP_ORGS_ERROR", I18nListFailed, nil)
+		return
+	}
+
+	// Map to response
+	orgResponses := make([]orgdto.OrganizationResponse, len(orgs))
+	for i, org := range orgs {
+		orgResponses[i] = mapToOrganizationResponse(org)
+	}
+
+	response.Success(c, http.StatusOK, I18nListSuccess, orgResponses, nil)
+}
+

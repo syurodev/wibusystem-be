@@ -603,3 +603,138 @@ func (r *viewAnalyticsClickHouseRepo) GetTopGenresByViews(ctx context.Context, p
 	return stats, nil
 }
 
+// GetTopCreatorsByViews retrieves creators with most views in a calendar-based time range.
+// Queries view_events where owner_type = 'user'
+func (r *viewAnalyticsClickHouseRepo) GetTopCreatorsByViews(ctx context.Context, period string, offset int, limit int) ([]domain.CreatorViewStat, error) {
+	startDate, endDate := calculateCalendarDateRange(period, offset)
+
+	query := `
+		SELECT
+			assumeNotNull(owner_id) AS owner_id,
+			sum(view_count) AS total_views,
+			uniqExact(if(user_id IS NOT NULL, toString(user_id), ip_address)) AS unique_users
+		FROM view_events
+		WHERE owner_id IS NOT NULL 
+		  AND owner_type = 'user'
+		  AND toDate(event_time) >= ? AND toDate(event_time) < ?
+		GROUP BY owner_id
+		ORDER BY total_views DESC
+		LIMIT ?
+	`
+
+	rows, err := r.ch.Conn.Query(ctx, query, startDate.Format("2006-01-02"), endDate.Format("2006-01-02"), limit)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query top creators by views: %w", err)
+	}
+	defer rows.Close()
+
+	var stats []domain.CreatorViewStat
+	for rows.Next() {
+		var s domain.CreatorViewStat
+		if err := rows.Scan(&s.CreatorID, &s.TotalViews, &s.UniqueUsers); err != nil {
+			return nil, fmt.Errorf("failed to scan creator view stat: %w", err)
+		}
+		stats = append(stats, s)
+	}
+
+	return stats, nil
+}
+
+// GetTopOrgsByViews retrieves organizations with most views in a calendar-based time range.
+// Queries view_events where owner_type = 'org'
+func (r *viewAnalyticsClickHouseRepo) GetTopOrgsByViews(ctx context.Context, period string, offset int, limit int) ([]domain.OrgViewStat, error) {
+	startDate, endDate := calculateCalendarDateRange(period, offset)
+
+	query := `
+		SELECT
+			assumeNotNull(owner_id) AS owner_id,
+			sum(view_count) AS total_views,
+			uniqExact(if(user_id IS NOT NULL, toString(user_id), ip_address)) AS unique_users
+		FROM view_events
+		WHERE owner_id IS NOT NULL 
+		  AND owner_type = 'org'
+		  AND toDate(event_time) >= ? AND toDate(event_time) < ?
+		GROUP BY owner_id
+		ORDER BY total_views DESC
+		LIMIT ?
+	`
+
+	rows, err := r.ch.Conn.Query(ctx, query, startDate.Format("2006-01-02"), endDate.Format("2006-01-02"), limit)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query top orgs by views: %w", err)
+	}
+	defer rows.Close()
+
+	var stats []domain.OrgViewStat
+	for rows.Next() {
+		var s domain.OrgViewStat
+		if err := rows.Scan(&s.OrgID, &s.TotalViews, &s.UniqueUsers); err != nil {
+			return nil, fmt.Errorf("failed to scan org view stat: %w", err)
+		}
+		stats = append(stats, s)
+	}
+
+	return stats, nil
+}
+
+// calculateCalendarDateRange calculates start and end dates based on calendar periods
+func calculateCalendarDateRange(period string, offset int) (time.Time, time.Time) {
+	now := time.Now()
+	var startDate, endDate time.Time
+
+	switch period {
+	case "day":
+		targetDay := now.AddDate(0, 0, -offset)
+		startDate = time.Date(targetDay.Year(), targetDay.Month(), targetDay.Day(), 0, 0, 0, 0, targetDay.Location())
+		endDate = startDate.AddDate(0, 0, 1)
+
+	case "week":
+		weekday := int(now.Weekday())
+		if weekday == 0 {
+			weekday = 7
+		}
+		mondayOfThisWeek := now.AddDate(0, 0, -(weekday - 1))
+
+		if offset == 0 {
+			startDate = time.Date(mondayOfThisWeek.Year(), mondayOfThisWeek.Month(), mondayOfThisWeek.Day(), 0, 0, 0, 0, now.Location())
+			endDate = now.AddDate(0, 0, 1)
+		} else {
+			targetMonday := mondayOfThisWeek.AddDate(0, 0, -7*offset)
+			startDate = time.Date(targetMonday.Year(), targetMonday.Month(), targetMonday.Day(), 0, 0, 0, 0, now.Location())
+			endDate = startDate.AddDate(0, 0, 7)
+		}
+
+	case "month":
+		if offset == 0 {
+			startDate = time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location())
+			endDate = now.AddDate(0, 0, 1)
+		} else {
+			targetMonth := now.AddDate(0, -offset, 0)
+			startDate = time.Date(targetMonth.Year(), targetMonth.Month(), 1, 0, 0, 0, 0, now.Location())
+			endDate = startDate.AddDate(0, 1, 0)
+		}
+
+	case "year":
+		if offset == 0 {
+			startDate = time.Date(now.Year(), 1, 1, 0, 0, 0, 0, now.Location())
+			endDate = now.AddDate(0, 0, 1)
+		} else {
+			targetYear := now.Year() - offset
+			startDate = time.Date(targetYear, 1, 1, 0, 0, 0, 0, now.Location())
+			endDate = time.Date(targetYear+1, 1, 1, 0, 0, 0, 0, now.Location())
+		}
+
+	default:
+		weekday := int(now.Weekday())
+		if weekday == 0 {
+			weekday = 7
+		}
+		mondayOfThisWeek := now.AddDate(0, 0, -(weekday - 1))
+		startDate = time.Date(mondayOfThisWeek.Year(), mondayOfThisWeek.Month(), mondayOfThisWeek.Day(), 0, 0, 0, 0, now.Location())
+		endDate = now.AddDate(0, 0, 1)
+	}
+
+	return startDate, endDate
+}
+
+

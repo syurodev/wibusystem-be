@@ -506,9 +506,9 @@ func newHandlers(
 		}(),
 		Creator: func() *creator_module.Handler {
 			uc := creator_module.NewListCreatorsUseCase(services.Creator)
-			return creator_module.NewHandler(uc)
+			return creator_module.NewHandler(uc, services.Analytics)
 		}(),
-		Organization: organization_module.NewHandler(services.Organization, zapLogger),
+		Organization: organization_module.NewHandler(services.Organization, services.Analytics, zapLogger),
 		Embedding:    embedding_module.NewHandler(services.Embedding, services.Novel, services.Cache),
 		PaymentConfig: payment_module.NewHandler(services.PaymentConfig, zapLogger),
 		Wallet:        payment_module.NewWalletHandler(services.Wallet, services.Topup, services.TransactionSvc, zapLogger),

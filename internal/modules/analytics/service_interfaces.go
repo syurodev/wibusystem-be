@@ -34,4 +34,12 @@ type AnalyticsService interface {
 	// Returns hydrated genre data similar to ListGenres response
 	// offset: 0 = current period, 1 = previous period
 	GetTopGenresByViews(ctx context.Context, period string, offset int, limit int) ([]*domain.Genre, error)
+
+	// GetTopCreatorsByViews retrieves creators with most views for a time range
+	// Returns User objects with TotalViews populated
+	GetTopCreatorsByViews(ctx context.Context, period string, offset int, limit int) ([]*domain.User, error)
+
+	// GetTopOrgsByViews retrieves organizations with most views for a time range
+	GetTopOrgsByViews(ctx context.Context, period string, offset int, limit int) ([]*domain.Organization, error)
 }
+

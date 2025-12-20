@@ -453,3 +453,96 @@ func (s *analyticsServiceImpl) GetTopGenresByViews(ctx context.Context, period s
 	return genres, nil
 }
 
+// GetTopCreatorsByViews retrieves creators with most views for a time range.
+// Results are cached in Redis for 30 minutes.
+func (s *analyticsServiceImpl) GetTopCreatorsByViews(ctx context.Context, period string, offset int, limit int) ([]*domain.User, error) {
+	cacheKey := fmt.Sprintf("analytics:top_creators_by_views:%s:%d:%d", period, offset, limit)
+
+	// Try cache
+	cached, err := s.redisClient.Get(ctx, cacheKey)
+	if err == nil && cached != "" {
+		var users []*domain.User
+		if err := json.Unmarshal([]byte(cached), &users); err == nil {
+			s.logger.Debug("Cache hit for top creators by views", zap.String("key", cacheKey))
+			return users, nil
+		}
+	} else if err != nil && err != redis.Nil {
+		s.logger.Warn("Failed to get cache for top creators", zap.Error(err))
+	}
+
+	// Query ClickHouse
+	stats, err := s.viewAnalyticsRepo.GetTopCreatorsByViews(ctx, period, offset, limit)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get top creators by views: %w", err)
+	}
+
+	// Hydrate user details
+	users := make([]*domain.User, 0, len(stats))
+	for _, stat := range stats {
+		user, err := s.userRepo.GetByID(ctx, stat.CreatorID)
+		if err != nil {
+			s.logger.Warn("Failed to hydrate creator", zap.String("creatorID", stat.CreatorID.String()), zap.Error(err))
+			continue
+		}
+		users = append(users, user)
+	}
+
+	// Cache
+	if len(users) > 0 {
+		if data, err := json.Marshal(users); err == nil {
+			if cacheErr := s.redisClient.Set(ctx, cacheKey, string(data), 30*time.Minute); cacheErr != nil {
+				s.logger.Warn("Failed to cache top creators", zap.Error(cacheErr))
+			}
+		}
+	}
+
+	return users, nil
+}
+
+// GetTopOrgsByViews retrieves organizations with most views for a time range.
+// Results are cached in Redis for 30 minutes.
+func (s *analyticsServiceImpl) GetTopOrgsByViews(ctx context.Context, period string, offset int, limit int) ([]*domain.Organization, error) {
+	cacheKey := fmt.Sprintf("analytics:top_orgs_by_views:%s:%d:%d", period, offset, limit)
+
+	// Try cache
+	cached, err := s.redisClient.Get(ctx, cacheKey)
+	if err == nil && cached != "" {
+		var orgs []*domain.Organization
+		if err := json.Unmarshal([]byte(cached), &orgs); err == nil {
+			s.logger.Debug("Cache hit for top orgs by views", zap.String("key", cacheKey))
+			return orgs, nil
+		}
+	} else if err != nil && err != redis.Nil {
+		s.logger.Warn("Failed to get cache for top orgs", zap.Error(err))
+	}
+
+	// Query ClickHouse
+	stats, err := s.viewAnalyticsRepo.GetTopOrgsByViews(ctx, period, offset, limit)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get top orgs by views: %w", err)
+	}
+
+	// Hydrate org details
+	orgs := make([]*domain.Organization, 0, len(stats))
+	for _, stat := range stats {
+		org, err := s.orgRepo.GetByID(ctx, stat.OrgID)
+		if err != nil {
+			s.logger.Warn("Failed to hydrate org", zap.String("orgID", stat.OrgID.String()), zap.Error(err))
+			continue
+		}
+		orgs = append(orgs, org)
+	}
+
+	// Cache
+	if len(orgs) > 0 {
+		if data, err := json.Marshal(orgs); err == nil {
+			if cacheErr := s.redisClient.Set(ctx, cacheKey, string(data), 30*time.Minute); cacheErr != nil {
+				s.logger.Warn("Failed to cache top orgs", zap.Error(cacheErr))
+			}
+		}
+	}
+
+	return orgs, nil
+}
+
+

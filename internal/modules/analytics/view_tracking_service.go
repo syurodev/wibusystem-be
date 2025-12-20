@@ -146,11 +146,13 @@ func (s *ViewTrackingService) TrackChapterView(ctx context.Context, chapterID uu
 	var authorIDs, genreIDs, artistIDs, groupIDs []uuid.UUID
 	var originalLanguage string
 	var ownerID *uuid.UUID
+	var ownerType string
 	var studioID *uuid.UUID // Anime only, null for novel
 
 	if novel != nil {
 		originalLanguage = *novel.OriginalLanguage
 		ownerID = &novel.OwnerID
+		ownerType = novel.OwnerType // "user" or "org"
 
 		// Fetch relations in parallel or sequence
 		// Ignoring errors to ensure view is counted even if metadata fails
@@ -164,8 +166,8 @@ func (s *ViewTrackingService) TrackChapterView(ctx context.Context, chapterID uu
 	var groupID *uuid.UUID
 	if len(groupIDs) > 0 {
 		groupID = &groupIDs[0] // Pick first active group for now
-	} else if novel != nil && novel.OwnerType == "tenant" {
-		// If owner is a tenant (group), use it as group_id
+	} else if novel != nil && novel.OwnerType == domain.OwnerTypeOrg {
+		// If owner is an org, use it as group_id
 		groupID = &novel.OwnerID
 	}
 
@@ -203,6 +205,7 @@ func (s *ViewTrackingService) TrackChapterView(ctx context.Context, chapterID uu
 		TagIDs:           []uuid.UUID{}, // Future proof
 		GroupID:          groupID,
 		OwnerID:          ownerID,
+		OwnerType:        ownerType,
 		StudioID:         studioID,
 		OriginalLanguage: originalLanguage,
 

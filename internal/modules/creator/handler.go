@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"strconv"
 	"system/internal/domain"
+	analytics_module "system/internal/modules/analytics"
 	"system/pkg/util/response"
 	"system/pkg/util/timeutil"
 	"time"
@@ -13,11 +14,13 @@ import (
 
 type Handler struct {
 	listCreatorsUC ListCreatorsUseCase
+	analyticsSvc   analytics_module.AnalyticsService
 }
 
-func NewHandler(listCreatorsUC ListCreatorsUseCase) *Handler {
+func NewHandler(listCreatorsUC ListCreatorsUseCase, analyticsSvc analytics_module.AnalyticsService) *Handler {
 	return &Handler{
 		listCreatorsUC: listCreatorsUC,
+		analyticsSvc:   analyticsSvc,
 	}
 }
 
@@ -180,4 +183,61 @@ func getValue(s *string) string {
 	}
 	return *s
 }
+
+// GetTopCreatorsByViews returns top creators by view count
+// @Summary Get top creators by views
+// @Description Get creators with highest view counts for a calendar-based time period
+// @Tags Creators
+// @Produce json
+// @Param period query string false "Time period (day, week, month, year)" default(week)
+// @Param offset query int false "0 = current period, 1 = previous period" default(0)
+// @Param limit query int false "Limit (default 10)" default(10)
+// @Success 200 {object} response.StandardResponse{data=[]CreatorResponse}
+// @Failure 500 {object} response.StandardResponse
+// @Router /api/v1/creators/top [get]
+func (h *Handler) GetTopCreatorsByViews(c *gin.Context) {
+	period := c.DefaultQuery("period", "week")
+	offsetStr := c.DefaultQuery("offset", "0")
+	limitStr := c.DefaultQuery("limit", "10")
+
+	// Validate period
+	validPeriods := map[string]bool{"day": true, "week": true, "month": true, "year": true}
+	if !validPeriods[period] {
+		period = "week"
+	}
+
+	offset := 0
+	if o, err := strconv.Atoi(offsetStr); err == nil && o >= 0 && o <= 52 {
+		offset = o
+	}
+
+	limit := 10
+	if l, err := strconv.Atoi(limitStr); err == nil && l > 0 && l <= 100 {
+		limit = l
+	}
+
+	users, err := h.analyticsSvc.GetTopCreatorsByViews(c.Request.Context(), period, offset, limit)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "GET_TOP_CREATORS_ERROR", I18nCreatorListFailed, nil)
+		return
+	}
+
+	// Map to CreatorResponse
+	creators := make([]CreatorResponse, len(users))
+	for i, u := range users {
+		creators[i] = CreatorResponse{
+			ID:          u.ID.String(),
+			DisplayName: getValue(u.DisplayName),
+			Username:    getValue(u.Username),
+			AvatarURL:   getValue(u.AvatarURL),
+			CreatedAt:   u.CreatedAt.Format(time.RFC3339),
+			UpdatedAt:   u.UpdatedAt.Format(time.RFC3339),
+			IsVerified:  u.IsVerified,
+			Bio:         u.Bio,
+		}
+	}
+
+	response.Success(c, http.StatusOK, I18nCreatorListSuccess, creators, nil)
+}
+
 

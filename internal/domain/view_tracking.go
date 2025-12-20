@@ -14,6 +14,12 @@ const (
 	MediaTypeAnime = "anime"
 )
 
+// OwnerType constants for distinguishing content ownership
+const (
+	OwnerTypeUser = "user" // Content owned by a creator (individual user)
+	OwnerTypeOrg  = "org"  // Content owned by an organization
+)
+
 // ViewEvent represents a single view tracking event for analytics.
 // This struct is used to store view events in ClickHouse for detailed analytics.
 type ViewEvent struct {
@@ -32,6 +38,7 @@ type ViewEvent struct {
 	TagIDs           []uuid.UUID
 	GroupID          *uuid.UUID
 	OwnerID          *uuid.UUID
+	OwnerType        string // "user" or "org"
 	StudioID         *uuid.UUID
 	OriginalLanguage string
 
@@ -239,6 +246,12 @@ type ViewAnalyticsRepository interface {
 	//   - []GenreViewStat: List of genre view stats ordered by views desc
 	//   - error: Error if any
 	GetTopGenresByViews(ctx context.Context, period string, offset int, limit int) ([]GenreViewStat, error)
+
+	// GetTopCreatorsByViews retrieves creators with most views in a calendar-based time range.
+	GetTopCreatorsByViews(ctx context.Context, period string, offset int, limit int) ([]CreatorViewStat, error)
+
+	// GetTopOrgsByViews retrieves organizations with most views in a calendar-based time range.
+	GetTopOrgsByViews(ctx context.Context, period string, offset int, limit int) ([]OrgViewStat, error)
 }
 
 // Action types for content activities
@@ -297,3 +310,18 @@ type GenreViewStat struct {
 	TotalViews  int64
 	UniqueUsers int64
 }
+
+// CreatorViewStat represents aggregated view stats for a creator (owner_type = 'user')
+type CreatorViewStat struct {
+	CreatorID   uuid.UUID
+	TotalViews  int64
+	UniqueUsers int64
+}
+
+// OrgViewStat represents aggregated view stats for an organization (owner_type = 'org')
+type OrgViewStat struct {
+	OrgID       uuid.UUID
+	TotalViews  int64
+	UniqueUsers int64
+}
+

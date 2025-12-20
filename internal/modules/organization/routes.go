@@ -45,6 +45,8 @@ func (h *Handler) RegisterRoutes(router *gin.RouterGroup, requireAuth gin.Handle
 	// However, if we mount protected group on router, the order matters for the underlying engine
 	
 	router.GET("", h.ListOrganizations)              // GET /api/v1/organizations
+	router.GET("/top", h.GetTopOrgsByViews)          // GET /api/v1/organizations/top
 	router.GET(identifierPath, h.GetOrganization)    // GET /api/v1/organizations/:identifier
 	router.GET(identifierPath+"/members", h.ListMembers) // GET /api/v1/organizations/:identifier/members
 }
+
