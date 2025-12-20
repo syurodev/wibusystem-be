@@ -1,7 +1,6 @@
 package creator
 
 import (
-	"encoding/json"
 	"net/http"
 	"strconv"
 	"system/internal/domain"
@@ -182,20 +181,3 @@ func getValue(s *string) string {
 	return *s
 }
 
-// parseBio safely parses bio JSON
-func parseBio(bio []any) []any {
-	if bio == nil {
-		return nil
-	}
-	// Already parsed, return as-is
-	return bio
-}
-
-// bioToJSON converts bio to JSON for response (if needed)
-func bioToJSON(bio []any) json.RawMessage {
-	if bio == nil {
-		return nil
-	}
-	data, _ := json.Marshal(bio)
-	return data
-}

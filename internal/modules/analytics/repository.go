@@ -360,3 +360,246 @@ func (r *viewAnalyticsClickHouseRepo) GetCreatorViewStats(ctx context.Context, o
 
 	return results, nil
 }
+
+// BatchInsertActivities inserts multiple content activities into ClickHouse.
+func (r *viewAnalyticsClickHouseRepo) BatchInsertActivities(ctx context.Context, activities []*domain.ContentActivity) error {
+	if len(activities) == 0 {
+		return nil
+	}
+
+	batch, err := r.ch.Conn.PrepareBatch(ctx, `
+		INSERT INTO content_activities (
+			event_time, action_type, media_type, media_id, target_type, target_id, user_id, org_id, weight
+		)
+	`)
+	if err != nil {
+		return fmt.Errorf("failed to prepare activity batch: %w", err)
+	}
+
+	for _, activity := range activities {
+		err := batch.Append(
+			activity.EventTime,
+			activity.ActionType,
+			activity.MediaType,
+			activity.MediaID,
+			activity.TargetType,
+			activity.TargetID,
+			activity.UserID,
+			activity.OrgID,
+			activity.Weight,
+		)
+		if err != nil {
+			return fmt.Errorf("failed to append activity to batch: %w", err)
+		}
+	}
+
+	if err := batch.Send(); err != nil {
+		return fmt.Errorf("failed to send activity batch: %w", err)
+	}
+
+	return nil
+}
+
+// GetTopActiveCreators retrieves top active creators based on content creation.
+func (r *viewAnalyticsClickHouseRepo) GetTopActiveCreators(ctx context.Context, timeRange string, limit int) ([]domain.CreatorActivityStat, error) {
+	// Determines date filter based on timeRange
+	interval := "30 DAY" // default
+	switch timeRange {
+	case "day":
+		interval = "1 DAY"
+	case "week":
+		interval = "7 DAY"
+	case "month":
+		interval = "30 DAY"
+	case "year":
+		interval = "365 DAY"
+	}
+
+	// Calculate weighted score: count * 1 + weight (e.g. word count / 1000) ??
+	// For now, let's just count activities where action_type = 'publish'
+	// Simplest metric: Total Activities.
+	// Users want "Most Active" usually means "Most Updates".
+
+	query := fmt.Sprintf(`
+		SELECT
+			user_id,
+			count() as total_activity,
+			sum(weight) as total_weight
+		FROM content_activities
+		WHERE action_type = 'publish' AND event_time >= now() - INTERVAL %s
+		GROUP BY user_id
+		ORDER BY total_activity DESC
+		LIMIT %d
+	`, interval, limit)
+
+	rows, err := r.ch.Conn.Query(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query top active creators: %w", err)
+	}
+	defer rows.Close()
+
+	var stats []domain.CreatorActivityStat
+	for rows.Next() {
+		var s domain.CreatorActivityStat
+		if err := rows.Scan(&s.UserID, &s.TotalActivity, &s.TotalWeight); err != nil {
+			return nil, fmt.Errorf("failed to scan creator stat: %w", err)
+		}
+		stats = append(stats, s)
+	}
+
+	return stats, nil
+}
+
+// GetTopActiveOrgs retrieves top active organizations based on content creation.
+func (r *viewAnalyticsClickHouseRepo) GetTopActiveOrgs(ctx context.Context, timeRange string, limit int) ([]domain.OrgActivityStat, error) {
+	// Determines date filter
+	interval := "30 DAY"
+	switch timeRange {
+	case "day":
+		interval = "1 DAY"
+	case "week":
+		interval = "7 DAY"
+	case "month":
+		interval = "30 DAY"
+	case "year":
+		interval = "365 DAY"
+	}
+
+	query := fmt.Sprintf(`
+		SELECT
+			org_id,
+			count() as total_activity
+		FROM content_activities
+		WHERE action_type = 'publish' AND org_id IS NOT NULL AND event_time >= now() - INTERVAL %s
+		GROUP BY org_id
+		ORDER BY total_activity DESC
+		LIMIT %d
+	`, interval, limit)
+
+	rows, err := r.ch.Conn.Query(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query top active orgs: %w", err)
+	}
+	defer rows.Close()
+
+	var stats []domain.OrgActivityStat
+	for rows.Next() {
+		var s domain.OrgActivityStat
+		// Note: org_id in DB is Nullable(UUID), but we filtered IS NOT NULL so it returns UUID.
+		// ClickHouse driver handles this scan if destination is UUID.
+		if err := rows.Scan(&s.OrgID, &s.TotalActivity); err != nil {
+			return nil, fmt.Errorf("failed to scan org stat: %w", err)
+		}
+		stats = append(stats, s)
+	}
+
+	return stats, nil
+}
+
+// GetTopGenresByViews retrieves genres with most views in a calendar-based time range.
+// Uses calendar periods (week starting Monday, month starting 1st).
+//
+// Parameters:
+//   - period: "day", "week", "month", "year"
+//   - offset: 0 = current period, 1 = previous period
+func (r *viewAnalyticsClickHouseRepo) GetTopGenresByViews(ctx context.Context, period string, offset int, limit int) ([]domain.GenreViewStat, error) {
+	now := time.Now()
+
+	var startDate, endDate time.Time
+
+	switch period {
+	case "day":
+		// Current day or previous day
+		targetDay := now.AddDate(0, 0, -offset)
+		startDate = time.Date(targetDay.Year(), targetDay.Month(), targetDay.Day(), 0, 0, 0, 0, targetDay.Location())
+		endDate = startDate.AddDate(0, 0, 1)
+
+	case "week":
+		// Week starts on Monday
+		// Find Monday of current week
+		weekday := int(now.Weekday())
+		if weekday == 0 {
+			weekday = 7 // Sunday = 7
+		}
+		mondayOfThisWeek := now.AddDate(0, 0, -(weekday - 1))
+
+		if offset == 0 {
+			// Current week: Monday to now
+			startDate = time.Date(mondayOfThisWeek.Year(), mondayOfThisWeek.Month(), mondayOfThisWeek.Day(), 0, 0, 0, 0, now.Location())
+			endDate = now.AddDate(0, 0, 1) // Include today
+		} else {
+			// Previous week: Monday to Sunday of week (offset) weeks ago
+			targetMonday := mondayOfThisWeek.AddDate(0, 0, -7*offset)
+			startDate = time.Date(targetMonday.Year(), targetMonday.Month(), targetMonday.Day(), 0, 0, 0, 0, now.Location())
+			endDate = startDate.AddDate(0, 0, 7) // Full week
+		}
+
+	case "month":
+		if offset == 0 {
+			// Current month: 1st of month to now
+			startDate = time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location())
+			endDate = now.AddDate(0, 0, 1) // Include today
+		} else {
+			// Previous month(s)
+			targetMonth := now.AddDate(0, -offset, 0)
+			startDate = time.Date(targetMonth.Year(), targetMonth.Month(), 1, 0, 0, 0, 0, now.Location())
+			// End of that month
+			endDate = startDate.AddDate(0, 1, 0)
+		}
+
+	case "year":
+		if offset == 0 {
+			// Current year: Jan 1 to now
+			startDate = time.Date(now.Year(), 1, 1, 0, 0, 0, 0, now.Location())
+			endDate = now.AddDate(0, 0, 1) // Include today
+		} else {
+			// Previous year(s)
+			targetYear := now.Year() - offset
+			startDate = time.Date(targetYear, 1, 1, 0, 0, 0, 0, now.Location())
+			endDate = time.Date(targetYear+1, 1, 1, 0, 0, 0, 0, now.Location())
+		}
+
+	default:
+		// Default to current week
+		weekday := int(now.Weekday())
+		if weekday == 0 {
+			weekday = 7
+		}
+		mondayOfThisWeek := now.AddDate(0, 0, -(weekday - 1))
+		startDate = time.Date(mondayOfThisWeek.Year(), mondayOfThisWeek.Month(), mondayOfThisWeek.Day(), 0, 0, 0, 0, now.Location())
+		endDate = now.AddDate(0, 0, 1)
+	}
+
+	// Query from the raw view_events table using ARRAY JOIN
+	// (Using raw table instead of materialized view for compatibility)
+	query := `
+		SELECT
+			genre_id,
+			sum(view_count) AS total_views,
+			uniqExact(if(user_id IS NOT NULL, toString(user_id), ip_address)) AS unique_users
+		FROM view_events
+		ARRAY JOIN genre_ids AS genre_id
+		WHERE toDate(event_time) >= ? AND toDate(event_time) < ?
+		GROUP BY genre_id
+		ORDER BY total_views DESC
+		LIMIT ?
+	`
+
+	rows, err := r.ch.Conn.Query(ctx, query, startDate.Format("2006-01-02"), endDate.Format("2006-01-02"), limit)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query top genres by views: %w", err)
+	}
+	defer rows.Close()
+
+	var stats []domain.GenreViewStat
+	for rows.Next() {
+		var s domain.GenreViewStat
+		if err := rows.Scan(&s.GenreID, &s.TotalViews, &s.UniqueUsers); err != nil {
+			return nil, fmt.Errorf("failed to scan genre view stat: %w", err)
+		}
+		stats = append(stats, s)
+	}
+
+	return stats, nil
+}
+

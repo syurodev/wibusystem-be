@@ -2,6 +2,7 @@ package genre
 
 import (
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gofrs/uuid/v5"
@@ -11,21 +12,23 @@ import (
 	"system/internal/app/middleware"
 	"system/internal/domain"
 	genredto "system/internal/dto/genre"
+	analytics_module "system/internal/modules/analytics"
 	pkgerrors "system/pkg/errors"
 	"system/pkg/util/response"
 	"system/pkg/util/timeutil"
 )
 
 type Handler struct {
-	createGenreUC  CreateGenreUseCase
-	updateGenreUC  UpdateGenreUseCase
-	deleteGenreUC  DeleteGenreUseCase
-	getGenreUC     GetGenreUseCase
-	listGenresUC   ListGenresUseCase
-	listSelectUC   ListSelectionUseCase
-	mergeGenresUC  MergeGenresUseCase
-	previewMergeUC PreviewMergeUseCase
-	logger         *zap.Logger
+	createGenreUC    CreateGenreUseCase
+	updateGenreUC    UpdateGenreUseCase
+	deleteGenreUC    DeleteGenreUseCase
+	getGenreUC       GetGenreUseCase
+	listGenresUC     ListGenresUseCase
+	listSelectUC     ListSelectionUseCase
+	mergeGenresUC    MergeGenresUseCase
+	previewMergeUC   PreviewMergeUseCase
+	analyticsSvc     analytics_module.AnalyticsService
+	logger           *zap.Logger
 }
 
 func NewHandler(
@@ -37,18 +40,20 @@ func NewHandler(
 	listSelectUC ListSelectionUseCase,
 	mergeGenresUC MergeGenresUseCase,
 	previewMergeUC PreviewMergeUseCase,
+	analyticsSvc analytics_module.AnalyticsService,
 	logger *zap.Logger,
 ) *Handler {
 	return &Handler{
-		createGenreUC:  createGenreUC,
-		updateGenreUC:  updateGenreUC,
-		deleteGenreUC:  deleteGenreUC,
-		getGenreUC:     getGenreUC,
-		listGenresUC:   listGenresUC,
-		listSelectUC:   listSelectUC,
-		mergeGenresUC:  mergeGenresUC,
-		previewMergeUC: previewMergeUC,
-		logger:         logger,
+		createGenreUC:    createGenreUC,
+		updateGenreUC:    updateGenreUC,
+		deleteGenreUC:    deleteGenreUC,
+		getGenreUC:       getGenreUC,
+		listGenresUC:     listGenresUC,
+		listSelectUC:     listSelectUC,
+		mergeGenresUC:    mergeGenresUC,
+		previewMergeUC:   previewMergeUC,
+		analyticsSvc:     analyticsSvc,
+		logger:           logger,
 	}
 }
 
@@ -434,3 +439,74 @@ func (h *Handler) PreviewMergeGenre(c *gin.Context) {
 
 	response.Success(c, http.StatusOK, "genre.preview_success", responsePayload, nil)
 }
+
+// GetTopGenresByViews returns top genres by view count for a time period
+// @Summary Get top genres by views
+// @Description Get genres with highest view counts for a calendar-based time period. Week starts Monday, Month starts 1st.
+// @Tags Genres
+// @Accept json
+// @Produce json
+// @Param period query string false "Time period (day, week, month, year)" default(week)
+// @Param offset query int false "0 = current period, 1 = previous period" default(0)
+// @Param limit query int false "Limit (default 10)" default(10)
+// @Success 200 {object} response.StandardResponse{data=[]genredto.GenreResponse}
+// @Failure 500 {object} response.StandardResponse
+// @Router /api/v1/genres/top [get]
+func (h *Handler) GetTopGenresByViews(c *gin.Context) {
+	period := c.DefaultQuery("period", "week")
+	offsetStr := c.DefaultQuery("offset", "0")
+	limitStr := c.DefaultQuery("limit", "10")
+
+	// Validate period
+	validPeriods := map[string]bool{"day": true, "week": true, "month": true, "year": true}
+	if !validPeriods[period] {
+		period = "week"
+	}
+
+	// Parse offset (0 = current, 1 = previous, etc.)
+	offset := 0
+	if o, err := strconv.Atoi(offsetStr); err == nil && o >= 0 && o <= 52 {
+		offset = o
+	}
+
+	limit := 10
+	if l, err := strconv.Atoi(limitStr); err == nil && l > 0 && l <= 100 {
+		limit = l
+	}
+
+	// Call analytics service
+	genres, err := h.analyticsSvc.GetTopGenresByViews(c.Request.Context(), period, offset, limit)
+	if err != nil {
+		h.logger.Error("Failed to get top genres by views", zap.Error(err))
+		response.Error(c, http.StatusInternalServerError, "InternalError", I18nListFailed, nil)
+		return
+	}
+
+	// Map to GenreResponse format (same as ListGenres)
+	genreResponses := make([]genredto.GenreResponse, len(genres))
+	for i, g := range genres {
+		trend := "stable"
+		if g.ActiveReaders > 1000 {
+			trend = "rising"
+		} else if g.ActiveReaders < 100 {
+			trend = "falling"
+		}
+
+		genreResponses[i] = genredto.GenreResponse{
+			ID:            g.ID.String(),
+			Name:          g.Name,
+			Slug:          g.Slug,
+			IsActive:      g.IsActive,
+			SeriesCount:   g.NovelCount,
+			ActiveReaders: g.ActiveReaders,
+			TotalViews:    g.TotalViews,
+			Trend:         trend,
+			Description:   g.Description,
+			CreatedAt:     g.CreatedAt.Format(timeutil.ISO8601Layout),
+			UpdatedAt:     g.UpdatedAt.Format(timeutil.ISO8601Layout),
+		}
+	}
+
+	response.Success(c, http.StatusOK, I18nListSuccess, genreResponses, nil)
+}
+

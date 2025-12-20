@@ -61,10 +61,14 @@ func (s *mediaServiceImpl) fetchHomeData(ctx context.Context) (*mediadto.HomeDat
 	var mu sync.Mutex
 
 	result := &mediadto.HomeData{
-		Hero:     []map[string]any{},
-		Trending: []map[string]any{},
-		Creators: []any{},
-		Genres:   []any{},
+		Hero:                []map[string]any{},
+		Trending:            []map[string]any{},
+		Creators:            []any{},
+		Genres:              []any{},
+		MostActiveCreators:  []any{},
+		RisingStars:         []any{},
+		ActiveOrganizations: []any{},
+		FreshUpdates:        []any{},
 	}
 
 	// Error collection
@@ -133,6 +137,124 @@ func (s *mediaServiceImpl) fetchHomeData(ctx context.Context) (*mediadto.HomeDat
 		result.Creators = creators
 	}()
 
+	// Fetch Most Active Creators
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		data, err := s.analyticsService.GetMostActiveCreators(ctx, 10)
+		mu.Lock()
+		defer mu.Unlock()
+		if err != nil {
+			s.logger.Warn("failed to fetch most active creators", zap.Error(err))
+			errs = append(errs, fmt.Errorf("active_creators: %w", err))
+			return
+		}
+		
+		output := make([]any, len(data))
+		for i, d := range data {
+			user := d.User
+			output[i] = map[string]any{
+				"id":            user.ID,
+				"display_name":  getValue(user.DisplayName),
+				"username":      getValue(user.Username),
+				"avatar_url":    getValue(user.AvatarURL),
+				"is_verified":   user.IsVerified,
+				"created_at":    user.CreatedAt,
+				"total_weight":  d.TotalWeight,
+			}
+		}
+		result.MostActiveCreators = output
+	}()
+
+	// Fetch Rising Stars
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		data, err := s.analyticsService.GetRisingStars(ctx, 10)
+		mu.Lock()
+		defer mu.Unlock()
+		if err != nil {
+			s.logger.Warn("failed to fetch rising stars", zap.Error(err))
+			errs = append(errs, fmt.Errorf("rising_stars: %w", err))
+			return
+		}
+		
+		output := make([]any, len(data))
+		for i, d := range data {
+			user := d.User
+			output[i] = map[string]any{
+				"id":            user.ID,
+				"display_name":  getValue(user.DisplayName),
+				"username":      getValue(user.Username),
+				"avatar_url":    getValue(user.AvatarURL),
+				"is_verified":   user.IsVerified,
+				"created_at":    user.CreatedAt,
+				"total_views":   d.TotalWeight, // Assuming TotalWeight stores views for Rising Stars
+			}
+		}
+		result.RisingStars = output
+	}()
+
+	// Fetch Active Organizations
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		data, err := s.analyticsService.GetActiveOrganizations(ctx, 10)
+		mu.Lock()
+		defer mu.Unlock()
+		if err != nil {
+			s.logger.Warn("failed to fetch active orgs", zap.Error(err))
+			errs = append(errs, fmt.Errorf("active_orgs: %w", err))
+			return
+		}
+		
+		output := make([]any, len(data))
+		for i, d := range data {
+			org := d.Organization
+			output[i] = map[string]any{
+				"id":            org.ID,
+				"name":          org.Name,
+				"slug":          org.Slug,
+				"avatar_url":    getValue(org.AvatarURL),
+				"member_count":  org.MemberCount,
+				"total_weight":  d.TotalActivity,
+			}
+		}
+		result.ActiveOrganizations = output
+	}()
+
+	// Fetch Fresh Updates
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		data, err := s.analyticsService.GetFreshUpdates(ctx, 10)
+		mu.Lock()
+		defer mu.Unlock()
+		if err != nil {
+			s.logger.Warn("failed to fetch fresh updates", zap.Error(err))
+			errs = append(errs, fmt.Errorf("fresh_updates: %w", err))
+			return
+		}
+		
+		// Map domain.NovelChapterSummary to generic map (or specialized DTO if we want)
+		// For consistency with other responses, let's map it.
+		output := make([]any, len(data))
+		for i, c := range data {
+			output[i] = map[string]any{
+				"id":             c.ID,
+				"novel_id":       c.NovelID,
+				"volume_id":      c.VolumeID,
+				"chapter_number": c.ChapterNumber,
+				"title":          c.Title,
+				"slug":           c.Slug,
+				"word_count":     c.WordCount,
+				"published_at":   getTimeValue(c.PublishedAt),
+				"created_at":     c.CreatedAt,
+			}
+		}
+		result.FreshUpdates = output
+	}()
+
 	// TODO: Genres temporarily disabled - will be moved to genre module API later
 	// result.Genres remains empty []any{}
 
@@ -140,7 +262,7 @@ func (s *mediaServiceImpl) fetchHomeData(ctx context.Context) (*mediadto.HomeDat
 	wg.Wait()
 
 	// If all fetches failed, return error
-	if len(errs) == 2 {
+	if len(errs) == 6 {
 		return nil, fmt.Errorf("all home data fetches failed: %v", errs)
 	}
 
@@ -164,4 +286,12 @@ func getValue(s *string) string {
 		return ""
 	}
 	return *s
+}
+
+// getTimeValue safely gets string formatted time from pointer
+func getTimeValue(t *time.Time) string {
+	if t == nil {
+		return ""
+	}
+	return t.Format(time.RFC3339)
 }

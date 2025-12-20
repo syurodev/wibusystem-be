@@ -113,7 +113,11 @@ type NovelChapterRepository interface {
 	BatchIncrementViewCount(ctx context.Context, increments map[uuid.UUID]int64) error
 
 	// UpdateStatistics cập nhật thống kê của chapter
+	// UpdateStatistics cập nhật thống kê của chapter
 	UpdateStatistics(ctx context.Context, id uuid.UUID, stats NovelChapterStatistics) error
+
+	// GetRecentChapters retrieves recently published chapters across all novels
+	GetRecentChapters(ctx context.Context, limit int) ([]*NovelChapter, error)
 }
 
 // NovelChapterFilter định nghĩa các filter cho việc query chapter

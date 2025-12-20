@@ -6,9 +6,10 @@ import (
 
 func (h *Handler) RegisterRoutes(router *gin.RouterGroup, authMiddleware gin.HandlerFunc) {
 	// Public routes (no auth required for reading)
-	router.GET("", h.ListGenres)       // GET /api/v1/genres
-	router.GET("/selection", h.ListSelection) // GET /api/v1/genres/selection
-	router.GET("/:identifier", h.GetGenre)     // GET /api/v1/genres/:identifier
+	router.GET("", h.ListGenres)                  // GET /api/v1/genres
+	router.GET("/selection", h.ListSelection)    // GET /api/v1/genres/selection
+	router.GET("/top", h.GetTopGenresByViews)    // GET /api/v1/genres/top
+	router.GET("/:identifier", h.GetGenre)       // GET /api/v1/genres/:identifier
 
 	// Protected routes (require authentication)
 	protected := router.Group("")

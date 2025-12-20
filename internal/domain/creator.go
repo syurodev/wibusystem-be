@@ -18,6 +18,8 @@ type CreatorListFilter struct {
 	SortOrder   string     // asc, desc (default: desc)
 	CreatedFrom *time.Time // Filter created_at from
 	CreatedTo   *time.Time // Filter created_at to
+	FirstContentPostedFrom *time.Time // Filter by first content posted date from
+	FirstContentPostedTo   *time.Time // Filter by first content posted date to
 }
 
 // CreatorWithStats represents a creator with view statistics

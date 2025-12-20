@@ -66,8 +66,12 @@ type LatestChapterInfo struct {
 
 // HomeData là DTO cho response trang chủ media
 type HomeData struct {
-	Hero     []map[string]any `json:"hero"`
-	Trending []map[string]any `json:"trending"`
-	Creators []any            `json:"creators"`
-	Genres   []any            `json:"genres"`
+	Hero                []map[string]any `json:"hero"`
+	Trending            []map[string]any `json:"trending"`
+	Creators            []any            `json:"creators"`
+	Genres              []any            `json:"genres"`
+	MostActiveCreators  []any            `json:"most_active_creators"`
+	RisingStars         []any            `json:"rising_stars"`
+	ActiveOrganizations []any            `json:"active_organizations"`
+	FreshUpdates        []any            `json:"fresh_updates"`
 }

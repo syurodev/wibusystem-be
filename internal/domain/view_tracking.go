@@ -133,6 +133,12 @@ type ViewTrackingRepository interface {
 	//   - []*ViewEvent: List events, nil nếu queue empty
 	//   - error: Lỗi nếu có
 	DequeueEvents(ctx context.Context, batchSize int) ([]*ViewEvent, error)
+
+	// EnqueueActivity adds a content activity to the queue.
+	EnqueueActivity(ctx context.Context, activity *ContentActivity) error
+
+	// DequeueActivities retrieves and removes a batch of content activities from the queue.
+	DequeueActivities(ctx context.Context, batchSize int) ([]*ContentActivity, error)
 }
 
 // ViewAnalyticsRepository định nghĩa interface cho ClickHouse analytics operations.
@@ -210,11 +216,84 @@ type ViewAnalyticsRepository interface {
 	//   - map[uuid.UUID]CreatorViewStats: Map of owner ID to their view stats
 	//   - error: Error if any
 	GetCreatorViewStats(ctx context.Context, ownerIDs []uuid.UUID, timeRange string) (map[uuid.UUID]CreatorViewStats, error)
+
+	// BatchInsertActivities inserts multiple content activities into ClickHouse.
+	BatchInsertActivities(ctx context.Context, activities []*ContentActivity) error
+
+	// GetTopActiveCreators retrieves top active creators based on content creation.
+	GetTopActiveCreators(ctx context.Context, timeRange string, limit int) ([]CreatorActivityStat, error)
+
+	// GetTopActiveOrgs retrieves top active organizations based on content creation.
+	GetTopActiveOrgs(ctx context.Context, timeRange string, limit int) ([]OrgActivityStat, error)
+
+	// GetTopGenresByViews retrieves genres with most views in a calendar-based time range.
+	// Uses calendar periods (actual week starting Monday, actual month starting 1st, etc.)
+	//
+	// Parameters:
+	//   - ctx: Context
+	//   - period: Time period (day, week, month, year)
+	//   - offset: 0 for current period, 1 for previous period
+	//   - limit: Number of genres to return
+	//
+	// Returns:
+	//   - []GenreViewStat: List of genre view stats ordered by views desc
+	//   - error: Error if any
+	GetTopGenresByViews(ctx context.Context, period string, offset int, limit int) ([]GenreViewStat, error)
+}
+
+// Action types for content activities
+const (
+	ActionTypeCreate  = "create"
+	ActionTypePublish = "publish"
+	ActionTypeDelete  = "delete"
+)
+
+// Target types for content activities
+const (
+	TargetTypeMedia   = "media"
+	TargetTypeVolume  = "volume"
+	TargetTypeChapter = "chapter"
+	TargetTypeEpisode = "episode"
+)
+
+// ContentActivity represents a content creation/publishing activity for analytics.
+type ContentActivity struct {
+	EventTime  time.Time
+	ActionType string // "create", "publish", "delete"
+	MediaType  string // "novel", "manga", "anime"
+	MediaID    uuid.UUID
+	TargetType string // "media", "chapter", "volume", "episode"
+	TargetID   uuid.UUID
+	UserID     uuid.UUID
+	OrgID      *uuid.UUID
+	Weight     int64 // e.g., word count
+}
+
+// CreatorActivityStat represents aggregated activity stats for a creator
+type CreatorActivityStat struct {
+	UserID        uuid.UUID
+	TotalActivity int64
+	TotalWeight   int64
+	User          *User // Optional, filled by service
+}
+
+// OrgActivityStat represents aggregated activity stats for an organization
+type OrgActivityStat struct {
+	OrgID         uuid.UUID
+	TotalActivity int64
+	Organization  *Organization // Optional, filled by service
 }
 
 // CreatorViewStats represents aggregated view stats for a creator
 type CreatorViewStats struct {
-	TotalViews          int64
-	PopularWorkID       *uuid.UUID
-	PopularWorkType     string // novel, manga, anime
+	TotalViews      int64
+	PopularWorkID   *uuid.UUID
+	PopularWorkType string // novel, manga, anime
+}
+
+// GenreViewStat represents aggregated view stats for a genre
+type GenreViewStat struct {
+	GenreID     uuid.UUID
+	TotalViews  int64
+	UniqueUsers int64
 }

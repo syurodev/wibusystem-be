@@ -19,25 +19,28 @@ import (
 type chapterServiceImpl struct {
 	chapterRepo domain.NovelChapterRepository
 	volumeRepo  domain.NovelVolumeRepository
-	historyRepo ChapterHistoryRepository
-	creatorRepo domain.CreatorRepository
+	historyRepo       ChapterHistoryRepository
+	creatorRepo       domain.CreatorRepository
+	viewTrackingRepo  domain.ViewTrackingRepository
+	userRepo          domain.UserRepository
 }
 
-// ChapterHistoryRepository interface for logging chapter history
-// TODO: Move to domain package once fully implemented
-type ChapterHistoryRepository interface {
-	LogUpdate(ctx context.Context, chapterID, volumeID, novelID uuid.UUID, oldChapter, newChapter *domain.NovelChapter, changedBy uuid.UUID, requestContext map[string]any) error
-	LogPublish(ctx context.Context, chapterID, volumeID, novelID uuid.UUID, changedBy uuid.UUID, requestContext map[string]any) error
-	GetLatestVersion(ctx context.Context, chapterID uuid.UUID) (int, error)
-}
-
-// NewChapterService creates a new instance of ChapterService
-func NewService(chapterRepo domain.NovelChapterRepository, volumeRepo domain.NovelVolumeRepository, historyRepo ChapterHistoryRepository, creatorRepo domain.CreatorRepository) *chapterServiceImpl {
+// NewService creates a new instance of ChapterService
+func NewService(
+	chapterRepo domain.NovelChapterRepository,
+	volumeRepo domain.NovelVolumeRepository,
+	historyRepo ChapterHistoryRepository,
+	creatorRepo domain.CreatorRepository,
+	viewTrackingRepo domain.ViewTrackingRepository,
+	userRepo domain.UserRepository,
+) *chapterServiceImpl {
 	return &chapterServiceImpl{
-		chapterRepo: chapterRepo,
-		volumeRepo:  volumeRepo,
-		historyRepo: historyRepo,
-		creatorRepo: creatorRepo,
+		chapterRepo:      chapterRepo,
+		volumeRepo:       volumeRepo,
+		historyRepo:      historyRepo,
+		creatorRepo:      creatorRepo,
+		viewTrackingRepo: viewTrackingRepo,
+		userRepo:         userRepo,
 	}
 }
 
@@ -442,6 +445,31 @@ func (s *chapterServiceImpl) PublishChapter(ctx context.Context, id uuid.UUID, c
 		}
 	}
 
+	// Enqueue activity
+	if s.viewTrackingRepo != nil {
+		activity := &domain.ContentActivity{
+			EventTime:  time.Now(),
+			ActionType: domain.ActionTypePublish,
+			MediaType:  domain.MediaTypeNovel,
+			MediaID:    chapter.NovelID,
+			TargetType: domain.TargetTypeChapter,
+			TargetID:   id,
+			UserID:     changedBy,
+			Weight:     int64(chapter.WordCount),
+		}
+		if err := s.viewTrackingRepo.EnqueueActivity(ctx, activity); err != nil {
+			fmt.Printf("Failed to enqueue activity for chapter publish: %v\n", err)
+		}
+	}
+
+	// Update first content posted time if needed
+	if s.userRepo != nil {
+		if err := s.userRepo.UpdateFirstContentPostedAt(ctx, changedBy, time.Now()); err != nil {
+			// Log error but don't fail, as it's not critical for the publish flow itself
+			fmt.Printf("Failed to update first content posted time: %v\n", err)
+		}
+	}
+
 	return nil
 }
 
@@ -611,4 +639,38 @@ func stringPtrEqualChapter(a, b *string) bool {
 		return false
 	}
 	return *a == *b
+}
+
+// GetRecentChapters retrieves recently published chapters
+func (s *chapterServiceImpl) GetRecentChapters(ctx context.Context, limit int) ([]*domain.NovelChapterSummary, error) {
+	// Retrieves entities from repo
+	chapters, err := s.chapterRepo.GetRecentChapters(ctx, limit)
+	if err != nil {
+		return nil, err
+	}
+
+	// Map to summaries
+	var summaries []*domain.NovelChapterSummary
+	for _, c := range chapters {
+		summary := &domain.NovelChapterSummary{
+			ID:            c.ID,
+			NovelID:       c.NovelID,
+			VolumeID:      c.VolumeID,
+			ChapterNumber: c.ChapterNumber,
+			Title:         c.Title,
+			Slug:          c.Slug,
+			WordCount:     c.WordCount,
+			IsFree:        c.IsFree,
+			Price:         c.Price,
+			Currency:      c.Currency,
+			Status:        c.Status,
+			ViewCount:     c.ViewCount,
+			PublishedAt:   c.PublishedAt,
+			CreatedAt:     c.CreatedAt,
+			UpdatedAt:     c.UpdatedAt,
+		}
+		summaries = append(summaries, summary)
+	}
+
+	return summaries, nil
 }

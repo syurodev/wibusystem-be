@@ -29,6 +29,10 @@ const (
 	// Event queue: LIST structure
 	// view:events -> [event1_json, event2_json, ...]
 	keyEventQueue = "view:events"
+
+	// Activity queue: LIST structure
+	// activity:queue -> [activity_json, ...]
+	keyActivityQueue = "activity:queue"
 )
 
 // viewTrackingRedisRepo implements ViewTrackingRepository interface.
@@ -296,4 +300,79 @@ func (r *viewTrackingRedisRepo) DequeueEvents(ctx context.Context, batchSize int
 	}
 
 	return events, nil
+}
+
+// EnqueueActivity adds a content activity to the Activity queue.
+// Activity được serialize thành JSON và pushed vào Redis list.
+//
+// Redis operation: RPUSH activity:queue {activity_json}
+//
+// Parameters:
+//   - ctx: Context
+//   - activity: ContentActivity cần enqueue
+//
+// Returns:
+//   - error: Lỗi nếu có
+func (r *viewTrackingRedisRepo) EnqueueActivity(ctx context.Context, activity *domain.ContentActivity) error {
+	// Marshal activity to JSON
+	activityJSON, err := json.Marshal(activity)
+	if err != nil {
+		return fmt.Errorf("failed to marshal activity: %w", err)
+	}
+
+	// RPUSH adds to the tail of the list
+	_, err = r.rdb.Client.RPush(ctx, keyActivityQueue, activityJSON).Result()
+	if err != nil {
+		return fmt.Errorf("failed to enqueue activity: %w", err)
+	}
+
+	return nil
+}
+
+// DequeueActivities retrieves và removes một batch content activities từ queue.
+// Sử dụng LPOP để dequeue từ head của list.
+//
+// Redis operation: LPOP activity:queue (repeated batchSize times)
+//
+// Parameters:
+//   - ctx: Context
+//   - batchSize: Số lượng activities tối đa cần dequeue
+//
+// Returns:
+//   - []*domain.ContentActivity: List activities, nil nếu queue empty
+//   - error: Lỗi nếu có
+func (r *viewTrackingRedisRepo) DequeueActivities(ctx context.Context, batchSize int) ([]*domain.ContentActivity, error) {
+	// LPOP removes from the head of the list
+	// Note: LPop with count is available in Redis 6.2+
+	var activityJSONs []string
+
+	for i := 0; i < batchSize; i++ {
+		result, err := r.rdb.Client.LPop(ctx, keyActivityQueue).Result()
+		if err != nil {
+			if err == redis.Nil {
+				// Queue is empty
+				break
+			}
+			return nil, fmt.Errorf("failed to dequeue activity: %w", err)
+		}
+		activityJSONs = append(activityJSONs, result)
+	}
+
+	// Nếu không có activities, return nil
+	if len(activityJSONs) == 0 {
+		return nil, nil
+	}
+
+	// Unmarshal activities
+	var activities []*domain.ContentActivity
+	for _, activityJSON := range activityJSONs {
+		var activity domain.ContentActivity
+		if err := json.Unmarshal([]byte(activityJSON), &activity); err != nil {
+			// Log error but continue processing other activities
+			continue
+		}
+		activities = append(activities, &activity)
+	}
+
+	return activities, nil
 }

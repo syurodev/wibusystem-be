@@ -53,4 +53,17 @@ func StartViewTrackingWorkers(cfg *configs.ViewTrackingConfig, viewTrackingServi
 			}
 		}
 	}()
+
+	// Worker 4: Sync content activities from Redis to ClickHouse
+	go func() {
+		// Sync frequently (e.g., every 30 seconds)
+		ticker := time.NewTicker(30 * time.Second)
+		defer ticker.Stop()
+
+		for range ticker.C {
+			if err := viewTrackingService.SyncActivitiesToClickHouse(context.Background()); err != nil {
+				zapLogger.Error("Failed to sync content activities to ClickHouse", zap.Error(err))
+			}
+		}
+	}()
 }

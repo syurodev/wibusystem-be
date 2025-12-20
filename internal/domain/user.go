@@ -68,4 +68,7 @@ type UserRepository interface {
 
 	// GetOrganizationRoles lấy danh sách roles của user trong organization
 	GetOrganizationRoles(ctx context.Context, userID, organizationID uuid.UUID) ([]string, error)
+
+	// UpdateFirstContentPostedAt updates first content posted time if not set
+	UpdateFirstContentPostedAt(ctx context.Context, userID uuid.UUID, postedAt time.Time) error
 }

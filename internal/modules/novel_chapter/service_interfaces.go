@@ -77,5 +77,9 @@ type ChapterService interface {
 	IncrementViewCount(ctx context.Context, id uuid.UUID) error
 
 	// UpdateStatistics updates chapter statistics
+	// UpdateStatistics updates chapter statistics
 	UpdateStatistics(ctx context.Context, id uuid.UUID, stats domain.NovelChapterStatistics) error
+
+	// GetRecentChapters retrieves recently published chapters
+	GetRecentChapters(ctx context.Context, limit int) ([]*domain.NovelChapterSummary, error)
 }

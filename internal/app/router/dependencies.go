@@ -251,7 +251,7 @@ func newServices(
 	)
 	volumeSvc := novel_volume.NewService(repos.Volume, repos.VolumeHistory)
 	chapterSvc := novel_chapter.NewService(
-		repos.Chapter, repos.Volume, repos.ChapterHistory, repos.Creator,
+		repos.Chapter, repos.Volume, repos.ChapterHistory, repos.Creator, repos.ViewTracking, repos.User,
 	)
 	
 	// Analytics & Tracking
@@ -260,7 +260,17 @@ func newServices(
 		repos.Chapter, repos.Novel, repos.Genre,
 		zapLogger, &cfg.ViewTracking,
 	)
-	analyticsSvc := analytics_module.NewService(repos.ViewAnalytics, novelSvc, zapLogger)
+	analyticsSvc := analytics_module.NewService(
+		repos.ViewAnalytics,
+		novelSvc,
+		repos.Creator,
+		repos.Organization,
+		repos.Chapter,
+		repos.User,
+		genreRepo,
+		rdb,
+		zapLogger,
+	)
 	// Creator
 	creatorSvc := creator_module.NewService(
 		repos.Creator,
@@ -412,6 +422,7 @@ func newHandlers(
 		Genre:       genre_module.NewHandler(
 			createGenreUC, updateGenreUC, deleteGenreUC, getGenreUC,
 			listGenresUC, listSelectUC, mergeGenresUC, previewMergeUC,
+			services.Analytics,
 			zapLogger,
 		),
 		Author: func() *author_module.Handler {

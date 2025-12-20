@@ -2,30 +2,54 @@ package analytics
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"time"
+
 	"system/internal/domain"
 	"system/internal/modules/novel"
+	"system/internal/platform/database"
 
 	"github.com/gofrs/uuid/v5"
+	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 )
 
 // AnalyticsService handles analytics and trending logic.
+// AnalyticsService handles analytics and trending logic.
 type analyticsServiceImpl struct {
 	viewAnalyticsRepo domain.ViewAnalyticsRepository
-	novelService      novel.NovelService // Use Service instead of Repo
+	novelService      novel.NovelService // Keep NovelService for complex hydration logic if safe
+	creatorRepo       domain.CreatorRepository // Use Repo to avoid cycle
+	orgRepo           domain.OrganizationRepository
+	chapterRepo       domain.NovelChapterRepository
+	userRepo          domain.UserRepository
+	genreRepo         domain.GenreRepository
+	redisClient       *database.RedisClient
 	logger            *zap.Logger
 }
 
-// NewAnalyticsService creates a new analytics service instance.
+// NewService creates a new analytics service instance.
 func NewService(
 	viewAnalyticsRepo domain.ViewAnalyticsRepository,
 	novelService novel.NovelService,
+	creatorRepo domain.CreatorRepository,
+	orgRepo domain.OrganizationRepository,
+	chapterRepo domain.NovelChapterRepository,
+	userRepo domain.UserRepository,
+	genreRepo domain.GenreRepository,
+	redisClient *database.RedisClient,
 	logger *zap.Logger,
 ) *analyticsServiceImpl {
 	return &analyticsServiceImpl{
 		viewAnalyticsRepo: viewAnalyticsRepo,
 		novelService:      novelService,
+		creatorRepo:       creatorRepo,
+		orgRepo:           orgRepo,
+		chapterRepo:       chapterRepo,
+		userRepo:          userRepo,
+		genreRepo:         genreRepo,
+		redisClient:       redisClient,
 		logger:            logger,
 	}
 }
@@ -215,6 +239,217 @@ func (s *analyticsServiceImpl) mapNovelToMediaSeries(n *domain.Novel, views uint
 		"updated_at": n.UpdatedAt,
 		
 		// Synopsis - JSONB content from database
-		"synopsis": n.Synopsis,
+		"synopsis":          n.Synopsis,
 	}
 }
+
+// GetMostActiveCreators retrieves creators with most activity (uploads)
+func (s *analyticsServiceImpl) GetMostActiveCreators(ctx context.Context, limit int) ([]domain.CreatorActivityStat, error) {
+	// 1. Get stats from ClickHouse (last 30 days default)
+	stats, err := s.viewAnalyticsRepo.GetTopActiveCreators(ctx, "month", limit)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get active creators stats: %w", err)
+	}
+
+	if len(stats) == 0 {
+		return []domain.CreatorActivityStat{}, nil
+	}
+
+	// 2. Hydrate user info
+	for i, stat := range stats {
+		user, err := s.userRepo.GetByID(ctx, stat.UserID)
+		if err != nil {
+			s.logger.Warn("Failed to hydrate user for active creator", zap.String("userID", stat.UserID.String()), zap.Error(err))
+			continue
+		}
+		// Note: User struct in CreatorActivityStat is *domain.User
+		stat.User = user
+		stats[i] = stat
+	}
+
+	return stats, nil
+}
+
+// GetActiveOrganizations retrieves organizations with most activity
+func (s *analyticsServiceImpl) GetActiveOrganizations(ctx context.Context, limit int) ([]domain.OrgActivityStat, error) {
+	// 1. Get stats from ClickHouse
+	stats, err := s.viewAnalyticsRepo.GetTopActiveOrgs(ctx, "month", limit)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get active orgs stats: %w", err)
+	}
+
+	if len(stats) == 0 {
+		return []domain.OrgActivityStat{}, nil
+	}
+
+	// 2. Hydrate org info
+	for i, stat := range stats {
+		org, err := s.orgRepo.GetByID(ctx, stat.OrgID)
+		if err != nil {
+			s.logger.Warn("Failed to hydrate org for active org", zap.String("orgID", stat.OrgID.String()), zap.Error(err))
+			continue
+		}
+		stat.Organization = org
+		stats[i] = stat
+	}
+
+	return stats, nil
+}
+
+// GetRisingStars retrieves new creators with high view counts
+func (s *analyticsServiceImpl) GetRisingStars(ctx context.Context, limit int) ([]domain.CreatorActivityStat, error) {
+	// 1. Get creators who started in the last 90 days
+	since := time.Now().AddDate(0, 0, -90)
+	filter := domain.CreatorListFilter{
+		FirstContentPostedFrom: &since,
+		Limit:                  limit * 2, // Fetch more candidates
+		SortBy:                 "total_views", // Note: Sorting by views here relies on PG data if available, or just fetch recent ones
+	}
+
+	creatorsResult, err := s.creatorRepo.ListCreators(ctx, filter)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list rising creators: %w", err)
+	}
+
+	if len(creatorsResult.Creators) == 0 {
+		return []domain.CreatorActivityStat{}, nil
+	}
+
+	// 2. Get accurate view stats from ClickHouse for these creators
+	creatorIDs := make([]uuid.UUID, len(creatorsResult.Creators))
+	userMap := make(map[uuid.UUID]*domain.User)
+	for i, c := range creatorsResult.Creators {
+		creatorIDs[i] = c.User.ID
+		// Copy user to heap to take address? 
+		// c.User is domain.User struct.
+		u := c.User
+		userMap[c.User.ID] = &u
+	}
+
+	viewStats, err := s.viewAnalyticsRepo.GetCreatorViewStats(ctx, creatorIDs, "month")
+	if err != nil {
+		return nil, fmt.Errorf("failed to get creator view stats: %w", err)
+	}
+
+	// 3. Construct result and sort
+	var results []domain.CreatorActivityStat
+	for _, id := range creatorIDs {
+		stat, ok := viewStats[id]
+		views := int64(0)
+		if ok {
+			views = stat.TotalViews
+		}
+
+		results = append(results, domain.CreatorActivityStat{
+			UserID:        id,
+			TotalActivity: views, // Reuse TotalActivity field to store TotalViews for this API
+			TotalWeight:   views,
+			User:          userMap[id],
+		})
+	}
+
+	// Sort by Views (TotalWeight) descending
+	for i := 0; i < len(results)-1; i++ {
+		for j := 0; j < len(results)-i-1; j++ {
+			if results[j].TotalWeight < results[j+1].TotalWeight {
+				results[j], results[j+1] = results[j+1], results[j]
+			}
+		}
+	}
+
+	if len(results) > limit {
+		results = results[:limit]
+	}
+
+	return results, nil
+}
+
+// GetFreshUpdates retrieves recently published chapters
+func (s *analyticsServiceImpl) GetFreshUpdates(ctx context.Context, limit int) ([]domain.NovelChapterSummary, error) {
+	// Call ChapterRepo
+	chapters, err := s.chapterRepo.GetRecentChapters(ctx, limit)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get recent chapters: %w", err)
+	}
+	
+	// Convert to summary
+	var summaries []domain.NovelChapterSummary
+	for _, c := range chapters {
+		summary := domain.NovelChapterSummary{
+			ID:            c.ID,
+			NovelID:       c.NovelID,
+			VolumeID:      c.VolumeID,
+			ChapterNumber: c.ChapterNumber,
+			Title:         c.Title,
+			Slug:          c.Slug,
+			WordCount:     c.WordCount,
+			IsFree:        c.IsFree,
+			Price:         c.Price,
+			Currency:      c.Currency,
+			Status:        c.Status,
+			ViewCount:     c.ViewCount,
+			PublishedAt:   c.PublishedAt,
+			CreatedAt:     c.CreatedAt,
+			UpdatedAt:     c.UpdatedAt,
+		}
+		summaries = append(summaries, summary)
+	}
+	
+	return summaries, nil
+}
+
+// GetTopGenresByViews retrieves genres with most views for a time range.
+// Results are cached in Redis for 30 minutes.
+// offset: 0 = current period, 1 = previous period
+func (s *analyticsServiceImpl) GetTopGenresByViews(ctx context.Context, period string, offset int, limit int) ([]*domain.Genre, error) {
+	// 1. Build cache key (including offset)
+	cacheKey := fmt.Sprintf("analytics:top_genres_by_views:%s:%d:%d", period, offset, limit)
+
+	// 2. Try to get from cache
+	cached, err := s.redisClient.Get(ctx, cacheKey)
+	if err == nil && cached != "" {
+		// Cache hit - deserialize
+		var genres []*domain.Genre
+		if err := json.Unmarshal([]byte(cached), &genres); err == nil {
+			s.logger.Debug("Cache hit for top genres by views", zap.String("key", cacheKey))
+			return genres, nil
+		}
+	} else if err != nil && err != redis.Nil {
+		s.logger.Warn("Failed to get cache for top genres", zap.Error(err))
+	}
+
+	// 3. Cache miss - query ClickHouse
+	stats, err := s.viewAnalyticsRepo.GetTopGenresByViews(ctx, period, offset, limit)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get top genres by views: %w", err)
+	}
+
+	// 4. Hydrate genre details
+	genres := make([]*domain.Genre, 0, len(stats))
+	for _, stat := range stats {
+		genre, err := s.genreRepo.GetByID(ctx, stat.GenreID)
+		if err != nil {
+			s.logger.Warn("Failed to hydrate genre",
+				zap.String("genreID", stat.GenreID.String()),
+				zap.Error(err))
+			continue
+		}
+		// Override TotalViews with the time-range views from ClickHouse
+		genre.TotalViews = stat.TotalViews
+		genre.ActiveReaders = stat.UniqueUsers
+		genres = append(genres, genre)
+	}
+
+	// 5. Store in cache (30 minutes)
+	if len(genres) > 0 {
+		data, err := json.Marshal(genres)
+		if err == nil {
+			if cacheErr := s.redisClient.Set(ctx, cacheKey, string(data), 30*time.Minute); cacheErr != nil {
+				s.logger.Warn("Failed to cache top genres", zap.Error(cacheErr))
+			}
+		}
+	}
+
+	return genres, nil
+}
+

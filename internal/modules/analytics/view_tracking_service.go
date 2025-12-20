@@ -408,3 +408,34 @@ func (s *ViewTrackingService) SyncActiveReaders(ctx context.Context) error {
 
 	return nil
 }
+
+// SyncActivitiesToClickHouse syncs content activities from Redis queue to ClickHouse.
+func (s *ViewTrackingService) SyncActivitiesToClickHouse(ctx context.Context) error {
+	s.logger.Debug("Starting activity sync to ClickHouse...")
+
+	// 1. Dequeue activities from Redis
+	activities, err := s.viewTrackingRepo.DequeueActivities(ctx, s.config.ClickHouseBatchSize)
+	if err != nil {
+		return fmt.Errorf("failed to dequeue activities: %w", err)
+	}
+
+	if len(activities) == 0 {
+		s.logger.Debug("No activities to sync")
+		return nil
+	}
+
+	s.logger.Info("Syncing activities to ClickHouse",
+		zap.Int("activity_count", len(activities)))
+
+	// 2. Batch insert to ClickHouse
+	if err := s.viewAnalyticsRepo.BatchInsertActivities(ctx, activities); err != nil {
+		s.logger.Error("Failed to batch insert activities to ClickHouse", zap.Error(err))
+		// TODO: Re-enqueue activities or send to DLQ
+		return fmt.Errorf("failed to insert activities: %w", err)
+	}
+
+	s.logger.Info("Successfully synced activities to ClickHouse",
+		zap.Int("activity_count", len(activities)))
+
+	return nil
+}

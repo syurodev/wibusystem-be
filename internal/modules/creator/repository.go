@@ -66,6 +66,18 @@ func (r *creatorRepository) ListCreators(ctx context.Context, filter domain.Crea
 		argNum++
 	}
 
+	// Filter by first content posted date
+	if filter.FirstContentPostedFrom != nil {
+		conditions = append(conditions, fmt.Sprintf("us.first_content_posted_at >= $%d", argNum))
+		args = append(args, *filter.FirstContentPostedFrom)
+		argNum++
+	}
+	if filter.FirstContentPostedTo != nil {
+		conditions = append(conditions, fmt.Sprintf("us.first_content_posted_at <= $%d", argNum))
+		args = append(args, *filter.FirstContentPostedTo)
+		argNum++
+	}
+
 	whereClause := strings.Join(conditions, " AND ")
 
 	// Determine sort column and order

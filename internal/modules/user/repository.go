@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"system/internal/domain"
+	"time"
 
 	"github.com/gofrs/uuid/v5"
 	"github.com/jackc/pgx/v5"
@@ -282,4 +283,16 @@ func (r *userRepository) GetOrganizationRoles(ctx context.Context, userID, organ
 	}
 
 	return roles, rows.Err()
+}
+
+// UpdateFirstContentPostedAt updates first content posted time if not set
+func (r *userRepository) UpdateFirstContentPostedAt(ctx context.Context, userID uuid.UUID, postedAt time.Time) error {
+	query := `
+		UPDATE identify.user_statistics
+		SET first_content_posted_at = $2
+		WHERE user_id = $1 AND first_content_posted_at IS NULL
+	`
+	// Note: We use execute, if row not updated (because already set) it's fine.
+	_, err := r.pool.Exec(ctx, query, userID, postedAt)
+	return err
 }

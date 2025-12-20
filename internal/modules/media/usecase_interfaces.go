@@ -21,3 +21,4 @@ type GetHomeDataInput struct{}
 type GetHomeDataUseCase interface {
 	Execute(ctx context.Context, input GetHomeDataInput) (*mediadto.HomeData, error)
 }
+
