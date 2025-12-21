@@ -14,6 +14,11 @@ type OrganizationResponse struct {
 	MemberCount           int              `json:"member_count"`
 	CompletedTranslations int              `json:"completed_translations"`
 	CreatedAt             string           `json:"created_at"`
+	
+	// Rank Comparison (Optional)
+	CurrentRank  *int `json:"current_rank,omitempty"`
+	PreviousRank *int `json:"previous_rank,omitempty"`
+	RankChange   *int `json:"rank_change,omitempty"`
 }
 
 // OrganizationDetailResponse - Response chi tiết

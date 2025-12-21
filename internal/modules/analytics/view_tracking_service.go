@@ -1,3 +1,50 @@
+/*
+View Tracking Service - Implementation Flow
+============================================
+
+Service này là trung tâm điều phối của view tracking system.
+Xem thêm: internal/domain/view_tracking.go cho architecture overview.
+
+TRACKING FLOW (TrackChapterView):
+---------------------------------
+Request → Get Chapter → Generate Identifier → Check Dedup
+                                                    │
+                              ┌─────────────────────┼─────────────────────┐
+                              ▼                     │                     ▼
+                         [Duplicate]                │              [Unique View]
+                              │                     │                     │
+                              ▼                     │                     ▼
+                        return false                │        Record Dedup Markers
+                                                    │        (chapter + novel)
+                                                    │                     │
+                                                    │                     ▼
+                                                    │        Increment Redis Buffers
+                                                    │        (chapter + novel)
+                                                    │                     │
+                                                    │                     ▼
+                                                    │        Enqueue ViewEvent
+                                                    │        (with enriched metadata)
+                                                    │                     │
+                                                    │                     ▼
+                                                    │               return true
+                                                    │
+SYNC FLOW (Background Worker):
+------------------------------
+┌───────────────────────────────────────────────────────────────────────────────┐
+│ SyncBuffersToPostgreSQL:                                                      │
+│   GetAllBuffers() → Separate chapter/novel → BatchIncrementViewCount()       │
+│                                               → Update genre counts           │
+└───────────────────────────────────────────────────────────────────────────────┘
+┌───────────────────────────────────────────────────────────────────────────────┐
+│ SyncEventsToClickHouse:                                                       │
+│   DequeueEvents() → BatchInsertEvents() → ClickHouse                         │
+└───────────────────────────────────────────────────────────────────────────────┘
+┌───────────────────────────────────────────────────────────────────────────────┐
+│ SyncActiveReaders:                                                            │
+│   GetGenreActiveReaders() → BatchUpdateActiveReaders() → PostgreSQL          │
+└───────────────────────────────────────────────────────────────────────────────┘
+*/
+
 package analytics
 
 import (

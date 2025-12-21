@@ -20,7 +20,6 @@ import (
 )
 
 // Handler handles chapter-related HTTP requests
-// Handler handles chapter-related HTTP requests
 type Handler struct {
 	chapterService            ChapterService
 	createChapterUC           CreateChapterUseCase
@@ -31,7 +30,7 @@ type Handler struct {
 	listChaptersByVolumeUC    ListChaptersByVolumeUseCase
 	publishChapterUC          PublishChapterUseCase
 	scheduleChapterUC         ScheduleChapterUseCase
-	incrementViewCountUC      IncrementViewCountUseCase
+	viewTrackingSvc           ViewTracker
 	updateStatisticsUC        UpdateStatisticsUseCase
 }
 
@@ -46,7 +45,7 @@ func NewHandler(
 	listChaptersByVolumeUC ListChaptersByVolumeUseCase,
 	publishChapterUC PublishChapterUseCase,
 	scheduleChapterUC ScheduleChapterUseCase,
-	incrementViewCountUC IncrementViewCountUseCase,
+	viewTrackingSvc ViewTracker,
 	updateStatisticsUC UpdateStatisticsUseCase,
 ) *Handler {
 	return &Handler{
@@ -59,7 +58,7 @@ func NewHandler(
 		listChaptersByVolumeUC:    listChaptersByVolumeUC,
 		publishChapterUC:          publishChapterUC,
 		scheduleChapterUC:         scheduleChapterUC,
-		incrementViewCountUC:      incrementViewCountUC,
+		viewTrackingSvc:           viewTrackingSvc,
 		updateStatisticsUC:        updateStatisticsUC,
 	}
 }
@@ -484,7 +483,7 @@ func (h *Handler) ScheduleChapter(c *gin.Context) {
 	response.Success(c, http.StatusOK, "chapter.scheduled_success", nil, nil)
 }
 
-// IncrementViewCount increments the view count of a chapter
+// IncrementViewCount increments the view count of a chapter using analytics tracking
 // @Summary Increment chapter view count
 // @Tags Chapters
 // @Produce json
@@ -501,13 +500,27 @@ func (h *Handler) IncrementViewCount(c *gin.Context) {
 		return
 	}
 
-	err = h.incrementViewCountUC.Execute(c.Request.Context(), IncrementViewCountInput{ID: id})
+	// Get user ID if authenticated
+	var userID *uuid.UUID
+	if userIDStr, ok := middleware.GetUserID(c); ok {
+		if uid, err := uuid.FromString(userIDStr); err == nil {
+			userID = &uid
+		}
+	}
+
+	// Get client IP address
+	ipAddress := c.ClientIP()
+
+	// Track view using ViewTrackingService (Redis buffered + ClickHouse analytics)
+	_, err = h.viewTrackingSvc.TrackChapterView(c.Request.Context(), id, userID, ipAddress)
 	if err != nil {
-		_ = err // Log but don't fail
+		// Log but don't fail - view tracking should not block user experience
+		_ = err
 	}
 
 	response.Success(c, http.StatusOK, "chapter.view_tracked", nil, nil)
 }
+
 
 // UpdateStatistics updates chapter statistics
 // @Summary Update chapter statistics

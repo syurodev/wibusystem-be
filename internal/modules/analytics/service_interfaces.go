@@ -41,5 +41,49 @@ type AnalyticsService interface {
 
 	// GetTopOrgsByViews retrieves organizations with most views for a time range
 	GetTopOrgsByViews(ctx context.Context, period string, offset int, limit int) ([]*domain.Organization, error)
+
+	// GetTopGenresWithRankComparison retrieves top genres with rank comparison (week/month/year)
+	GetTopGenresWithRankComparison(ctx context.Context, period string, limit int) ([]GenreRankResponse, error)
+
+	// GetTopCreatorsWithRankComparison retrieves top creators with rank comparison
+	GetTopCreatorsWithRankComparison(ctx context.Context, period string, limit int) ([]CreatorRankResponse, error)
+
+	// GetTopOrgsWithRankComparison retrieves top orgs with rank comparison
+	GetTopOrgsWithRankComparison(ctx context.Context, period string, limit int) ([]OrgRankResponse, error)
+
+	// GetTopMediaWithRankComparison retrieves top media (novel/manga/anime) with rank comparison
+	GetTopMediaWithRankComparison(ctx context.Context, period string, mediaType string, limit int) ([]MediaRankResponse, error)
+}
+
+// GenreRankResponse wraps Genre with rank info
+type GenreRankResponse struct {
+	*domain.Genre
+	Stats domain.RankStat
+}
+
+// CreatorRankResponse wraps User with rank info
+type CreatorRankResponse struct {
+	*domain.User
+	Stats domain.RankStat
+}
+
+// OrgRankResponse wraps Organization with rank info
+type OrgRankResponse struct {
+	*domain.Organization
+	Stats domain.RankStat
+}
+
+// MediaRankResponse wraps Novel/Manga/Anime with rank info
+// Since we don't have a common Media struct yet (or it's complex), we'll return generic map or specific structs
+// For now, let's use a simplified struct holding the Entity details
+type MediaRankResponse struct {
+	ID          uuid.UUID
+	Title       string
+	Cover       string
+	Slug        string
+	Type        string // novel, manga, anime
+	Stats       domain.RankStat
+	Authors     []*domain.Author
+	Artist      []*domain.Artist
 }
 

@@ -1,3 +1,63 @@
+/*
+View Tracking Repository - Redis Operations
+============================================
+
+Repository này quản lý tất cả Redis operations cho view tracking system.
+Xem thêm: internal/domain/view_tracking.go cho architecture overview.
+
+REDIS DATA STRUCTURES:
+----------------------
+
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│ 1. DEDUPLICATION KEYS (String với TTL)                                         │
+│    Key pattern: view:dedup:{entity_type}:{entity_id}:{identifier}              │
+│    Value: "1"                                                                   │
+│    TTL: DedupWindowSeconds (default 300s = 5 phút)                             │
+│                                                                                 │
+│    Example: view:dedup:chapter:550e8400-...:user123 = "1" (TTL 300s)           │
+│                                                                                 │
+│    Operations:                                                                  │
+│    - CheckDeduplication: EXISTS key → true if exists (duplicate)              │
+│    - RecordDeduplication: SETNX key "1" EX ttlSeconds                          │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│ 2. VIEW BUFFERS (Hash)                                                          │
+│    Keys: view:buffer:chapter, view:buffer:novel                                │
+│    Fields: {entity_id} → count                                                 │
+│                                                                                 │
+│    Example:                                                                     │
+│    view:buffer:chapter {                                                        │
+│      "550e8400-...": "15",   // chapter A có 15 views pending                  │
+│      "6ba7b810-...": "7"     // chapter B có 7 views pending                   │
+│    }                                                                            │
+│                                                                                 │
+│    Operations:                                                                  │
+│    - IncrementBuffer: HINCRBY view:buffer:chapter {entity_id} 1                │
+│    - GetAllBuffers:   HGETALL + DEL (atomic via pipeline)                      │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│ 3. EVENT QUEUE (List - FIFO)                                                    │
+│    Key: view:events                                                             │
+│    Values: [event_json, event_json, ...]                                       │
+│                                                                                 │
+│    Operations:                                                                  │
+│    - EnqueueEvent:  RPUSH view:events {event_json}                             │
+│    - DequeueEvents: LPOP view:events (repeated N times)                        │
+│                                                                                 │
+│    Flow: API → RPUSH → [queue] → LPOP → ClickHouse                            │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│ 4. ACTIVITY QUEUE (List - FIFO)                                                 │
+│    Key: activity:queue                                                          │
+│    Values: [activity_json, activity_json, ...]                                 │
+│                                                                                 │
+│    Similar to event queue but for content creation activities                   │
+└─────────────────────────────────────────────────────────────────────────────────┘
+*/
+
 package analytics
 
 import (

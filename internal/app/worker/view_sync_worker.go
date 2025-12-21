@@ -1,3 +1,73 @@
+/*
+View Sync Worker - Background Sync Flow
+========================================
+
+Worker này chạy trong background goroutine và định kỳ đồng bộ data
+từ Redis sang PostgreSQL và ClickHouse.
+
+WORKER LIFECYCLE:
+-----------------
+                                    ┌─────────────────┐
+                                    │   Application   │
+                                    │     Start       │
+                                    └────────┬────────┘
+                                             │
+                                             ▼
+                              ┌──────────────────────────────┐
+                              │     Check WorkerEnabled      │
+                              │        (from config)         │
+                              └──────────────┬───────────────┘
+                                             │
+                          ┌──────────────────┼──────────────────┐
+                          ▼                                     ▼
+                    [Disabled]                            [Enabled]
+                          │                                     │
+                          ▼                                     ▼
+                   Close doneChan                     Go goroutine: run()
+                   Return immediately                           │
+                                                                │
+                                    ┌───────────────────────────┘
+                                    ▼
+                         ┌──────────────────────┐
+                         │  Immediate Sync      │ ←── Sync pending data từ lần trước
+                         │  (on startup)        │
+                         └──────────┬───────────┘
+                                    │
+                                    ▼
+                    ┌─────────────────────────────────┐
+                    │         MAIN LOOP               │
+                    │                                 │
+                    │   select {                      │
+                    │     case <-ticker.C:            │ ←── Định kỳ (SyncIntervalMinutes)
+                    │       sync()                    │
+                    │                                 │
+                    │     case <-stopChan:            │ ←── Graceful shutdown
+                    │       sync()                    │     (final sync before exit)
+                    │       return                    │
+                    │                                 │
+                    │     case <-ctx.Done():          │ ←── Context cancelled
+                    │       return                    │
+                    │   }                             │
+                    └─────────────────────────────────┘
+
+SYNC CYCLE (sync method):
+-------------------------
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│ 1. SyncBuffersToPostgreSQL                                                      │
+│    Redis Buffers → Batch Update PostgreSQL (novels, chapters, genres)          │
+└─────────────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│ 2. SyncEventsToClickHouse (up to 10 iterations)                                │
+│    Redis Event Queue → Batch Insert ClickHouse                                 │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+GRACEFUL SHUTDOWN:
+------------------
+Stop() → Signal stopChan → Worker performs final sync → Close doneChan → Return
+*/
+
 package worker
 
 import (

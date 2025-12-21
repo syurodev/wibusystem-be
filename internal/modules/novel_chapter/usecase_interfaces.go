@@ -84,11 +84,6 @@ type ScheduleChapterInput struct {
 	ScheduledAt time.Time
 }
 
-// IncrementViewCountInput represents input for incrementing view count
-type IncrementViewCountInput struct {
-	ID uuid.UUID
-}
-
 // UpdateStatisticsInput represents input for updating statistics
 type UpdateStatisticsInput struct {
 	ID    uuid.UUID
@@ -133,11 +128,6 @@ type PublishChapterUseCase interface {
 // ScheduleChapterUseCase interface
 type ScheduleChapterUseCase interface {
 	Execute(ctx context.Context, input ScheduleChapterInput) error
-}
-
-// IncrementViewCountUseCase interface
-type IncrementViewCountUseCase interface {
-	Execute(ctx context.Context, input IncrementViewCountInput) error
 }
 
 // UpdateStatisticsUseCase interface

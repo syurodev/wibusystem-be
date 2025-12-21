@@ -475,6 +475,62 @@ func (h *Handler) GetTopGenresByViews(c *gin.Context) {
 	}
 
 	// Call analytics service
+	includeRankChange := c.Query("include_rank_change") == "true"
+	
+	if includeRankChange {
+		genresWithRank, err := h.analyticsSvc.GetTopGenresWithRankComparison(c.Request.Context(), period, limit)
+		if err != nil {
+			h.logger.Error("Failed to get top genres with rank", zap.Error(err))
+			response.Error(c, http.StatusInternalServerError, "InternalError", I18nListFailed, nil)
+			return
+		}
+
+		genreResponses := make([]genredto.GenreResponse, len(genresWithRank))
+		for i, gwt := range genresWithRank {
+			// Calculate Trend based on existing logic or rank change
+			trend := "stable"
+			if gwt.Genre.ActiveReaders > 1000 {
+				trend = "rising"
+			} else if gwt.Genre.ActiveReaders < 100 {
+				trend = "falling"
+			}
+			
+			// Use pointers for optional fields
+			currentRank := gwt.Stats.CurrentRank
+			var prevRank *int
+			if gwt.Stats.PreviousRank != nil {
+				pr := *gwt.Stats.PreviousRank
+				prevRank = &pr
+			}
+			var rankChange *int
+			if gwt.Stats.RankChange != nil {
+				rc := *gwt.Stats.RankChange
+				rankChange = &rc
+			}
+
+			genreResponses[i] = genredto.GenreResponse{
+				ID:            gwt.Genre.ID.String(),
+				Name:          gwt.Genre.Name,
+				Slug:          gwt.Genre.Slug,
+				IsActive:      gwt.Genre.IsActive,
+				SeriesCount:   gwt.Genre.NovelCount,
+				ActiveReaders: gwt.Genre.ActiveReaders,
+				TotalViews:    gwt.Genre.TotalViews,
+				Trend:         trend,
+				Description:   gwt.Genre.Description,
+				CreatedAt:     gwt.Genre.CreatedAt.Format(timeutil.ISO8601Layout),
+				UpdatedAt:     gwt.Genre.UpdatedAt.Format(timeutil.ISO8601Layout),
+				
+				// Rank info
+				CurrentRank:  &currentRank,
+				PreviousRank: prevRank,
+				RankChange:   rankChange,
+			}
+		}
+		response.Success(c, http.StatusOK, I18nListSuccess, genreResponses, nil)
+		return
+	}
+
 	genres, err := h.analyticsSvc.GetTopGenresByViews(c.Request.Context(), period, offset, limit)
 	if err != nil {
 		h.logger.Error("Failed to get top genres by views", zap.Error(err))

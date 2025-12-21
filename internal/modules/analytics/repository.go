@@ -52,7 +52,7 @@ func (r *viewAnalyticsClickHouseRepo) BatchInsertEvents(ctx context.Context, eve
 	batch, err := r.ch.Conn.PrepareBatch(ctx, `
 		INSERT INTO view_events (
 			event_time, media_type, media_id, unit_id, user_id, ip_address, view_count,
-			author_ids, genre_ids, artist_ids, tag_ids, group_id, owner_id, studio_id, original_language,
+			author_ids, genre_ids, artist_ids, tag_ids, group_id, owner_id, owner_type, studio_id, original_language,
 			platform, os, browser, country_code, city, referrer,
 			is_premium, user_role
 		)
@@ -63,21 +63,41 @@ func (r *viewAnalyticsClickHouseRepo) BatchInsertEvents(ctx context.Context, eve
 
 	// Add rows to batch
 	for _, event := range events {
+		// Convert *uuid.UUID to interface{} properly for ClickHouse Nullable columns
+		// nil pointer needs to become nil interface, non-nil needs to be dereferenced
+		var userID interface{}
+		if event.UserID != nil {
+			userID = *event.UserID
+		}
+		var groupID interface{}
+		if event.GroupID != nil {
+			groupID = *event.GroupID
+		}
+		var ownerID interface{}
+		if event.OwnerID != nil {
+			ownerID = *event.OwnerID
+		}
+		var studioID interface{}
+		if event.StudioID != nil {
+			studioID = *event.StudioID
+		}
+
 		err := batch.Append(
 			event.EventTime,
 			event.MediaType,
 			event.MediaID,
 			event.UnitID,
-			event.UserID,
+			userID,
 			event.IPAddress,
 			event.ViewCount,
 			event.AuthorIDs,
 			event.GenreIDs,
 			event.ArtistIDs,
 			event.TagIDs,
-			event.GroupID,
-			event.OwnerID,
-			event.StudioID,
+			groupID,
+			ownerID,
+			event.OwnerType,
+			studioID,
 			event.OriginalLanguage,
 			event.Platform,
 			event.OS,
@@ -671,6 +691,184 @@ func (r *viewAnalyticsClickHouseRepo) GetTopOrgsByViews(ctx context.Context, per
 		if err := rows.Scan(&s.OrgID, &s.TotalViews, &s.UniqueUsers); err != nil {
 			return nil, fmt.Errorf("failed to scan org view stat: %w", err)
 		}
+		stats = append(stats, s)
+	}
+
+	return stats, nil
+}
+
+// CreateRankSnapshot tạo snapshot xếp hạng cho một loại entity và kỳ cụ thể.
+// Method này tổng hợp view counts và insert vào bảng rank_snapshots.
+func (r *viewAnalyticsClickHouseRepo) CreateRankSnapshot(ctx context.Context, snapshotDate time.Time, period string, entityType string, limit int) error {
+	// Xác định khoảng thời gian dựa trên snapshotDate và period
+	var startDate, endDate time.Time
+	startDate = snapshotDate
+
+	switch period {
+	case "week":
+		endDate = startDate.AddDate(0, 0, 7)
+	case "month":
+		endDate = startDate.AddDate(0, 1, 0)
+	case "year":
+		endDate = startDate.AddDate(1, 0, 0)
+	default:
+		return fmt.Errorf("invalid period: %s", period)
+	}
+
+	// Chuyển đổi mediaType cho query nếu cần
+	// entityType: "genre", "creator", "org", "novel", "manga", "anime"
+	var mediaTypeCondition string
+	var groupByField string
+	var arrayJoinClause string
+	// table view_events có media_type Enum('novel'=1, 'manga'=2, 'anime'=3)
+
+	switch entityType {
+	case "novel":
+		mediaTypeCondition = "media_type = 'novel'"
+		groupByField = "media_id"
+	case "manga":
+		mediaTypeCondition = "media_type = 'manga'"
+		groupByField = "media_id"
+	case "anime":
+		mediaTypeCondition = "media_type = 'anime'"
+		groupByField = "media_id"
+	case "genre":
+		mediaTypeCondition = "1=1" // All types
+		groupByField = "genre_id"
+		arrayJoinClause = "ARRAY JOIN genre_ids AS genre_id"
+	case "creator":
+		// Cần join/check owner_type = 'user'
+		// Hiện tại view_events chưa có owner_id trực tiếp mà phải lấy từ metadata hoặc join
+		// Assume view_events có cột user_id nhưng đó là viewer.
+		// Trong cấu trúc ViewEvent struct có OwnerID và OwnerType, nhưng trong SQL Create table migrate (step 13)
+		// tôi không thấy cột OwnerID/OwnerType trong bảng view_events!
+		// Cần check lại schema thực tế trong DB hoặc migration step 13.
+		// Migration 000001_create_view_events.sql chỉ có: event_time, media_type, media_id, unit_id, user_id, ip_address, view_count
+		// Như vậy không thể group by Creator (OwnerID) trực tiếp từ view_events nếu không có cột đó.
+		// TODO: Cần update schema view_events hoặc join với bảng novels/manga/... (nhưng ClickHouse join Postgres là phức tạp).
+		// Tạm thời return error not implemented cho creator/org nếu schema chưa support.
+		return fmt.Errorf("entity type %s not supported with current schema", entityType)
+	case "org":
+		return fmt.Errorf("entity type %s not supported with current schema", entityType)
+	default:
+		return fmt.Errorf("invalid entity type: %s", entityType)
+	}
+
+	// Query aggregate views
+	// Lưu ý: rowNumberInAllBlocks() có thể không chính xác hoàn toàn trong distributed query nhưng ổn cho single node
+	query := fmt.Sprintf(`
+		INSERT INTO rank_snapshots (snapshot_date, period_type, entity_type, entity_id, rank, total_views, unique_users)
+		SELECT
+			? AS snapshot_date,
+			? AS period_type,
+			? AS entity_type,
+			%s AS entity_id,
+			rowNumberInAllBlocks() + 1 AS rank,
+			sum(view_count) as total_views,
+			uniqExact(if(user_id IS NOT NULL, toString(user_id), ip_address)) as unique_users
+		FROM view_events
+		%s 
+		WHERE toDate(event_time) >= ? AND toDate(event_time) < ? AND %s
+		GROUP BY %s
+		ORDER BY total_views DESC
+		LIMIT ?
+	`, groupByField, arrayJoinClause, mediaTypeCondition, groupByField)
+
+	if err := r.ch.Conn.Exec(ctx, query,
+		startDate,
+		period,
+		entityType,
+		startDate,
+		endDate,
+		limit,
+	); err != nil {
+		return fmt.Errorf("failed to create rank snapshot: %w", err)
+	}
+
+	return nil
+}
+
+// GetRankWithComparison lấy danh sách top entities kèm so sánh thứ hạng với kỳ trước.
+func (r *viewAnalyticsClickHouseRepo) GetRankWithComparison(ctx context.Context, period string, entityType string, limit int) ([]domain.RankStat, error) {
+	// Tính toán snapshot date hiện tại và kỳ trước
+	now := time.Now()
+	var currentSnapshotDate, prevSnapshotDate time.Time
+
+	// Logic xác định snapshot date (đầu kỳ)
+	switch period {
+	case "week":
+		// Tuần hiện tại (bắt đầu từ Thứ 2)
+		weekday := int(now.Weekday())
+		if weekday == 0 {
+			weekday = 7
+		}
+		currentSnapshotDate = time.Date(now.Year(), now.Month(), now.Day()-weekday+1, 0, 0, 0, 0, now.Location())
+		prevSnapshotDate = currentSnapshotDate.AddDate(0, 0, -7)
+	case "month":
+		currentSnapshotDate = time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location())
+		prevSnapshotDate = currentSnapshotDate.AddDate(0, -1, 0)
+	case "year":
+		currentSnapshotDate = time.Date(now.Year(), 1, 1, 0, 0, 0, 0, now.Location())
+		prevSnapshotDate = time.Date(now.Year()-1, 1, 1, 0, 0, 0, 0, now.Location())
+	default:
+		return nil, fmt.Errorf("invalid period: %s", period)
+	}
+
+	// Query join current snapshot với previous snapshot
+	// Sử dụng LEFT JOIN để tìm items mới (không có trong prev)
+	query := `
+		SELECT
+			c.entity_id,
+			c.total_views,
+			c.unique_users,
+			c.rank AS current_rank,
+			p.rank AS previous_rank
+		FROM rank_snapshots c
+		LEFT JOIN rank_snapshots p ON c.entity_id = p.entity_id 
+			AND p.period_type = c.period_type 
+			AND p.entity_type = c.entity_type
+			AND p.snapshot_date = ?
+		WHERE c.period_type = ? 
+			AND c.entity_type = ? 
+			AND c.snapshot_date = ?
+		ORDER BY c.rank ASC
+		LIMIT ?
+	`
+
+	rows, err := r.ch.Conn.Query(ctx, query,
+		prevSnapshotDate,
+		period,
+		entityType,
+		currentSnapshotDate,
+		limit,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query rank comparison: %w", err)
+	}
+	defer rows.Close()
+
+	var stats []domain.RankStat
+	for rows.Next() {
+		var s domain.RankStat
+		var prevRankNull *uint32 // ClickHouse Nullable(UInt32) scans to *uint32 or similar
+
+		s.EntityType = entityType
+		if err := rows.Scan(&s.EntityID, &s.TotalViews, &s.UniqueUsers, &s.CurrentRank, &prevRankNull); err != nil {
+			return nil, fmt.Errorf("failed to scan rank stat: %w", err)
+		}
+
+		// Xử lý PreviousRank và RankChange
+		if prevRankNull != nil {
+			prevVal := int(*prevRankNull)
+			s.PreviousRank = &prevVal
+			change := prevVal - s.CurrentRank
+			s.RankChange = &change
+		} else {
+			// New entry
+			s.PreviousRank = nil
+			s.RankChange = nil
+		}
+
 		stats = append(stats, s)
 	}
 

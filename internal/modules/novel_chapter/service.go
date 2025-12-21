@@ -492,11 +492,6 @@ func (s *chapterServiceImpl) GetScheduledChapters(ctx context.Context, before ti
 	return s.chapterRepo.GetScheduledChapters(ctx, before)
 }
 
-// IncrementViewCount increments the view count of a chapter
-func (s *chapterServiceImpl) IncrementViewCount(ctx context.Context, id uuid.UUID) error {
-	return s.chapterRepo.IncrementViewCount(ctx, id)
-}
-
 // UpdateStatistics updates chapter statistics
 func (s *chapterServiceImpl) UpdateStatistics(ctx context.Context, id uuid.UUID, stats domain.NovelChapterStatistics) error {
 	// Check if chapter exists

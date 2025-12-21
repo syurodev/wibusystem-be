@@ -154,6 +154,10 @@ func NewDependencies(
 	embeddingWorker := worker.NewEmbeddingWorker(services.Embedding, services.Novel, zapLogger, &cfg.Embedding)
 	embeddingWorker.Start(context.Background())
 
+	// Start Rank Snapshot Worker
+	rankSnapshotWorker := worker.NewRankSnapshotWorker(repos.ViewAnalytics, zapLogger)
+	rankSnapshotWorker.Start()
+
 	// --- Transaction Manager for Use Cases ---
 	txManager := txdb.NewTransactionManager(db.Pool)
 
@@ -487,7 +491,6 @@ func newHandlers(
 			listVolumeUC := novel_chapter.NewListChaptersByVolumeUseCase(services.Chapter)
 			pubUC := novel_chapter.NewPublishChapterUseCase(services.Chapter)
 			schedUC := novel_chapter.NewScheduleChapterUseCase(services.Chapter)
-			viewUC := novel_chapter.NewIncrementViewCountUseCase(services.Chapter)
 			statsUC := novel_chapter.NewUpdateStatisticsUseCase(services.Chapter)
 
 			return novel_chapter.NewHandler(
@@ -495,7 +498,7 @@ func newHandlers(
 				createUC, updateUC, deleteUC, getUC,
 				listNovelUC, listVolumeUC,
 				pubUC, schedUC,
-				viewUC, statsUC,
+				services.ViewTracking, statsUC,
 			)
 		}(),
 		User:        user_module.NewHandler(services.User),

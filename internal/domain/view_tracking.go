@@ -1,3 +1,73 @@
+/*
+View Tracking System - Architecture Flow
+=========================================
+
+Hệ thống view tracking được thiết kế theo kiến trúc event-driven với 3 layers chính:
+
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                              API LAYER                                          │
+│  User Request → TrackChapterView() → Dedup Check → Buffer Increment → Enqueue  │
+└─────────────────────────────────────────────────────────────────────────────────┘
+                                         │
+                                         ▼
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                           REDIS LAYER (Buffer)                                  │
+│                                                                                 │
+│  ┌──────────────────┐  ┌──────────────────┐  ┌──────────────────┐              │
+│  │ Dedup Keys       │  │ View Buffers     │  │ Event Queue      │              │
+│  │ (TTL: 1 hour)    │  │ (Hash: count)    │  │ (List: JSON)     │              │
+│  └──────────────────┘  └──────────────────┘  └──────────────────┘              │
+└─────────────────────────────────────────────────────────────────────────────────┘
+                                         │
+                          ViewSyncWorker (Background, định kỳ)
+                                         │
+                        ┌────────────────┴────────────────┐
+                        ▼                                 ▼
+┌────────────────────────────────┐     ┌────────────────────────────────────────┐
+│       POSTGRESQL               │     │           CLICKHOUSE                   │
+│  (view_count updates)          │     │  (Analytics events)                    │
+│                                │     │                                        │
+│  novels.view_count += N        │     │  view_events table                     │
+│  chapters.view_count += N      │     │  → trending queries                    │
+│                                │     │  → genre stats                         │
+│                                │     │  → creator stats                       │
+└────────────────────────────────┘     └────────────────────────────────────────┘
+
+FLOW CHI TIẾT:
+==============
+
+1. TRACKING FLOW (Real-time):
+   a. API nhận request view chapter
+   b. CheckDeduplication() - kiểm tra user/IP đã view gần đây chưa (Redis EXISTS)
+   c. Nếu duplicate → skip, return false
+   d. Nếu unique:
+      - RecordDeduplication() - đánh dấu đã view (Redis SETNX với TTL)
+      - IncrementBuffer() - tăng counter trong Redis (HINCRBY)
+      - EnqueueEvent() - đẩy ViewEvent vào queue (RPUSH)
+   e. Return true
+
+2. SYNC FLOW (Background Worker - mỗi N phút):
+   a. GetAllBuffers() - lấy tất cả buffered counts từ Redis (atomic read + clear)
+   b. Batch update PostgreSQL (novels.view_count, chapters.view_count)
+   c. DequeueEvents() - lấy batch events từ queue (LPOP)
+   d. BatchInsertEvents() - insert vào ClickHouse
+
+3. ANALYTICS FLOW (On-demand queries):
+   - GetTopTrending() - top trending content
+   - GetGenreActiveReaders() - active readers per genre
+   - GetCreatorViewStats() - creator statistics
+   - GetTopGenresByViews() - top genres by view count
+   - GetTopCreatorsByViews() / GetTopOrgsByViews() - leaderboards
+
+DESIGN DECISIONS:
+=================
+- Redis buffer: Tránh write amplification trực tiếp vào PostgreSQL
+- Deduplication: Tránh spam views từ cùng user/IP
+- Event queue: Decouple tracking với analytics storage
+- ClickHouse: Optimized cho time-series analytics
+- Dual storage: PostgreSQL cho display count, ClickHouse cho analytics
+*/
+
 package domain
 
 import (
@@ -148,19 +218,57 @@ type ViewTrackingRepository interface {
 	DequeueActivities(ctx context.Context, batchSize int) ([]*ContentActivity, error)
 }
 
+// RankStat đại diện cho ranking với so sánh với kỳ trước
+type RankStat struct {
+	EntityID     uuid.UUID
+	EntityType   string // "genre", "creator", "org", "novel", "manga", "anime"
+	TotalViews   int64
+	UniqueUsers  int64
+	CurrentRank  int
+	PreviousRank *int // nil = mục mới
+	RankChange   *int // dương = tăng, âm = giảm, 0 = không đổi, nil = mục mới
+}
+
 // ViewAnalyticsRepository định nghĩa interface cho ClickHouse analytics operations.
 // Repository này xử lý batch insert events và analytics queries.
 type ViewAnalyticsRepository interface {
-	// BatchInsertEvents inserts multiple view events vào ClickHouse.
-	// Sử dụng ClickHouse batch API để tối ưu performance.
+	// BatchInsertEvents inserts nhiều view events vào ClickHouse.
+	// Sử dụng ClickHouse batch API để tối ưu hiệu năng.
 	//
 	// Parameters:
 	//   - ctx: Context
-	//   - events: List events cần insert
+	//   - events: Danh sách events cần insert
 	//
 	// Returns:
 	//   - error: Lỗi nếu có
 	BatchInsertEvents(ctx context.Context, events []*ViewEvent) error
+
+	// CreateRankSnapshot tạo snapshot xếp hạng cho một loại entity và kỳ cụ thể.
+	// Method này tổng hợp view counts và lưu vào bảng rank_snapshots.
+	//
+	// Parameters:
+	//   - ctx: Context
+	//   - snapshotDate: Ngày snapshot
+	//   - period: "week", "month", "year"
+	//   - entityType: "genre", "creator", "org", "novel", "manga", "anime"
+	//   - limit: Số lượng top items cần lưu
+	//
+	// Returns:
+	//   - error: Lỗi nếu có
+	CreateRankSnapshot(ctx context.Context, snapshotDate time.Time, period string, entityType string, limit int) error
+
+	// GetRankWithComparison lấy danh sách top entities kèm so sánh thứ hạng với kỳ trước.
+	//
+	// Parameters:
+	//   - ctx: Context
+	//   - period: "week", "month", "year"
+	//   - entityType: "genre", "creator", "org", "novel", "manga", "anime"
+	//   - limit: Số lượng items cần trả về
+	//
+	// Returns:
+	//   - []RankStat: Danh sách xếp hạng kèm so sánh
+	//   - error: Lỗi nếu có
+	GetRankWithComparison(ctx context.Context, period string, entityType string, limit int) ([]RankStat, error)
 
 	// GetViewStats retrieves aggregated view statistics cho một entity trong time range.
 	// Query này aggregate data từ ClickHouse để provide analytics.
@@ -307,21 +415,21 @@ type CreatorViewStats struct {
 // GenreViewStat represents aggregated view stats for a genre
 type GenreViewStat struct {
 	GenreID     uuid.UUID
-	TotalViews  int64
-	UniqueUsers int64
+	TotalViews  uint64
+	UniqueUsers uint64
 }
 
 // CreatorViewStat represents aggregated view stats for a creator (owner_type = 'user')
 type CreatorViewStat struct {
 	CreatorID   uuid.UUID
-	TotalViews  int64
-	UniqueUsers int64
+	TotalViews  uint64
+	UniqueUsers uint64
 }
 
 // OrgViewStat represents aggregated view stats for an organization (owner_type = 'org')
 type OrgViewStat struct {
 	OrgID       uuid.UUID
-	TotalViews  int64
-	UniqueUsers int64
+	TotalViews  uint64
+	UniqueUsers uint64
 }
 

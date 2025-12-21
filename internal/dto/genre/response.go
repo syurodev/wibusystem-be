@@ -20,6 +20,11 @@ type GenreResponse struct {
 	Description   *string `json:"description,omitempty"`
 	CreatedAt     string  `json:"created_at"`
 	UpdatedAt     string  `json:"updated_at"`
+
+	// Rank Comparison (Optional)
+	CurrentRank  *int `json:"current_rank,omitempty"`
+	PreviousRank *int `json:"previous_rank,omitempty"`
+	RankChange   *int `json:"rank_change,omitempty"`
 }
 
 // GenreDetailResponse là DTO chi tiết cho genre

@@ -35,6 +35,11 @@ type MediaSeriesResponse struct {
 	// Timestamps
 	CreatedAt string `json:"created_at"`
 	UpdatedAt string `json:"updated_at"`
+
+	// Rank Comparison (Optional)
+	CurrentRank  *int `json:"current_rank,omitempty"`
+	PreviousRank *int `json:"previous_rank,omitempty"`
+	RankChange   *int `json:"rank_change,omitempty"`
 }
 
 type GenreInfo struct {

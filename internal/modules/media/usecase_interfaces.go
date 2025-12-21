@@ -10,6 +10,7 @@ type GetTrendingInput struct {
 	MediaType string
 	Range     string
 	Limit     int
+	IncludeRankChange bool
 }
 
 type GetTrendingUseCase interface {

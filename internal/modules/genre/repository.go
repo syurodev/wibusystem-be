@@ -528,7 +528,13 @@ func (r *genreRepository) GetGenresByNovelIDs(ctx context.Context, novelIDs []uu
 		return nil, nil
 	}
 
-	rows, err := r.pool.Query(ctx, getGenresByNovelIDsQuery, novelIDs)
+	// Convert UUIDs to strings for pgx array compatibility
+	novelIDStrings := make([]string, len(novelIDs))
+	for i, id := range novelIDs {
+		novelIDStrings[i] = id.String()
+	}
+
+	rows, err := r.pool.Query(ctx, getGenresByNovelIDsQuery, novelIDStrings)
 	if err != nil {
 		return nil, err
 	}

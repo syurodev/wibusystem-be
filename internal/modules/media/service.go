@@ -288,6 +288,82 @@ func getValue(s *string) string {
 	return *s
 }
 
+// GetTopMediaWithRankComparison retrieves top media with rank comparison
+func (s *mediaServiceImpl) GetTopMediaWithRankComparison(ctx context.Context, mediaType string, period string, limit int) ([]mediadto.MediaSeriesResponse, error) {
+	// Call analytics service
+	// Note: AnalyticsService.GetTopMediaWithRankComparison signature is (ctx, period, mediaType, limit)
+	results, err := s.analyticsService.GetTopMediaWithRankComparison(ctx, period, mediaType, limit)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get top media with rank: %w", err)
+	}
+
+	// Map to MediaSeriesResponse
+	responses := make([]mediadto.MediaSeriesResponse, len(results))
+	for i, r := range results {
+		// Basic mapping
+		resp := mediadto.MediaSeriesResponse{
+			ID:    r.ID.String(),
+			Title: r.Title,
+			Slug:  r.Slug,
+			Type:  r.Type,
+			Views: r.Stats.TotalViews,
+			// Rating: not available in RankStat, defaulting to 0
+			// Status: not available, defaulting to ""
+			// CreatedAt: not available
+		}
+
+		if r.Cover != "" {
+			resp.CoverURL = &r.Cover
+		}
+
+		// Rank info
+		currentRank := r.Stats.CurrentRank
+		resp.CurrentRank = &currentRank
+		
+		if r.Stats.PreviousRank != nil {
+			pr := *r.Stats.PreviousRank
+			resp.PreviousRank = &pr
+		}
+		
+		if r.Stats.RankChange != nil {
+			rc := *r.Stats.RankChange
+			resp.RankChange = &rc
+		}
+		
+		// Authors
+		creators := make([]mediadto.CreatorInfo, 0)
+		for _, a := range r.Authors {
+			creators = append(creators, mediadto.CreatorInfo{
+				ID:   a.ID.String(),
+				Name: a.Name,
+				Slug: a.Slug,
+			})
+		}
+		// MediaSeriesResponse doesn't have "Creators" field directly?
+		// check struct: it has "Owner" and "Genres" but not "Authors"/"Creators"?
+		// Wait, response.go line 7 says "MediaSeriesResponse".
+		// I viewed response.go recently. It has:
+		// Genres []GenreInfo `json:"genres"`
+		// Owner  OwnerInfo   `json:"owner"`
+		// It DOES NOT have "Creators" or "Authors". 
+		// It matches schema for "unified response".
+		// Maybe it uses "Owner" for single author? Or maybe "Creators" is missing from unified response?
+		// I should check response.go content again if I missed something.
+		// Ah, response.go content was viewed. It does NOT have Authors.
+		// But in handler.go GetHomeData (lines 122), it constructs a separate `map[string]any` for creators list.
+		// For `GetTrending`, it returns `[]mediadto.MediaSeriesResponse`.
+		// Data from `AnalyticsService.GetTopTrending` returns `[]map[string]any` which is marshalled/unmarshalled.
+		// This suggests `GetTopTrending` returns a generic map structure that matches `MediaSeriesResponse` JSON fields.
+		
+		// If I want to return valid `MediaSeriesResponse`, I should populate what I can.
+		// Ranking info is the priority.
+		
+		responses[i] = resp
+	}
+
+	return responses, nil
+}
+
 // getTimeValue safely gets string formatted time from pointer
 func getTimeValue(t *time.Time) string {
 	if t == nil {

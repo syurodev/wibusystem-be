@@ -723,6 +723,44 @@ func (h *Handler) GetTopOrgsByViews(c *gin.Context) {
 		limit = l
 	}
 
+	// Call analytics service
+	includeRankChange := c.Query("include_rank_change") == "true"
+	if includeRankChange {
+		orgsWithRank, err := h.analyticsSvc.GetTopOrgsWithRankComparison(c.Request.Context(), period, limit)
+		if err != nil {
+			h.logger.Error("Failed to get top orgs with rank", zap.Error(err))
+			response.Error(c, http.StatusInternalServerError, "GET_TOP_ORGS_ERROR", I18nListFailed, nil)
+			return
+		}
+
+		orgResponses := make([]orgdto.OrganizationResponse, len(orgsWithRank))
+		for i, owr := range orgsWithRank {
+			org := owr.Organization
+			resp := mapToOrganizationResponse(org)
+			
+			// Use pointers for optional fields
+			currentRank := owr.Stats.CurrentRank
+			var prevRank *int
+			if owr.Stats.PreviousRank != nil {
+				pr := *owr.Stats.PreviousRank
+				prevRank = &pr
+			}
+			var rankChange *int
+			if owr.Stats.RankChange != nil {
+				rc := *owr.Stats.RankChange
+				rankChange = &rc
+			}
+
+			resp.CurrentRank = &currentRank
+			resp.PreviousRank = prevRank
+			resp.RankChange = rankChange
+
+			orgResponses[i] = resp
+		}
+		response.Success(c, http.StatusOK, I18nListSuccess, orgResponses, nil)
+		return
+	}
+
 	orgs, err := h.analyticsSvc.GetTopOrgsByViews(c.Request.Context(), period, offset, limit)
 	if err != nil {
 		h.logger.Error("Failed to get top orgs by views", zap.Error(err))

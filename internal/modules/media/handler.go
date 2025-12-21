@@ -46,12 +46,15 @@ func (h *Handler) GetTrending(c *gin.Context) {
 			limit = l
 		}
 	}
+	
+	includeRankChange := c.Query("include_rank_change") == "true"
 
 	// Call UseCase
 	results, err := h.getTrendingUC.Execute(c.Request.Context(), GetTrendingInput{
-		MediaType: mediaType,
-		Range:     timeRange,
-		Limit:     limit,
+		MediaType:         mediaType,
+		Range:             timeRange,
+		Limit:             limit,
+		IncludeRankChange: includeRankChange,
 	})
 	if err != nil {
 		// Since logic is moved to usecase, we can't distinguish serialization error easily unless we wrap errors,

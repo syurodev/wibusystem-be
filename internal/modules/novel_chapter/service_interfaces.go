@@ -73,13 +73,18 @@ type ChapterService interface {
 	// GetScheduledChapters retrieves chapters scheduled for publication
 	GetScheduledChapters(ctx context.Context, before time.Time) ([]*domain.NovelChapter, error)
 
-	// IncrementViewCount increments the view count of a chapter
-	IncrementViewCount(ctx context.Context, id uuid.UUID) error
-
 	// UpdateStatistics updates chapter statistics
 	// UpdateStatistics updates chapter statistics
 	UpdateStatistics(ctx context.Context, id uuid.UUID, stats domain.NovelChapterStatistics) error
 
 	// GetRecentChapters retrieves recently published chapters
 	GetRecentChapters(ctx context.Context, limit int) ([]*domain.NovelChapterSummary, error)
+}
+
+// ViewTracker interface defines view tracking operations
+// This is used to break import cycle between novel_chapter and analytics packages
+type ViewTracker interface {
+	// TrackChapterView tracks a chapter view with deduplication
+	// Returns true if view was counted, false if duplicate
+	TrackChapterView(ctx context.Context, chapterID uuid.UUID, userID *uuid.UUID, ipAddress string) (bool, error)
 }

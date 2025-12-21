@@ -13,7 +13,7 @@ import (
 	"system/internal/app/middleware"
 	"system/internal/domain"
 	noveldto "system/internal/dto/novel"
-	novel_chapter "system/internal/modules/novel_chapter"
+	"system/internal/modules/novel_chapter"
 	novel_volume "system/internal/modules/novel_volume"
 	pkgerrors "system/pkg/errors"
 	"system/pkg/util/response"

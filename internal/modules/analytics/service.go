@@ -435,8 +435,8 @@ func (s *analyticsServiceImpl) GetTopGenresByViews(ctx context.Context, period s
 			continue
 		}
 		// Override TotalViews with the time-range views from ClickHouse
-		genre.TotalViews = stat.TotalViews
-		genre.ActiveReaders = stat.UniqueUsers
+		genre.TotalViews = int64(stat.TotalViews)
+		genre.ActiveReaders = int64(stat.UniqueUsers)
 		genres = append(genres, genre)
 	}
 
@@ -543,6 +543,142 @@ func (s *analyticsServiceImpl) GetTopOrgsByViews(ctx context.Context, period str
 	}
 
 	return orgs, nil
+}
+
+// GetTopGenresWithRankComparison retrieves top genres with rank comparison
+func (s *analyticsServiceImpl) GetTopGenresWithRankComparison(ctx context.Context, period string, limit int) ([]GenreRankResponse, error) {
+	stats, err := s.viewAnalyticsRepo.GetRankWithComparison(ctx, period, "genre", limit)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get genre rank stats: %w", err)
+	}
+
+	results := make([]GenreRankResponse, 0, len(stats))
+	for _, stat := range stats {
+		genre, err := s.genreRepo.GetByID(ctx, stat.EntityID)
+		if err != nil {
+			s.logger.Warn("Failed to hydrate genre for rank", zap.String("id", stat.EntityID.String()), zap.Error(err))
+			continue
+		}
+		// Hydrate stats into genre object
+		genre.TotalViews = stat.TotalViews
+		genre.ActiveReaders = stat.UniqueUsers
+		
+		results = append(results, GenreRankResponse{
+			Genre: genre,
+			Stats: stat,
+		})
+	}
+	return results, nil
+}
+
+// GetTopCreatorsWithRankComparison retrieves top creators with rank comparison
+func (s *analyticsServiceImpl) GetTopCreatorsWithRankComparison(ctx context.Context, period string, limit int) ([]CreatorRankResponse, error) {
+	stats, err := s.viewAnalyticsRepo.GetRankWithComparison(ctx, period, "creator", limit)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get creator rank stats: %w", err)
+	}
+
+	results := make([]CreatorRankResponse, 0, len(stats))
+	for _, stat := range stats {
+		user, err := s.userRepo.GetByID(ctx, stat.EntityID)
+		if err != nil {
+			s.logger.Warn("Failed to hydrate creator for rank", zap.String("id", stat.EntityID.String()), zap.Error(err))
+			continue
+		}
+		
+		results = append(results, CreatorRankResponse{
+			User:  user,
+			Stats: stat,
+		})
+	}
+	return results, nil
+}
+
+// GetTopOrgsWithRankComparison retrieves top orgs with rank comparison
+func (s *analyticsServiceImpl) GetTopOrgsWithRankComparison(ctx context.Context, period string, limit int) ([]OrgRankResponse, error) {
+	stats, err := s.viewAnalyticsRepo.GetRankWithComparison(ctx, period, "org", limit)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get org rank stats: %w", err)
+	}
+
+	results := make([]OrgRankResponse, 0, len(stats))
+	for _, stat := range stats {
+		org, err := s.orgRepo.GetByID(ctx, stat.EntityID)
+		if err != nil {
+			s.logger.Warn("Failed to hydrate org for rank", zap.String("id", stat.EntityID.String()), zap.Error(err))
+			continue
+		}
+
+		results = append(results, OrgRankResponse{
+			Organization: org,
+			Stats:        stat,
+		})
+	}
+	return results, nil
+}
+
+// GetTopMediaWithRankComparison retrieves top media (novel/manga/anime) with rank comparison
+func (s *analyticsServiceImpl) GetTopMediaWithRankComparison(ctx context.Context, period string, mediaType string, limit int) ([]MediaRankResponse, error) {
+	// Validate mediaType
+	if mediaType != "novel" && mediaType != "manga" && mediaType != "anime" {
+		return nil, fmt.Errorf("invalid media type: %s", mediaType)
+	}
+
+	stats, err := s.viewAnalyticsRepo.GetRankWithComparison(ctx, period, mediaType, limit)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get media rank stats: %w", err)
+	}
+
+	results := make([]MediaRankResponse, 0, len(stats))
+	
+	// Hydrate based on type
+	// Currently only Novel hydration is supported
+	if mediaType == "novel" {
+		for _, stat := range stats {
+			novel, err := s.novelService.GetNovelByID(ctx, stat.EntityID)
+			if err != nil {
+				s.logger.Warn("Failed to hydrate novel for rank", zap.String("id", stat.EntityID.String()), zap.Error(err))
+				continue
+			}
+
+			// Map details
+			authors := make([]*domain.Author, 0, len(novel.Authors))
+			for _, na := range novel.Authors {
+				if na.Author != nil {
+					authors = append(authors, na.Author)
+				}
+			}
+
+			resp := MediaRankResponse{
+				ID:    novel.ID,
+				Title: novel.Title,
+				Slug:  novel.Slug,
+				Type:  "novel",
+				Stats: stat,
+				Authors: authors,
+			}
+			if novel.CoverImageURL != nil {
+				resp.Cover = *novel.CoverImageURL
+			}
+			
+			results = append(results, resp)
+		}
+	} else {
+		// For others, return basic info if possible or empty details with stats
+		// Since we can't hydrate, we might just return stats with empty details?
+		// Or skip?
+		// Better to return what we have (ID and rank)
+		for _, stat := range stats {
+			results = append(results, MediaRankResponse{
+				ID:    stat.EntityID,
+				Type:  mediaType,
+				Stats: stat,
+				Title: "Unknown (Hydration not implemented)",
+			})
+		}
+	}
+
+	return results, nil
 }
 
 

@@ -40,6 +40,11 @@ type CreatorResponse struct {
 	PopularWorkID        *string `json:"popular_work_id,omitempty"`
 	PopularWorkTitle     *string `json:"popular_work_title,omitempty"`
 	PopularWorkCoverURL  *string `json:"popular_work_cover_url,omitempty"`
+	
+	// Rank Comparison (Optional)
+	CurrentRank  *int `json:"current_rank,omitempty"`
+	PreviousRank *int `json:"previous_rank,omitempty"`
+	RankChange   *int `json:"rank_change,omitempty"`
 }
 
 // PaginationResponse represents pagination metadata
@@ -214,6 +219,51 @@ func (h *Handler) GetTopCreatorsByViews(c *gin.Context) {
 	limit := 10
 	if l, err := strconv.Atoi(limitStr); err == nil && l > 0 && l <= 100 {
 		limit = l
+	}
+
+	includeRankChange := c.Query("include_rank_change") == "true"
+	if includeRankChange {
+		usersWithRank, err := h.analyticsSvc.GetTopCreatorsWithRankComparison(c.Request.Context(), period, limit)
+		if err != nil {
+			response.Error(c, http.StatusInternalServerError, "GET_TOP_CREATORS_ERROR", I18nCreatorListFailed, nil)
+			return
+		}
+
+		creators := make([]CreatorResponse, len(usersWithRank))
+		for i, uwr := range usersWithRank {
+			u := uwr.User
+			
+			// Use pointers for optional fields
+			currentRank := uwr.Stats.CurrentRank
+			var prevRank *int
+			if uwr.Stats.PreviousRank != nil {
+				pr := *uwr.Stats.PreviousRank
+				prevRank = &pr
+			}
+			var rankChange *int
+			if uwr.Stats.RankChange != nil {
+				rc := *uwr.Stats.RankChange
+				rankChange = &rc
+			}
+
+			creators[i] = CreatorResponse{
+				ID:          u.ID.String(),
+				DisplayName: getValue(u.DisplayName),
+				Username:    getValue(u.Username),
+				AvatarURL:   getValue(u.AvatarURL),
+				CreatedAt:   u.CreatedAt.Format(time.RFC3339),
+				UpdatedAt:   u.UpdatedAt.Format(time.RFC3339),
+				IsVerified:  u.IsVerified,
+				Bio:         u.Bio,
+				TotalViews:  uwr.Stats.TotalViews, // Use stats from rank snapshot
+				
+				CurrentRank:  &currentRank,
+				PreviousRank: prevRank,
+				RankChange:   rankChange,
+			}
+		}
+		response.Success(c, http.StatusOK, I18nCreatorListSuccess, creators, nil)
+		return
 	}
 
 	users, err := h.analyticsSvc.GetTopCreatorsByViews(c.Request.Context(), period, offset, limit)
