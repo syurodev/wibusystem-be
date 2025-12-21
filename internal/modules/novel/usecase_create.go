@@ -51,7 +51,7 @@ func (uc *createNovelUseCase) Execute(ctx context.Context, input CreateNovelInpu
 	if input.Title == "" {
 		return nil, pkgerrors.BadRequest(I18nInvalidInput, "title is required")
 	}
-	if !isValidNovelStatus(input.Status) {
+	if !domain.NovelStatus(input.Status).IsValid() {
 		return nil, pkgerrors.BadRequest(I18nInvalidStatus, "invalid novel status")
 	}
 

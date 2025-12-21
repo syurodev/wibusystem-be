@@ -1,3 +1,30 @@
+// ============================================================================
+// Novel Service
+// ============================================================================
+//
+// Service này cung cấp business logic cho Novel module.
+// Novel là cấp cao nhất trong cấu trúc phân cấp: Novel > Volume > Chapter.
+//
+// CRUD Operations:
+//   - CreateNovel: Tạo novel mới với relations (genres, authors, artists)
+//   - UpdateNovel: Cập nhật thông tin novel
+//   - DeleteNovel: Soft delete novel và update related stats
+//   - GetNovelByID/GetNovelBySlug: Lấy chi tiết novel
+//
+// List Operations:
+//   - ListNovels: List với filter, search, sort, pagination
+//   - GetNovelsByIDs: Batch get novels theo list IDs
+//
+// Relations:
+//   - GetNovelGenres/Authors/Artists: Lấy IDs của relations
+//   - GetNovelGenresDetails/AuthorsDetails/ArtistsDetails: Lấy chi tiết relations
+//
+// Advanced:
+//   - GetNovelFull: Lấy toàn bộ data (novel + volumes + chapters) cho detail page
+//   - IncrementViewCount: Tăng view count
+//
+// ============================================================================
+
 package novel
 
 import (
@@ -14,7 +41,7 @@ import (
 	"system/pkg/util/stringutil"
 )
 
-// NovelService cung cấp business logic cho novels
+// novelServiceImpl implements NovelService interface
 type novelServiceImpl struct {
 	novelRepo  domain.NovelRepository
 	volumeRepo domain.NovelVolumeRepository
@@ -66,7 +93,7 @@ func (s *novelServiceImpl) CreateNovel(
 		return nil, pkgerrors.BadRequest(I18nInvalidInput, "title is required")
 	}
 
-	if status == nil || !isValidNovelStatus(*status) {
+	if status == nil || !domain.NovelStatus(*status).IsValid() {
 		return nil, pkgerrors.BadRequest(I18nInvalidStatus, "invalid novel status")
 	}
 
@@ -172,7 +199,7 @@ func (s *novelServiceImpl) UpdateNovel(ctx context.Context, id uuid.UUID, title 
 		return nil, pkgerrors.BadRequest(I18nInvalidInput, "title is required")
 	}
 
-	if status == nil || !isValidNovelStatus(*status) {
+	if status == nil || !domain.NovelStatus(*status).IsValid() {
 		return nil, pkgerrors.BadRequest(I18nInvalidStatus, "invalid novel status")
 	}
 
@@ -289,19 +316,10 @@ func (s *novelServiceImpl) ListNovels(ctx context.Context, page, limit int, owne
 		limit = 20
 	}
 
-	// Validate sortBy
-	validSortFields := map[string]string{
-		"created_at":   "created_at",
-		"rating":       "rating_average",
-		"views":        "view_count",
-		"last_chapter": "last_chapter_at",
-	}
-
-	sortField := "created_at" // default
-	if sortBy != "" {
-		if field, ok := validSortFields[sortBy]; ok {
-			sortField = field
-		}
+	// Use NovelSortField enum for type-safe sorting
+	sortField := domain.NovelSortField(sortBy)
+	if !sortField.IsValid() {
+		sortField = domain.NovelSortCreatedAt
 	}
 
 	// Validate sortOrder
@@ -319,7 +337,7 @@ func (s *novelServiceImpl) ListNovels(ctx context.Context, page, limit int, owne
 	// Convert string statuses to domain.NovelStatus slice
 	var statuses []domain.NovelStatus
 	for _, statusStr := range statusStrs {
-		if isValidNovelStatus(statusStr) {
+		if domain.NovelStatus(statusStr).IsValid() {
 			statuses = append(statuses, domain.NovelStatus(statusStr))
 		}
 	}
@@ -335,7 +353,7 @@ func (s *novelServiceImpl) ListNovels(ctx context.Context, page, limit int, owne
 		GenreIDs:         genreIDs,
 		Statuses:         statuses,
 		OriginalLanguage: origLang,
-		SortBy:           sortField,
+		SortBy:           sortField.ToDBColumn(),
 		SortOrder:        sortOrder,
 		Limit:            limit,
 		Offset:           offset,
@@ -367,17 +385,7 @@ func (s *novelServiceImpl) IncrementViewCount(ctx context.Context, id uuid.UUID)
 	return s.novelRepo.IncrementViewCount(ctx, id)
 }
 
-// Helper function to validate novel status
-func isValidNovelStatus(status string) bool {
-	validStatuses := map[string]bool{
-		"draft":     true,
-		"ongoing":   true,
-		"completed": true,
-		"hiatus":    true,
-		"dropped":   true,
-	}
-	return validStatuses[status]
-}
+
 
 // GetNovelGenres lấy danh sách genre IDs của novel
 func (s *novelServiceImpl) GetNovelGenres(ctx context.Context, novelID uuid.UUID) ([]uuid.UUID, error) {

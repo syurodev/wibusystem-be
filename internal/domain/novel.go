@@ -19,6 +19,52 @@ const (
 	NovelStatusDropped   NovelStatus = "dropped"
 )
 
+// IsValid kiểm tra xem status có hợp lệ không
+func (s NovelStatus) IsValid() bool {
+	switch s {
+	case NovelStatusDraft, NovelStatusOngoing, NovelStatusCompleted, NovelStatusHiatus, NovelStatusDropped:
+		return true
+	default:
+		return false
+	}
+}
+
+// NovelSortField định nghĩa các field hỗ trợ sắp xếp cho novel listing
+type NovelSortField string
+
+const (
+	NovelSortCreatedAt   NovelSortField = "created_at"
+	NovelSortRating      NovelSortField = "rating"
+	NovelSortViews       NovelSortField = "views"
+	NovelSortLastChapter NovelSortField = "last_chapter"
+)
+
+// ToDBColumn chuyển đổi sort field sang tên cột database
+func (s NovelSortField) ToDBColumn() string {
+	switch s {
+	case NovelSortCreatedAt:
+		return "created_at"
+	case NovelSortRating:
+		return "rating_average"
+	case NovelSortViews:
+		return "view_count"
+	case NovelSortLastChapter:
+		return "last_chapter_at"
+	default:
+		return "created_at"
+	}
+}
+
+// IsValid kiểm tra xem sort field có hợp lệ không
+func (s NovelSortField) IsValid() bool {
+	switch s {
+	case NovelSortCreatedAt, NovelSortRating, NovelSortViews, NovelSortLastChapter:
+		return true
+	default:
+		return false
+	}
+}
+
 // Novel là domain model cho tiểu thuyết trong hệ thống
 // Đây là cấp cao nhất trong cấu trúc phân cấp Novel > Volume > Chapter
 type Novel struct {
