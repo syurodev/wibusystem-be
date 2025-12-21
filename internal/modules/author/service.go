@@ -1,3 +1,30 @@
+// ============================================================================
+// Author Service
+// ============================================================================
+//
+// Service này chứa business logic cho Author module.
+//
+// CRUD Operations:
+//   - CreateAuthor: Tạo author mới với slug unique (random suffix)
+//   - UpdateAuthor: Cập nhật thông tin, regenerate slug nếu name thay đổi
+//   - DeleteAuthor: Soft delete (kiểm tra novel_count > 0 trước khi xóa)
+//   - GetAuthorByID/Slug: Lấy thông tin chi tiết author
+//   - ListAuthors: Danh sách với pagination, search, filter, sort
+//   - ListSelection: Danh sách rút gọn cho dropdown (ID + Name)
+//
+// Merge Feature:
+//   - MergeAuthors: Gộp nhiều source authors vào target author
+//   - PreviewMergeAuthors: Xem trước danh sách novels sẽ bị ảnh hưởng
+//
+// Novel Relations:
+//   - AddNovelAuthors: Thêm authors cho novel (được gọi bởi Novel module)
+//
+// Data Format:
+//   - biography: JSONB với format {"text": "..."}
+//   - social_links: JSONB với format linh hoạt
+//
+// ============================================================================
+
 package author
 
 import (
@@ -169,19 +196,8 @@ func (s *authorServiceImpl) ListAuthors(ctx context.Context, page, limit int, se
 		limit = 20
 	}
 
-	validSortFields := map[string]string{
-		"name":    "name",
-		"views":   "total_views",
-		"novels":  "novel_count",
-		"created": "created_at",
-	}
-
-	sortField := "created_at"
-	if sortBy != "" {
-		if field, ok := validSortFields[sortBy]; ok {
-			sortField = field
-		}
-	}
+	// Convert API sort field to DB column using enum
+	sortField := domain.AuthorSortField(sortBy).ToDBColumn()
 
 	if sortOrder != "asc" && sortOrder != "desc" {
 		sortOrder = "desc"

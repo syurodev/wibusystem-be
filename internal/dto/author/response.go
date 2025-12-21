@@ -40,3 +40,10 @@ type PreviewMergeAuthorResponse struct {
 	AffectedNovels []AffectedNovel `json:"affected_novels"`
 	SourceAuthors  []string        `json:"source_authors"`
 }
+
+// SelectionResponse là DTO cho dropdown selection (ID + Name)
+// Sử dụng cho các select fields khi cần chọn author
+type SelectionResponse struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+}

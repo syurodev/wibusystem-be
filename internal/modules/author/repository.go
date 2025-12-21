@@ -1,7 +1,29 @@
+// ============================================================================
+// Author Repository
+// ============================================================================
+//
+// Repository này thực hiện các thao tác database cho Author:
+//
+// Tables:
+//   - catalog.authors: Bảng chính chứa thông tin author
+//   - catalog.novel_authors: Bảng junction cho quan hệ N:N với novels
+//
+// Flow tổng quan:
+//   Handler -> UseCase -> Service -> Repository -> Database
+//
+// Merge Flow (trong một transaction):
+//   1. MergeMoveNovels: Move novels từ source authors sang target
+//   2. MergeRemoveDuplicates: Xóa các assignments trùng lặp
+//   3. MergeUpdateStats: Cập nhật novel_count và total_views của target
+//   4. MergeSoftDelete: Soft delete source authors
+//
+// ============================================================================
+
 package author
 
 import (
 	"context"
+	_ "embed"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -13,6 +35,56 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+// ============================================================================
+// Embedded SQL Queries
+// ============================================================================
+
+//go:embed queries/get_by_id.sql
+var getByIDQuery string
+
+//go:embed queries/get_by_slug.sql
+var getBySlugQuery string
+
+//go:embed queries/get_by_user_id.sql
+var getByUserIDQuery string
+
+//go:embed queries/create.sql
+var createQuery string
+
+//go:embed queries/update.sql
+var updateQuery string
+
+//go:embed queries/delete.sql
+var deleteQuery string
+
+//go:embed queries/get_novel_authors.sql
+var getNovelAuthorsQuery string
+
+//go:embed queries/add_novel_author.sql
+var addNovelAuthorQuery string
+
+//go:embed queries/remove_novel_author.sql
+var removeNovelAuthorQuery string
+
+//go:embed queries/merge_move_novels.sql
+var mergeMoveNovelsQuery string
+
+//go:embed queries/merge_remove_duplicates.sql
+var mergeRemoveDuplicatesQuery string
+
+//go:embed queries/merge_update_stats.sql
+var mergeUpdateStatsQuery string
+
+//go:embed queries/merge_soft_delete.sql
+var mergeSoftDeleteQuery string
+
+//go:embed queries/get_merge_preview.sql
+var getMergePreviewQuery string
+
+// ============================================================================
+// Repository Implementation
+// ============================================================================
+
 // authorRepository triển khai AuthorRepository sử dụng pgx
 type authorRepository struct {
 	pool *pgxpool.Pool
@@ -23,17 +95,13 @@ func NewAuthorRepository(pool *pgxpool.Pool) domain.AuthorRepository {
 	return &authorRepository{pool: pool}
 }
 
+// ============================================================================
+// Basic CRUD Operations
+// ============================================================================
+
 // GetByID lấy author từ database theo ID
 func (r *authorRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.Author, error) {
-	query := `
-		SELECT id, user_id, name, slug, biography, avatar_url, social_links,
-		       novel_count, total_chapters, total_views, follower_count,
-		       is_verified, metadata, version, created_by, updated_by, created_at, updated_at, deleted_at, deleted_by
-		FROM catalog.authors
-		WHERE id = $1 AND deleted_at IS NULL
-	`
-
-	rows, err := r.pool.Query(ctx, query, id)
+	rows, err := r.pool.Query(ctx, getByIDQuery, id)
 	if err != nil {
 		return nil, err
 	}
@@ -48,15 +116,7 @@ func (r *authorRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.A
 
 // GetBySlug lấy author từ database theo slug
 func (r *authorRepository) GetBySlug(ctx context.Context, slug string) (*domain.Author, error) {
-	query := `
-		SELECT id, user_id, name, slug, biography, avatar_url, social_links,
-		       novel_count, total_chapters, total_views, follower_count,
-		       is_verified, metadata, version, created_by, updated_by, created_at, updated_at, deleted_at, deleted_by
-		FROM catalog.authors
-		WHERE slug = $1 AND deleted_at IS NULL
-	`
-
-	rows, err := r.pool.Query(ctx, query, slug)
+	rows, err := r.pool.Query(ctx, getBySlugQuery, slug)
 	if err != nil {
 		return nil, err
 	}
@@ -71,15 +131,7 @@ func (r *authorRepository) GetBySlug(ctx context.Context, slug string) (*domain.
 
 // GetByUserID lấy author từ database theo user ID
 func (r *authorRepository) GetByUserID(ctx context.Context, userID uuid.UUID) (*domain.Author, error) {
-	query := `
-		SELECT id, user_id, name, slug, biography, avatar_url, social_links,
-		       novel_count, total_chapters, total_views, follower_count,
-		       is_verified, metadata, version, created_by, updated_by, created_at, updated_at, deleted_at, deleted_by
-		FROM catalog.authors
-		WHERE user_id = $1 AND deleted_at IS NULL
-	`
-
-	rows, err := r.pool.Query(ctx, query, userID)
+	rows, err := r.pool.Query(ctx, getByUserIDQuery, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -92,7 +144,13 @@ func (r *authorRepository) GetByUserID(ctx context.Context, userID uuid.UUID) (*
 	return &author, nil
 }
 
+// ============================================================================
+// List Operations (Dynamic Query Building)
+// ============================================================================
+
 // List lấy danh sách authors với filter
+// Query được build động do có nhiều filter options
+// Note: SortBy đã được validate ở DTO và map sang DB column ở Service layer
 func (r *authorRepository) List(ctx context.Context, filter domain.AuthorFilter) ([]*domain.Author, int64, error) {
 	var whereClauses []string
 	var args []any
@@ -100,12 +158,14 @@ func (r *authorRepository) List(ctx context.Context, filter domain.AuthorFilter)
 
 	whereClauses = append(whereClauses, "deleted_at IS NULL")
 
+	// Filter by search query (name ILIKE)
 	if filter.SearchQuery != nil && *filter.SearchQuery != "" {
 		whereClauses = append(whereClauses, fmt.Sprintf("name ILIKE $%d", argIdx))
 		args = append(args, "%"+*filter.SearchQuery+"%")
 		argIdx++
 	}
 
+	// Filter by verified status
 	if filter.IsVerified != nil {
 		whereClauses = append(whereClauses, fmt.Sprintf("is_verified = $%d", argIdx))
 		args = append(args, *filter.IsVerified)
@@ -137,7 +197,8 @@ func (r *authorRepository) List(ctx context.Context, filter domain.AuthorFilter)
 	query := fmt.Sprintf(`
 		SELECT id, user_id, name, slug, biography, avatar_url, social_links,
 		       novel_count, total_chapters, total_views, follower_count,
-		       is_verified, metadata, version, created_by, updated_by, created_at, updated_at, deleted_at, deleted_by
+		       is_verified, metadata, version, created_by, updated_by, 
+		       created_at, updated_at, deleted_at, deleted_by
 		FROM catalog.authors
 		WHERE %s
 		ORDER BY %s
@@ -160,6 +221,7 @@ func (r *authorRepository) List(ctx context.Context, filter domain.AuthorFilter)
 }
 
 // ListSelection lấy danh sách authors rút gọn (chỉ ID và Name)
+// Được sử dụng cho selection dropdowns
 func (r *authorRepository) ListSelection(ctx context.Context, offset, limit int, search string) ([]*domain.Author, int64, error) {
 	// Build WHERE clause
 	var whereClauses []string
@@ -167,7 +229,6 @@ func (r *authorRepository) ListSelection(ctx context.Context, offset, limit int,
 	argIdx := 1
 
 	whereClauses = append(whereClauses, "deleted_at IS NULL")
-	// whereClauses = append(whereClauses, "is_verified = true") // Optional: only verified authors?
 
 	// Search by name
 	if search != "" {
@@ -221,20 +282,18 @@ func (r *authorRepository) ListSelection(ctx context.Context, offset, limit int,
 	return authors, totalCount, nil
 }
 
+// ============================================================================
+// Create/Update/Delete Operations
+// ============================================================================
+
 // Create tạo author mới
 func (r *authorRepository) Create(ctx context.Context, author *domain.Author) error {
-	query := `
-		INSERT INTO catalog.authors (
-			id, user_id, name, slug, biography, avatar_url, social_links, is_verified, created_by
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-	`
-
 	// Ensure social_links is not null
 	if author.SocialLinks == nil {
 		author.SocialLinks = json.RawMessage("{}")
 	}
 
-	_, err := r.pool.Exec(ctx, query,
+	_, err := r.pool.Exec(ctx, createQuery,
 		author.ID,
 		author.UserID,
 		author.Name,
@@ -251,20 +310,7 @@ func (r *authorRepository) Create(ctx context.Context, author *domain.Author) er
 
 // Update cập nhật author
 func (r *authorRepository) Update(ctx context.Context, author *domain.Author) error {
-	query := `
-		UPDATE catalog.authors
-		SET user_id = $2,
-		    name = $3,
-		    slug = $4,
-		    biography = $5,
-		    avatar_url = $6,
-		    social_links = $7,
-		    is_verified = $8,
-		    updated_by = $9
-		WHERE id = $1 AND deleted_at IS NULL
-	`
-
-	_, err := r.pool.Exec(ctx, query,
+	_, err := r.pool.Exec(ctx, updateQuery,
 		author.ID,
 		author.UserID,
 		author.Name,
@@ -281,30 +327,17 @@ func (r *authorRepository) Update(ctx context.Context, author *domain.Author) er
 
 // Delete xóa mềm author
 func (r *authorRepository) Delete(ctx context.Context, id uuid.UUID) error {
-	query := `
-		UPDATE catalog.authors
-		SET deleted_at = NOW()
-		WHERE id = $1 AND deleted_at IS NULL
-	`
-
-	_, err := r.pool.Exec(ctx, query, id)
+	_, err := r.pool.Exec(ctx, deleteQuery, id)
 	return err
 }
 
+// ============================================================================
+// Novel-Author Relationship Operations
+// ============================================================================
+
 // GetNovelAuthors lấy danh sách authors của một novel
 func (r *authorRepository) GetNovelAuthors(ctx context.Context, novelID uuid.UUID) ([]*domain.NovelAuthor, error) {
-	query := `
-		SELECT a.id, a.user_id, a.name, a.slug, a.biography, a.avatar_url, a.social_links,
-		       a.novel_count, a.total_chapters, a.total_views, a.follower_count,
-		       a.is_verified, a.created_by, a.updated_by, a.created_at, a.updated_at, a.deleted_at, a.deleted_by,
-		       na.display_order
-		FROM catalog.authors a
-		INNER JOIN catalog.novel_authors na ON a.id = na.author_id
-		WHERE na.novel_id = $1 AND a.deleted_at IS NULL
-		ORDER BY na.display_order ASC
-	`
-
-	rows, err := r.pool.Query(ctx, query, novelID)
+	rows, err := r.pool.Query(ctx, getNovelAuthorsQuery, novelID)
 	if err != nil {
 		return nil, err
 	}
@@ -338,15 +371,8 @@ func (r *authorRepository) GetNovelAuthors(ctx context.Context, novelID uuid.UUI
 
 // AddNovelAuthor thêm author cho novel
 func (r *authorRepository) AddNovelAuthor(ctx context.Context, novelID, authorID uuid.UUID, displayOrder int) error {
-	query := `
-		INSERT INTO catalog.novel_authors (novel_id, author_id, display_order)
-		VALUES ($1, $2, $3)
-		ON CONFLICT (novel_id, author_id) DO UPDATE
-		SET display_order = EXCLUDED.display_order
-	`
-
 	db := db.GetDB(ctx, r.pool)
-	_, err := db.Exec(ctx, query, novelID, authorID, displayOrder)
+	_, err := db.Exec(ctx, addNovelAuthorQuery, novelID, authorID, displayOrder)
 	return err
 }
 
@@ -356,6 +382,7 @@ func (r *authorRepository) AddNovelAuthors(ctx context.Context, novelID uuid.UUI
 		return nil
 	}
 
+	// Build dynamic batch insert query
 	query := "INSERT INTO catalog.novel_authors (novel_id, author_id, role, display_order) VALUES "
 	var args []any
 	var values []string
@@ -377,16 +404,16 @@ func (r *authorRepository) AddNovelAuthors(ctx context.Context, novelID uuid.UUI
 
 // RemoveNovelAuthor xóa author khỏi novel
 func (r *authorRepository) RemoveNovelAuthor(ctx context.Context, novelID, authorID uuid.UUID) error {
-	query := `
-		DELETE FROM catalog.novel_authors
-		WHERE novel_id = $1 AND author_id = $2
-	`
-
-	_, err := r.pool.Exec(ctx, query, novelID, authorID)
+	_, err := r.pool.Exec(ctx, removeNovelAuthorQuery, novelID, authorID)
 	return err
 }
 
+// ============================================================================
+// Statistics Operations
+// ============================================================================
+
 // UpdateStatistics cập nhật thống kê
+// Query được build động do các field là optional
 func (r *authorRepository) UpdateStatistics(ctx context.Context, id uuid.UUID, stats domain.AuthorStatistics) error {
 	var setClauses []string
 	var args []any
@@ -432,7 +459,16 @@ func (r *authorRepository) UpdateStatistics(ctx context.Context, id uuid.UUID, s
 	return err
 }
 
+// ============================================================================
+// Merge Operations
+// ============================================================================
+
 // Merge gộp nhiều authors (sources) thành một author (target)
+// Thực hiện trong một transaction với 4 bước:
+//  1. Move novels từ source authors sang target (tránh duplicates)
+//  2. Xóa các novel assignments còn lại của source authors
+//  3. Cập nhật novel_count và total_views của target author
+//  4. Soft delete source authors
 func (r *authorRepository) Merge(ctx context.Context, targetID uuid.UUID, sourceIDs []uuid.UUID, mergedBy uuid.UUID) error {
 	if len(sourceIDs) == 0 {
 		return nil
@@ -451,54 +487,26 @@ func (r *authorRepository) Merge(ctx context.Context, targetID uuid.UUID, source
 		sourceIDStrings[i] = id.String()
 	}
 
-	// 1. Move novels from source authors to target author
-	queryMove := `
-		UPDATE catalog.novel_authors
-		SET author_id = $1
-		WHERE author_id = ANY($2::uuid[])
-		AND novel_id NOT IN (
-			SELECT novel_id FROM catalog.novel_authors WHERE author_id = $1
-		)
-	`
-	_, err = tx.Exec(ctx, queryMove, targetID, sourceIDStrings)
+	// Step 1: Move novels from source authors to target author
+	_, err = tx.Exec(ctx, mergeMoveNovelsQuery, targetID, sourceIDStrings)
 	if err != nil {
 		return err
 	}
 
-	// 2. Remove all source author assignments (duplicates that weren't moved)
-	queryRemove := `
-		DELETE FROM catalog.novel_authors
-		WHERE author_id = ANY($1::uuid[])
-	`
-	_, err = tx.Exec(ctx, queryRemove, sourceIDStrings)
+	// Step 2: Remove all source author assignments (duplicates that weren't moved)
+	_, err = tx.Exec(ctx, mergeRemoveDuplicatesQuery, sourceIDStrings)
 	if err != nil {
 		return err
 	}
 
-	// 3. Update target author stats
-	queryUpdateStats := `
-		UPDATE catalog.authors
-		SET total_views = total_views + (
-				SELECT COALESCE(SUM(total_views), 0) FROM catalog.authors WHERE id = ANY($2::uuid[])
-			),
-			novel_count = (SELECT COUNT(*) FROM catalog.novel_authors WHERE author_id = $1),
-			updated_by = $3,
-			updated_at = NOW()
-		WHERE id = $1
-	`
-	_, err = tx.Exec(ctx, queryUpdateStats, targetID, sourceIDStrings, mergedBy)
+	// Step 3: Update target author stats
+	_, err = tx.Exec(ctx, mergeUpdateStatsQuery, targetID, sourceIDStrings, mergedBy)
 	if err != nil {
 		return err
 	}
 
-	// 4. Soft delete source authors
-	queryDelete := `
-		UPDATE catalog.authors
-		SET deleted_at = NOW(),
-			deleted_by = $2
-		WHERE id = ANY($1::uuid[])
-	`
-	_, err = tx.Exec(ctx, queryDelete, sourceIDStrings, mergedBy)
+	// Step 4: Soft delete source authors
+	_, err = tx.Exec(ctx, mergeSoftDeleteQuery, sourceIDStrings, mergedBy)
 	if err != nil {
 		return err
 	}
@@ -512,22 +520,13 @@ func (r *authorRepository) GetMergePreview(ctx context.Context, targetID uuid.UU
 		return []*domain.Novel{}, nil
 	}
 
-	query := `
-		SELECT DISTINCT n.id, n.title, n.slug, n.cover_image_url
-		FROM catalog.novels n
-		JOIN catalog.novel_authors na ON n.id = na.novel_id
-		WHERE na.author_id = ANY($1::uuid[])
-		AND n.deleted_at IS NULL
-		ORDER BY n.title ASC
-	`
-
 	// Convert UUIDs to strings for pgx array compatibility
 	sourceIDStrings := make([]string, len(sourceIDs))
 	for i, id := range sourceIDs {
 		sourceIDStrings[i] = id.String()
 	}
 
-	rows, err := r.pool.Query(ctx, query, sourceIDStrings)
+	rows, err := r.pool.Query(ctx, getMergePreviewQuery, sourceIDStrings)
 	if err != nil {
 		return nil, err
 	}

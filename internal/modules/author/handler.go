@@ -1,7 +1,52 @@
+// ============================================================================
+// Author Handler
+// ============================================================================
+//
+// Handler này xử lý các HTTP requests cho Author module.
+//
+// Luồng xử lý request:
+//
+//   HTTP Request
+//        │
+//        ▼
+//   ┌─────────────────┐
+//   │    Handler      │  1. Parse & validate request (BindJSON/BindQuery)
+//   │  (handler.go)   │  2. Extract user context từ JWT token
+//   └────────┬────────┘  3. Call UseCase với input DTO
+//            │
+//            ▼
+//   ┌─────────────────┐
+//   │    UseCase      │  4. Orchestrate business logic
+//   │ (usecase_*.go)  │  5. Call Service methods
+//   └────────┬────────┘
+//            │
+//            ▼
+//   ┌─────────────────┐
+//   │    Service      │  6. Business validation
+//   │  (service.go)   │  7. Domain logic (slug generation, JSON handling)
+//   └────────┬────────┘  8. Call Repository
+//            │
+//            ▼
+//   ┌─────────────────┐
+//   │   Repository    │  9. Execute SQL queries (embedded từ queries/)
+//   │(repository.go)  │  10. Return domain models
+//   └─────────────────┘
+//
+// Endpoints:
+//   GET    /api/v1/authors           - ListAuthors (public)
+//   GET    /api/v1/authors/selection - ListSelection (public)
+//   GET    /api/v1/authors/:id       - GetAuthor (public)
+//   POST   /api/v1/authors           - CreateAuthor (auth required)
+//   PUT    /api/v1/authors/:id       - UpdateAuthor (auth required)
+//   DELETE /api/v1/authors/:id       - DeleteAuthor (auth required)
+//   POST   /api/v1/authors/merge     - MergeAuthor (auth required)
+//   POST   /api/v1/authors/merge/preview - PreviewMergeAuthor (auth required)
+//
+// ============================================================================
+
 package author
 
 import (
-	"encoding/json"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -13,6 +58,7 @@ import (
 	"system/internal/domain"
 	authordto "system/internal/dto/author"
 	pkgerrors "system/pkg/errors"
+	"system/pkg/util/jsonutil"
 	"system/pkg/util/response"
 	"system/pkg/util/timeutil"
 )
@@ -240,14 +286,8 @@ func mapToAuthorDetailResponse(author *domain.Author) authordto.AuthorDetailResp
 		UpdatedAt:     author.UpdatedAt.Format(timeutil.ISO8601Layout),
 	}
 
-	if len(author.Biography) > 0 {
-		var bio map[string]any
-		if err := json.Unmarshal(author.Biography, &bio); err == nil {
-			if text, ok := bio["text"].(string); ok && text != "" {
-				resp.Description = &text
-			}
-		}
-	}
+	// Extract description from biography JSON
+	resp.Description = jsonutil.ExtractTextField(author.Biography)
 
 	if len(author.SocialLinks) > 0 {
 		socialLinksStr := string(author.SocialLinks)
@@ -271,14 +311,8 @@ func mapToAuthorResponse(author *domain.Author) authordto.AuthorResponse {
 		CreatedAt:  author.CreatedAt.Format(timeutil.ISO8601Layout),
 	}
 
-	if len(author.Biography) > 0 {
-		var bio map[string]any
-		if err := json.Unmarshal(author.Biography, &bio); err == nil {
-			if text, ok := bio["text"].(string); ok && text != "" {
-				resp.Description = &text
-			}
-		}
-	}
+	// Extract description from biography JSON
+	resp.Description = jsonutil.ExtractTextField(author.Biography)
 
 	return resp
 }
@@ -309,14 +343,10 @@ func (h *Handler) ListSelection(c *gin.Context) {
 		return
 	}
 
-	type SelectionResponse struct {
-		ID   string `json:"id"`
-		Name string `json:"name"`
-	}
-
-	selectionResponses := make([]SelectionResponse, len(authors))
+	// Map to response format using DTO type
+	selectionResponses := make([]authordto.SelectionResponse, len(authors))
 	for i, a := range authors {
-		selectionResponses[i] = SelectionResponse{
+		selectionResponses[i] = authordto.SelectionResponse{
 			ID:   a.ID.String(),
 			Name: a.Name,
 		}

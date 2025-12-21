@@ -92,11 +92,34 @@ type AuthorRepository interface {
 	GetMergePreview(ctx context.Context, targetID uuid.UUID, sourceIDs []uuid.UUID) ([]*Novel, error)
 }
 
+// AuthorSortField định nghĩa các field có thể sort cho author list
+type AuthorSortField string
+
+const (
+	AuthorSortByName    AuthorSortField = "name"
+	AuthorSortByNovels  AuthorSortField = "novels"  // API value
+	AuthorSortByCreated AuthorSortField = "created" // API value
+)
+
+// ToDBColumn chuyển đổi API sort field sang DB column name
+func (s AuthorSortField) ToDBColumn() string {
+	switch s {
+	case AuthorSortByName:
+		return "name"
+	case AuthorSortByNovels:
+		return "novel_count"
+	case AuthorSortByCreated:
+		return "created_at"
+	default:
+		return "created_at"
+	}
+}
+
 // AuthorFilter định nghĩa các filter cho việc query authors
 type AuthorFilter struct {
 	SearchQuery *string
 	IsVerified  *bool
-	SortBy      string // "name", "novel_count", "follower_count"
+	SortBy      string // DB column name (đã được convert từ AuthorSortField)
 	SortOrder   string // "asc", "desc"
 	Limit       int
 	Offset      int
