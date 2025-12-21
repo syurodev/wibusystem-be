@@ -89,12 +89,35 @@ type ArtistRepository interface {
 	GetMergePreview(ctx context.Context, targetID uuid.UUID, sourceIDs []uuid.UUID) ([]*Novel, error)
 }
 
+// ArtistSortField định nghĩa các field có thể sort cho artist list
+type ArtistSortField string
+
+const (
+	ArtistSortByName    ArtistSortField = "name"
+	ArtistSortByNovels  ArtistSortField = "novels"  // API value
+	ArtistSortByCreated ArtistSortField = "created" // API value
+)
+
+// ToDBColumn chuyển đổi API sort field sang DB column name
+func (s ArtistSortField) ToDBColumn() string {
+	switch s {
+	case ArtistSortByName:
+		return "name"
+	case ArtistSortByNovels:
+		return "novel_count"
+	case ArtistSortByCreated:
+		return "created_at"
+	default:
+		return "created_at"
+	}
+}
+
 // ArtistFilter định nghĩa các filter cho việc query artists
 type ArtistFilter struct {
 	SearchQuery    *string
 	Specialization *string
 	IsVerified     *bool
-	SortBy         string // "name", "novel_count", "follower_count"
+	SortBy         string // DB column name (đã được convert từ ArtistSortField)
 	SortOrder      string // "asc", "desc"
 	Limit          int
 	Offset         int

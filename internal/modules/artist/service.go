@@ -1,3 +1,30 @@
+// ============================================================================
+// Artist Service
+// ============================================================================
+//
+// Service này chứa business logic cho Artist module.
+//
+// CRUD Operations:
+//   - CreateArtist: Tạo artist mới với slug unique (random suffix)
+//   - UpdateArtist: Cập nhật thông tin, regenerate slug nếu name thay đổi
+//   - DeleteArtist: Soft delete (kiểm tra novel_count > 0 trước khi xóa)
+//   - GetArtistByID/Slug: Lấy thông tin chi tiết artist
+//   - ListArtists: Danh sách với pagination, search, filter, sort
+//   - ListSelection: Danh sách rút gọn cho dropdown (ID + Name)
+//
+// Merge Feature:
+//   - MergeArtists: Gộp nhiều source artists vào target artist
+//   - PreviewMergeArtists: Xem trước danh sách novels sẽ bị ảnh hưởng
+//
+// Novel Relations:
+//   - AddNovelArtists: Thêm artists cho novel (được gọi bởi Novel module)
+//
+// Data Format:
+//   - biography: JSONB với format {"text": "..."}
+//   - social_links: JSONB với format linh hoạt
+//
+// ============================================================================
+
 package artist
 
 import (
@@ -26,7 +53,6 @@ func NewService(artistRepo domain.ArtistRepository) *artistServiceImpl {
 	}
 }
 
-// CreateArtist tạo artist mới
 // CreateArtist tạo artist mới
 func (s *artistServiceImpl) CreateArtist(ctx context.Context, name, biography string, avatarURL *string, socialLinksJSON *string, specialization *string, portfolioURL *string, createdBy uuid.UUID) (*domain.Artist, error) {
 	// Validate input
@@ -194,19 +220,8 @@ func (s *artistServiceImpl) ListArtists(ctx context.Context, page, limit int, se
 		limit = 20
 	}
 
-	// Validate sortBy
-	validSortFields := map[string]string{
-		"name":    "name",
-		"novels":  "novel_count",
-		"created": "created_at",
-	}
-
-	sortField := "created_at" // default
-	if sortBy != "" {
-		if field, ok := validSortFields[sortBy]; ok {
-			sortField = field
-		}
-	}
+	// Convert API sort field to DB column using enum
+	sortField := domain.ArtistSortField(sortBy).ToDBColumn()
 
 	// Validate sortOrder
 	if sortOrder != "asc" && sortOrder != "desc" {

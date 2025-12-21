@@ -1,7 +1,52 @@
+// ============================================================================
+// Artist Handler
+// ============================================================================
+//
+// Handler này xử lý các HTTP requests cho Artist module.
+//
+// Luồng xử lý request:
+//
+//   HTTP Request
+//        │
+//        ▼
+//   ┌─────────────────┐
+//   │    Handler      │  1. Parse & validate request (BindJSON/BindQuery)
+//   │  (handler.go)   │  2. Extract user context từ JWT token
+//   └────────┬────────┘  3. Call UseCase với input DTO
+//            │
+//            ▼
+//   ┌─────────────────┐
+//   │    UseCase      │  4. Orchestrate business logic
+//   │ (usecase_*.go)  │  5. Call Service methods
+//   └────────┬────────┘
+//            │
+//            ▼
+//   ┌─────────────────┐
+//   │    Service      │  6. Business validation
+//   │  (service.go)   │  7. Domain logic (slug generation, JSON handling)
+//   └────────┬────────┘  8. Call Repository
+//            │
+//            ▼
+//   ┌─────────────────┐
+//   │   Repository    │  9. Execute SQL queries (embedded từ queries/)
+//   │(repository.go)  │  10. Return domain models
+//   └─────────────────┘
+//
+// Endpoints:
+//   GET    /api/v1/artists           - ListArtists (public)
+//   GET    /api/v1/artists/selection - ListSelection (public)
+//   GET    /api/v1/artists/:id       - GetArtist (public)
+//   POST   /api/v1/artists           - CreateArtist (auth required)
+//   PUT    /api/v1/artists/:id       - UpdateArtist (auth required)
+//   DELETE /api/v1/artists/:id       - DeleteArtist (auth required)
+//   POST   /api/v1/artists/merge     - MergeArtist (auth required)
+//   POST   /api/v1/artists/merge/preview - PreviewMergeArtist (auth required)
+//
+// ============================================================================
+
 package artist
 
 import (
-	"encoding/json"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -13,6 +58,7 @@ import (
 	"system/internal/domain"
 	artistdto "system/internal/dto/artist"
 	pkgerrors "system/pkg/errors"
+	"system/pkg/util/jsonutil"
 	"system/pkg/util/response"
 	"system/pkg/util/timeutil"
 )
@@ -315,14 +361,7 @@ func mapToArtistDetailResponse(artist *domain.Artist) artistdto.ArtistDetailResp
 	}
 
 	// Extract description from biography JSON
-	if len(artist.Biography) > 0 {
-		var bio map[string]any
-		if err := json.Unmarshal(artist.Biography, &bio); err == nil {
-			if text, ok := bio["text"].(string); ok && text != "" {
-				resp.Description = &text
-			}
-		}
-	}
+	resp.Description = jsonutil.ExtractTextField(artist.Biography)
 
 	// Convert social links to string
 	if len(artist.SocialLinks) > 0 {
@@ -350,14 +389,7 @@ func mapToArtistResponse(artist *domain.Artist) artistdto.ArtistResponse {
 	}
 
 	// Extract description from biography JSON
-	if len(artist.Biography) > 0 {
-		var bio map[string]any
-		if err := json.Unmarshal(artist.Biography, &bio); err == nil {
-			if text, ok := bio["text"].(string); ok && text != "" {
-				resp.Description = &text
-			}
-		}
-	}
+	resp.Description = jsonutil.ExtractTextField(artist.Biography)
 
 	return resp
 }
@@ -399,15 +431,10 @@ func (h *Handler) ListSelection(c *gin.Context) {
 		return
 	}
 
-	// Map to response format
-	type SelectionResponse struct {
-		ID   string `json:"id"`
-		Name string `json:"name"`
-	}
-
-	selectionResponses := make([]SelectionResponse, len(artists))
+	// Map to response format using DTO type
+	selectionResponses := make([]artistdto.SelectionResponse, len(artists))
 	for i, a := range artists {
-		selectionResponses[i] = SelectionResponse{
+		selectionResponses[i] = artistdto.SelectionResponse{
 			ID:   a.ID.String(),
 			Name: a.Name,
 		}

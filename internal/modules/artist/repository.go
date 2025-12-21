@@ -1,7 +1,29 @@
+// ============================================================================
+// Artist Repository
+// ============================================================================
+//
+// Repository này thực hiện các thao tác database cho Artist:
+//
+// Tables:
+//   - catalog.artists: Bảng chính chứa thông tin artist
+//   - catalog.novel_artists: Bảng junction cho quan hệ N:N với novels
+//
+// Flow tổng quan:
+//   Handler -> UseCase -> Service -> Repository -> Database
+//
+// Merge Flow (trong một transaction):
+//   1. MergeMoveNovels: Move novels từ source artists sang target
+//   2. MergeRemoveDuplicates: Xóa các assignments trùng lặp
+//   3. MergeUpdateStats: Cập nhật novel_count của target
+//   4. MergeSoftDelete: Soft delete source artists
+//
+// ============================================================================
+
 package artist
 
 import (
 	"context"
+	_ "embed"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -13,6 +35,56 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+// ============================================================================
+// Embedded SQL Queries
+// ============================================================================
+
+//go:embed queries/get_by_id.sql
+var getByIDQuery string
+
+//go:embed queries/get_by_slug.sql
+var getBySlugQuery string
+
+//go:embed queries/get_by_user_id.sql
+var getByUserIDQuery string
+
+//go:embed queries/create.sql
+var createQuery string
+
+//go:embed queries/update.sql
+var updateQuery string
+
+//go:embed queries/delete.sql
+var deleteQuery string
+
+//go:embed queries/get_novel_artists.sql
+var getNovelArtistsQuery string
+
+//go:embed queries/add_novel_artist.sql
+var addNovelArtistQuery string
+
+//go:embed queries/remove_novel_artist.sql
+var removeNovelArtistQuery string
+
+//go:embed queries/merge_move_novels.sql
+var mergeMoveNovelsQuery string
+
+//go:embed queries/merge_remove_duplicates.sql
+var mergeRemoveDuplicatesQuery string
+
+//go:embed queries/merge_update_stats.sql
+var mergeUpdateStatsQuery string
+
+//go:embed queries/merge_soft_delete.sql
+var mergeSoftDeleteQuery string
+
+//go:embed queries/get_merge_preview.sql
+var getMergePreviewQuery string
+
+// ============================================================================
+// Repository Implementation
+// ============================================================================
+
 // artistRepository triển khai ArtistRepository sử dụng pgx
 type artistRepository struct {
 	pool *pgxpool.Pool
@@ -23,17 +95,13 @@ func NewArtistRepository(pool *pgxpool.Pool) domain.ArtistRepository {
 	return &artistRepository{pool: pool}
 }
 
+// ============================================================================
+// Basic CRUD Operations
+// ============================================================================
+
 // GetByID lấy artist từ database theo ID
 func (r *artistRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.Artist, error) {
-	query := `
-		SELECT id, user_id, name, slug, biography, avatar_url, social_links,
-		       specialization, portfolio_url, novel_count, artwork_count, follower_count,
-		       is_verified, metadata, version, created_by, updated_by, created_at, updated_at, deleted_at, deleted_by
-		FROM catalog.artists
-		WHERE id = $1 AND deleted_at IS NULL
-	`
-
-	rows, err := r.pool.Query(ctx, query, id)
+	rows, err := r.pool.Query(ctx, getByIDQuery, id)
 	if err != nil {
 		return nil, err
 	}
@@ -48,15 +116,7 @@ func (r *artistRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.A
 
 // GetBySlug lấy artist từ database theo slug
 func (r *artistRepository) GetBySlug(ctx context.Context, slug string) (*domain.Artist, error) {
-	query := `
-		SELECT id, user_id, name, slug, biography, avatar_url, social_links,
-		       specialization, portfolio_url, novel_count, artwork_count, follower_count,
-		       is_verified, metadata, version, created_by, updated_by, created_at, updated_at, deleted_at, deleted_by
-		FROM catalog.artists
-		WHERE slug = $1 AND deleted_at IS NULL
-	`
-
-	rows, err := r.pool.Query(ctx, query, slug)
+	rows, err := r.pool.Query(ctx, getBySlugQuery, slug)
 	if err != nil {
 		return nil, err
 	}
@@ -71,15 +131,7 @@ func (r *artistRepository) GetBySlug(ctx context.Context, slug string) (*domain.
 
 // GetByUserID lấy artist từ database theo user ID
 func (r *artistRepository) GetByUserID(ctx context.Context, userID uuid.UUID) (*domain.Artist, error) {
-	query := `
-		SELECT id, user_id, name, slug, biography, avatar_url, social_links,
-		       specialization, portfolio_url, novel_count, artwork_count, follower_count,
-		       is_verified, metadata, version, created_by, updated_by, created_at, updated_at, deleted_at, deleted_by
-		FROM catalog.artists
-		WHERE user_id = $1 AND deleted_at IS NULL
-	`
-
-	rows, err := r.pool.Query(ctx, query, userID)
+	rows, err := r.pool.Query(ctx, getByUserIDQuery, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -92,7 +144,14 @@ func (r *artistRepository) GetByUserID(ctx context.Context, userID uuid.UUID) (*
 	return &artist, nil
 }
 
+// ============================================================================
+// List Operations (Dynamic Query Building)
+// ============================================================================
+
 // List lấy danh sách artists với filter
+// Query được build động do có nhiều filter options
+// Note: SortBy đã được validate ở DTO với binding:"oneof=name novels created"
+// và được map sang DB column names ở Service layer
 func (r *artistRepository) List(ctx context.Context, filter domain.ArtistFilter) ([]*domain.Artist, int64, error) {
 	var whereClauses []string
 	var args []any
@@ -100,18 +159,21 @@ func (r *artistRepository) List(ctx context.Context, filter domain.ArtistFilter)
 
 	whereClauses = append(whereClauses, "deleted_at IS NULL")
 
+	// Filter by search query (name ILIKE)
 	if filter.SearchQuery != nil && *filter.SearchQuery != "" {
 		whereClauses = append(whereClauses, fmt.Sprintf("name ILIKE $%d", argIdx))
 		args = append(args, "%"+*filter.SearchQuery+"%")
 		argIdx++
 	}
 
+	// Filter by specialization
 	if filter.Specialization != nil && *filter.Specialization != "" {
 		whereClauses = append(whereClauses, fmt.Sprintf("specialization = $%d", argIdx))
 		args = append(args, *filter.Specialization)
 		argIdx++
 	}
 
+	// Filter by verified status
 	if filter.IsVerified != nil {
 		whereClauses = append(whereClauses, fmt.Sprintf("is_verified = $%d", argIdx))
 		args = append(args, *filter.IsVerified)
@@ -129,6 +191,7 @@ func (r *artistRepository) List(ctx context.Context, filter domain.ArtistFilter)
 	}
 
 	// Build ORDER BY
+	// SortBy đã được validate và map ở layers trước (DTO -> Service)
 	orderBy := "created_at DESC"
 	if filter.SortBy != "" {
 		orderBy = filter.SortBy
@@ -139,11 +202,12 @@ func (r *artistRepository) List(ctx context.Context, filter domain.ArtistFilter)
 		}
 	}
 
-	// Main query
+	// Main query với embedded base columns
 	query := fmt.Sprintf(`
 		SELECT id, user_id, name, slug, biography, avatar_url, social_links,
 		       specialization, portfolio_url, novel_count, artwork_count, follower_count,
-		       is_verified, metadata, version, created_by, updated_by, created_at, updated_at, deleted_at, deleted_by
+		       is_verified, metadata, version, created_by, updated_by, 
+		       created_at, updated_at, deleted_at, deleted_by
 		FROM catalog.artists
 		WHERE %s
 		ORDER BY %s
@@ -166,6 +230,7 @@ func (r *artistRepository) List(ctx context.Context, filter domain.ArtistFilter)
 }
 
 // ListSelection lấy danh sách artists rút gọn (chỉ ID và Name)
+// Được sử dụng cho selection dropdowns
 func (r *artistRepository) ListSelection(ctx context.Context, offset, limit int, search string) ([]*domain.Artist, int64, error) {
 	// Build WHERE clause
 	var whereClauses []string
@@ -173,7 +238,6 @@ func (r *artistRepository) ListSelection(ctx context.Context, offset, limit int,
 	argIdx := 1
 
 	whereClauses = append(whereClauses, "deleted_at IS NULL")
-	// whereClauses = append(whereClauses, "is_verified = true") // Optional
 
 	// Search by name
 	if search != "" {
@@ -227,21 +291,18 @@ func (r *artistRepository) ListSelection(ctx context.Context, offset, limit int,
 	return artists, totalCount, nil
 }
 
+// ============================================================================
+// Create/Update/Delete Operations
+// ============================================================================
+
 // Create tạo artist mới
 func (r *artistRepository) Create(ctx context.Context, artist *domain.Artist) error {
-	query := `
-		INSERT INTO catalog.artists (
-			id, user_id, name, slug, biography, avatar_url, social_links,
-			specialization, portfolio_url, is_verified, created_by
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-	`
-
 	// Ensure social_links is not null
 	if artist.SocialLinks == nil {
 		artist.SocialLinks = json.RawMessage("{}")
 	}
 
-	_, err := r.pool.Exec(ctx, query,
+	_, err := r.pool.Exec(ctx, createQuery,
 		artist.ID,
 		artist.UserID,
 		artist.Name,
@@ -260,21 +321,7 @@ func (r *artistRepository) Create(ctx context.Context, artist *domain.Artist) er
 
 // Update cập nhật artist
 func (r *artistRepository) Update(ctx context.Context, artist *domain.Artist) error {
-	query := `
-		UPDATE catalog.artists
-		SET user_id = $2,
-		    name = $3,
-		    slug = $4,
-		    biography = $5,
-		    avatar_url = $6,
-		    social_links = $7,
-		    specialization = $8,
-		    is_verified = $9,
-		    updated_by = $10
-		WHERE id = $1 AND deleted_at IS NULL
-	`
-
-	_, err := r.pool.Exec(ctx, query,
+	_, err := r.pool.Exec(ctx, updateQuery,
 		artist.ID,
 		artist.UserID,
 		artist.Name,
@@ -292,30 +339,17 @@ func (r *artistRepository) Update(ctx context.Context, artist *domain.Artist) er
 
 // Delete xóa mềm artist
 func (r *artistRepository) Delete(ctx context.Context, id uuid.UUID) error {
-	query := `
-		UPDATE catalog.artists
-		SET deleted_at = NOW()
-		WHERE id = $1 AND deleted_at IS NULL
-	`
-
-	_, err := r.pool.Exec(ctx, query, id)
+	_, err := r.pool.Exec(ctx, deleteQuery, id)
 	return err
 }
 
+// ============================================================================
+// Novel-Artist Relationship Operations
+// ============================================================================
+
 // GetNovelArtists lấy danh sách artists của một novel
 func (r *artistRepository) GetNovelArtists(ctx context.Context, novelID uuid.UUID) ([]*domain.NovelArtist, error) {
-	query := `
-		SELECT a.id, a.user_id, a.name, a.slug, a.biography, a.avatar_url, a.social_links,
-		       a.specialization, a.novel_count, a.artwork_count, a.follower_count,
-		       a.is_verified, a.created_by, a.updated_by, a.created_at, a.updated_at, a.deleted_at, a.deleted_by,
-		       na.display_order
-		FROM catalog.artists a
-		INNER JOIN catalog.novel_artists na ON a.id = na.artist_id
-		WHERE na.novel_id = $1 AND a.deleted_at IS NULL
-		ORDER BY na.display_order ASC
-	`
-
-	rows, err := r.pool.Query(ctx, query, novelID)
+	rows, err := r.pool.Query(ctx, getNovelArtistsQuery, novelID)
 	if err != nil {
 		return nil, err
 	}
@@ -349,15 +383,8 @@ func (r *artistRepository) GetNovelArtists(ctx context.Context, novelID uuid.UUI
 
 // AddNovelArtist thêm artist cho novel
 func (r *artistRepository) AddNovelArtist(ctx context.Context, novelID, artistID uuid.UUID, displayOrder int) error {
-	query := `
-		INSERT INTO catalog.novel_artists (novel_id, artist_id, display_order)
-		VALUES ($1, $2, $3)
-		ON CONFLICT (novel_id, artist_id) DO UPDATE
-		SET display_order = EXCLUDED.display_order
-	`
-
 	db := db.GetDB(ctx, r.pool)
-	_, err := db.Exec(ctx, query, novelID, artistID, displayOrder)
+	_, err := db.Exec(ctx, addNovelArtistQuery, novelID, artistID, displayOrder)
 	return err
 }
 
@@ -367,6 +394,7 @@ func (r *artistRepository) AddNovelArtists(ctx context.Context, novelID uuid.UUI
 		return nil
 	}
 
+	// Build dynamic batch insert query
 	query := "INSERT INTO catalog.novel_artists (novel_id, artist_id, role, display_order) VALUES "
 	var args []any
 	var values []string
@@ -388,16 +416,16 @@ func (r *artistRepository) AddNovelArtists(ctx context.Context, novelID uuid.UUI
 
 // RemoveNovelArtist xóa artist khỏi novel
 func (r *artistRepository) RemoveNovelArtist(ctx context.Context, novelID, artistID uuid.UUID, role string) error {
-	query := `
-		DELETE FROM catalog.novel_artists
-		WHERE novel_id = $1 AND artist_id = $2 AND role = $3
-	`
-
-	_, err := r.pool.Exec(ctx, query, novelID, artistID, role)
+	_, err := r.pool.Exec(ctx, removeNovelArtistQuery, novelID, artistID, role)
 	return err
 }
 
+// ============================================================================
+// Statistics Operations
+// ============================================================================
+
 // UpdateStatistics cập nhật thống kê
+// Query được build động do các field là optional
 func (r *artistRepository) UpdateStatistics(ctx context.Context, id uuid.UUID, stats domain.ArtistStatistics) error {
 	var setClauses []string
 	var args []any
@@ -437,7 +465,16 @@ func (r *artistRepository) UpdateStatistics(ctx context.Context, id uuid.UUID, s
 	return err
 }
 
+// ============================================================================
+// Merge Operations
+// ============================================================================
+
 // Merge gộp nhiều artists (sources) thành một artist (target)
+// Thực hiện trong một transaction với 4 bước:
+//  1. Move novels từ source artists sang target (tránh duplicates)
+//  2. Xóa các novel assignments còn lại của source artists
+//  3. Cập nhật novel_count của target artist
+//  4. Soft delete source artists
 func (r *artistRepository) Merge(ctx context.Context, targetID uuid.UUID, sourceIDs []uuid.UUID, mergedBy uuid.UUID) error {
 	if len(sourceIDs) == 0 {
 		return nil
@@ -456,57 +493,26 @@ func (r *artistRepository) Merge(ctx context.Context, targetID uuid.UUID, source
 		sourceIDStrings[i] = id.String()
 	}
 
-	// 1. Move novels from source artists to target artist
-	queryMove := `
-		UPDATE catalog.novel_artists
-		SET artist_id = $1
-		WHERE artist_id = ANY($2::uuid[])
-		AND novel_id NOT IN (
-			SELECT novel_id FROM catalog.novel_artists WHERE artist_id = $1
-		)
-	`
-	_, err = tx.Exec(ctx, queryMove, targetID, sourceIDStrings)
+	// Step 1: Move novels from source artists to target artist
+	_, err = tx.Exec(ctx, mergeMoveNovelsQuery, targetID, sourceIDStrings)
 	if err != nil {
 		return err
 	}
 
-	// 2. Remove all source artist assignments (duplicates that weren't moved)
-	queryRemove := `
-		DELETE FROM catalog.novel_artists
-		WHERE artist_id = ANY($1::uuid[])
-	`
-	_, err = tx.Exec(ctx, queryRemove, sourceIDStrings)
+	// Step 2: Remove all source artist assignments (duplicates that weren't moved)
+	_, err = tx.Exec(ctx, mergeRemoveDuplicatesQuery, sourceIDStrings)
 	if err != nil {
 		return err
 	}
 
-	// 3. Update target artist stats
-	// Note: We might want to sum novel_count or just recount. Recounting is safer.
-	// For artwork_count and follower_count, summing might be inappropriate if duplicates exist, 
-	// but without detailed tracking, simple sum or ignoring is the choice. 
-	// Let's assume we just want to update novel_count correctly based on the table.
-	// For other stats like follower_count, it's complex to merge without user_following table. 
-	// Let's stick to simple logic: update novel_count from relation table.
-	queryUpdateStats := `
-		UPDATE catalog.artists
-		SET novel_count = (SELECT COUNT(*) FROM catalog.novel_artists WHERE artist_id = $1),
-			updated_by = $2,
-			updated_at = NOW()
-		WHERE id = $1
-	`
-	_, err = tx.Exec(ctx, queryUpdateStats, targetID, mergedBy)
+	// Step 3: Update target artist stats
+	_, err = tx.Exec(ctx, mergeUpdateStatsQuery, targetID, mergedBy)
 	if err != nil {
 		return err
 	}
 
-	// 4. Soft delete source artists
-	queryDelete := `
-		UPDATE catalog.artists
-		SET deleted_at = NOW(),
-			deleted_by = $2
-		WHERE id = ANY($1::uuid[])
-	`
-	_, err = tx.Exec(ctx, queryDelete, sourceIDStrings, mergedBy)
+	// Step 4: Soft delete source artists
+	_, err = tx.Exec(ctx, mergeSoftDeleteQuery, sourceIDStrings, mergedBy)
 	if err != nil {
 		return err
 	}
@@ -520,22 +526,13 @@ func (r *artistRepository) GetMergePreview(ctx context.Context, targetID uuid.UU
 		return []*domain.Novel{}, nil
 	}
 
-	query := `
-		SELECT DISTINCT n.id, n.title, n.slug, n.cover_image_url
-		FROM catalog.novels n
-		JOIN catalog.novel_artists na ON n.id = na.novel_id
-		WHERE na.artist_id = ANY($1::uuid[])
-		AND n.deleted_at IS NULL
-		ORDER BY n.title ASC
-	`
-
 	// Convert UUIDs to strings for pgx array compatibility
 	sourceIDStrings := make([]string, len(sourceIDs))
 	for i, id := range sourceIDs {
 		sourceIDStrings[i] = id.String()
 	}
 
-	rows, err := r.pool.Query(ctx, query, sourceIDStrings)
+	rows, err := r.pool.Query(ctx, getMergePreviewQuery, sourceIDStrings)
 	if err != nil {
 		return nil, err
 	}
