@@ -1,3 +1,26 @@
+// ============================================================================
+// Embedding Service
+// ============================================================================
+//
+// Service này cung cấp business logic cho Embedding module.
+// Quản lý vector embeddings để tìm similar novels.
+//
+// Queue Operations:
+//   - QueueNovelForEmbedding: Đẩy novel ID vào Redis queue
+//   - PopPendingNovelIDs: Lấy novel IDs từ queue để xử lý
+//
+// Embedding Operations:
+//   - GenerateAndStoreEmbedding: Tạo embedding từ novel metadata và lưu vào DB
+//   - FindSimilarNovels: Tìm novels tương tự dựa trên vector similarity
+//   - GetEmbedding: Lấy embedding của novel
+//
+// Architecture:
+//   - Uses Hugot (local ONNX model) hoặc NoOp embedder
+//   - Redis queue cho background processing
+//   - pgvector cho vector storage và similarity search
+//
+// ============================================================================
+
 package embedding
 
 import (

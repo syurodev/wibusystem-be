@@ -1,3 +1,19 @@
+// ============================================================================
+// Embedding Repository
+// ============================================================================
+//
+// Repository này quản lý vector embeddings cho novels sử dụng pgvector.
+// Dùng để tìm các novels tương tự (similar recommendations).
+//
+// Operations:
+//   - Upsert: Tạo hoặc cập nhật embedding cho novel
+//   - GetByNovelID: Lấy embedding theo novel ID
+//   - FindSimilar: Tìm các novels tương tự dựa trên cosine distance
+//
+// SQL queries được load từ thư mục queries/ sử dụng go:embed.
+//
+// ============================================================================
+
 package embedding
 
 import (
