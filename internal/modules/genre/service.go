@@ -1,3 +1,35 @@
+// ============================================================================
+// Genre Service
+// ============================================================================
+//
+// Service này chứa business logic cho Genre module.
+//
+// CRUD Operations:
+//   - CreateGenre: Tạo genre mới với slug unique
+//   - UpdateGenre: Cập nhật thông tin, regenerate slug nếu name thay đổi
+//   - DeleteGenre: Soft delete (kiểm tra novel_count > 0 và children trước khi xóa)
+//   - GetGenreByID/Slug: Lấy thông tin chi tiết genre
+//   - ListGenres: Danh sách với pagination, search, filter, sort
+//   - ListSelection: Danh sách rút gọn cho dropdown (ID + Name)
+//
+// Hierarchical Operations:
+//   - GetRootGenres: Lấy các genre gốc (không có parent)
+//   - GetGenreChildren: Lấy các genre con của một parent
+//
+// Merge Feature:
+//   - MergeGenres: Gộp nhiều source genres vào target genre
+//   - PreviewMergeGenres: Xem trước danh sách novels sẽ bị ảnh hưởng
+//
+// Novel Relations:
+//   - AddNovelGenres: Thêm genres cho novel (được gọi bởi Novel module)
+//   - RemoveNovelGenres: Xóa genres khỏi novel và decrement counts
+//
+// Statistics:
+//   - BatchIncrementNovelCount: Cập nhật đếm novels cho nhiều genres
+//   - calculateTrend: Tính xu hướng dựa trên metrics
+//
+// ============================================================================
+
 package genre
 
 import (

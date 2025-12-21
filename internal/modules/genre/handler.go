@@ -1,3 +1,25 @@
+// ============================================================================
+// Genre Handler
+// ============================================================================
+//
+// Handler này xử lý các HTTP requests cho Genre module.
+//
+// Luồng xử lý request:
+//   Handler -> UseCase -> Service -> Repository -> Database
+//
+// Endpoints:
+//   GET    /api/v1/genres           - ListGenres (public)
+//   GET    /api/v1/genres/selection - ListSelection (public)
+//   GET    /api/v1/genres/top       - GetTopGenresByViews (public, analytics)
+//   GET    /api/v1/genres/:id       - GetGenre (public)
+//   POST   /api/v1/genres           - CreateGenre (auth required)
+//   PUT    /api/v1/genres/:id       - UpdateGenre (auth required)
+//   DELETE /api/v1/genres/:id       - DeleteGenre (auth required)
+//   POST   /api/v1/genres/merge     - MergeGenre (auth required)
+//   POST   /api/v1/genres/merge/preview - PreviewMergeGenre (auth required)
+//
+// ============================================================================
+
 package genre
 
 import (
@@ -338,14 +360,10 @@ func (h *Handler) ListSelection(c *gin.Context) {
 		return
 	}
 
-	type SelectionResponse struct {
-		ID   string `json:"id"`
-		Name string `json:"name"`
-	}
-
-	selectionResponses := make([]SelectionResponse, len(genres))
+	// Map to response format using DTO type
+	selectionResponses := make([]genredto.SelectionResponse, len(genres))
 	for i, g := range genres {
-		selectionResponses[i] = SelectionResponse{
+		selectionResponses[i] = genredto.SelectionResponse{
 			ID:   g.ID.String(),
 			Name: g.Name,
 		}

@@ -52,3 +52,10 @@ type PreviewMergeGenreResponse struct {
 	AffectedNovels []AffectedNovel `json:"affected_novels"`
 	SourceGenres   []string        `json:"source_genres"`
 }
+
+// SelectionResponse là DTO cho dropdown selection (ID + Name)
+// Sử dụng cho các select fields khi cần chọn genre
+type SelectionResponse struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+}
