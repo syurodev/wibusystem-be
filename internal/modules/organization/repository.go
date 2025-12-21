@@ -1,7 +1,54 @@
+// ============================================================================
+// Organization Repository
+// ============================================================================
+//
+// Repository này triển khai OrganizationRepository interface từ domain package.
+// Quản lý nhóm dịch (translation teams) trong hệ thống.
+//
+// Organization CRUD:
+//   - GetByID: Lấy org theo ID
+//   - GetBySlug: Lấy org theo slug
+//   - SlugExists: Kiểm tra slug tồn tại
+//   - List: Lấy danh sách với filter động
+//   - Create: Tạo org mới
+//   - Update: Cập nhật org
+//   - Delete: Soft delete org
+//
+// Membership Operations:
+//   - GetMembers: Lấy danh sách members với User info
+//   - GetMembership: Lấy membership của user
+//   - AddMember: Thêm member
+//   - UpdateMember: Cập nhật role/status
+//   - RemoveMember: Xóa member (soft delete)
+//   - GetUserOrganizations: Lấy orgs của user
+//   - CountUserMemberships: Đếm số memberships
+//   - IsUserOwnerOfAnyOrg: Kiểm tra user là owner
+//
+// Pending Invites:
+//   - CreatePendingInvite: Tạo invite mới
+//   - GetPendingInvite: Lấy invite theo ID
+//   - GetPendingInviteByUserAndOrg: Lấy invite theo user+org
+//   - ListPendingInvites: Lấy danh sách invites
+//   - UpdatePendingInvite: Cập nhật status
+//   - DeletePendingInvite: Xóa invite
+//
+// Reports:
+//   - CreateReport: Tạo report mới
+//   - GetReport: Lấy report theo ID
+//   - GetReportByUserAndOrg: Lấy report theo user+org
+//   - ListReportsByOrg: Lấy danh sách reports
+//   - UpdateReport: Cập nhật response
+//
+// SQL queries ổn định được load từ queries/ sử dụng go:embed.
+// Các queries động (List với filter) được build trong code.
+//
+// ============================================================================
+
 package organization
 
 import (
 	"context"
+	_ "embed"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -14,6 +61,95 @@ import (
 	"system/internal/domain"
 )
 
+// =============================================================================
+// SQL Queries - Organization CRUD
+// =============================================================================
+
+//go:embed queries/get_by_id.sql
+var getByIDQuery string
+
+//go:embed queries/get_by_slug.sql
+var getBySlugQuery string
+
+//go:embed queries/slug_exists.sql
+var slugExistsQuery string
+
+//go:embed queries/create.sql
+var createQuery string
+
+//go:embed queries/update.sql
+var updateQuery string
+
+//go:embed queries/delete.sql
+var deleteQuery string
+
+// =============================================================================
+// SQL Queries - Membership
+// =============================================================================
+
+//go:embed queries/membership/get.sql
+var getMembershipQuery string
+
+//go:embed queries/membership/add.sql
+var addMemberQuery string
+
+//go:embed queries/membership/update.sql
+var updateMemberQuery string
+
+//go:embed queries/membership/remove.sql
+var removeMemberQuery string
+
+//go:embed queries/membership/count_user.sql
+var countUserMembershipsQuery string
+
+//go:embed queries/membership/is_owner.sql
+var isUserOwnerQuery string
+
+//go:embed queries/membership/increment_count.sql
+var incrementMemberCountQuery string
+
+//go:embed queries/membership/decrement_count.sql
+var decrementMemberCountQuery string
+
+// =============================================================================
+// SQL Queries - Pending Invites
+// =============================================================================
+
+//go:embed queries/invite/create.sql
+var createInviteQuery string
+
+//go:embed queries/invite/get_by_id.sql
+var getInviteByIDQuery string
+
+//go:embed queries/invite/get_by_user_org.sql
+var getInviteByUserOrgQuery string
+
+//go:embed queries/invite/update.sql
+var updateInviteQuery string
+
+//go:embed queries/invite/delete.sql
+var deleteInviteQuery string
+
+// =============================================================================
+// SQL Queries - Reports
+// =============================================================================
+
+//go:embed queries/report/create.sql
+var createReportQuery string
+
+//go:embed queries/report/get_by_id.sql
+var getReportByIDQuery string
+
+//go:embed queries/report/get_by_user_org.sql
+var getReportByUserOrgQuery string
+
+//go:embed queries/report/update.sql
+var updateReportQuery string
+
+// =============================================================================
+// Repository Implementation
+// =============================================================================
+
 // organizationRepository triển khai OrganizationRepository sử dụng pgx
 type organizationRepository struct {
 	pool *pgxpool.Pool
@@ -24,19 +160,13 @@ func NewRepository(pool *pgxpool.Pool) domain.OrganizationRepository {
 	return &organizationRepository{pool: pool}
 }
 
+// =============================================================================
+// Organization CRUD
+// =============================================================================
+
 // GetByID lấy organization từ database theo ID
 func (r *organizationRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.Organization, error) {
-	query := `
-		SELECT id, name, slug, status, description, avatar_url, settings,
-		       is_recruiting, can_translate, can_proofread, can_edit,
-		       member_count, active_projects, completed_translations, report_count,
-		       metadata, created_by, updated_by, deleted_by, version,
-		       created_at, updated_at, deleted_at
-		FROM identify.organizations
-		WHERE id = $1 AND deleted_at IS NULL
-	`
-
-	rows, err := r.pool.Query(ctx, query, id)
+	rows, err := r.pool.Query(ctx, getByIDQuery, id)
 	if err != nil {
 		return nil, err
 	}
@@ -51,17 +181,7 @@ func (r *organizationRepository) GetByID(ctx context.Context, id uuid.UUID) (*do
 
 // GetBySlug lấy organization từ database theo slug
 func (r *organizationRepository) GetBySlug(ctx context.Context, slug string) (*domain.Organization, error) {
-	query := `
-		SELECT id, name, slug, status, description, avatar_url, settings,
-		       is_recruiting, can_translate, can_proofread, can_edit,
-		       member_count, active_projects, completed_translations, report_count,
-		       metadata, created_by, updated_by, deleted_by, version,
-		       created_at, updated_at, deleted_at
-		FROM identify.organizations
-		WHERE slug = $1 AND deleted_at IS NULL
-	`
-
-	rows, err := r.pool.Query(ctx, query, slug)
+	rows, err := r.pool.Query(ctx, getBySlugQuery, slug)
 	if err != nil {
 		return nil, err
 	}
@@ -77,12 +197,11 @@ func (r *organizationRepository) GetBySlug(ctx context.Context, slug string) (*d
 // SlugExists kiểm tra slug đã tồn tại chưa
 func (r *organizationRepository) SlugExists(ctx context.Context, slug string) (bool, error) {
 	var exists bool
-	query := `SELECT EXISTS(SELECT 1 FROM identify.organizations WHERE slug = $1 AND deleted_at IS NULL)`
-	err := r.pool.QueryRow(ctx, query, slug).Scan(&exists)
+	err := r.pool.QueryRow(ctx, slugExistsQuery, slug).Scan(&exists)
 	return exists, err
 }
 
-// List lấy danh sách organizations với filter
+// List lấy danh sách organizations với filter (dynamic query)
 func (r *organizationRepository) List(ctx context.Context, filter domain.OrganizationFilter) ([]*domain.Organization, int64, error) {
 	var whereClauses []string
 	var args []any
@@ -129,7 +248,7 @@ func (r *organizationRepository) List(ctx context.Context, filter domain.Organiz
 		}
 	}
 
-	// Main query
+	// Main query - using same SELECT fields as get_by_id.sql
 	query := fmt.Sprintf(`
 		SELECT id, name, slug, status, description, avatar_url, settings,
 		       is_recruiting, can_translate, can_proofread, can_edit,
@@ -159,18 +278,11 @@ func (r *organizationRepository) List(ctx context.Context, filter domain.Organiz
 
 // Create tạo organization mới
 func (r *organizationRepository) Create(ctx context.Context, org *domain.Organization) error {
-	query := `
-		INSERT INTO identify.organizations (
-			id, name, slug, status, description, avatar_url, settings, 
-			is_recruiting, created_by
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-	`
-
 	if org.Settings == nil {
 		org.Settings = json.RawMessage(`{"bypass_invite_approval": false}`)
 	}
 
-	_, err := r.pool.Exec(ctx, query,
+	_, err := r.pool.Exec(ctx, createQuery,
 		org.ID, org.Name, org.Slug, org.Status, org.Description,
 		org.AvatarURL, org.Settings, org.IsRecruiting, org.CreatedBy,
 	)
@@ -180,14 +292,7 @@ func (r *organizationRepository) Create(ctx context.Context, org *domain.Organiz
 
 // Update cập nhật organization
 func (r *organizationRepository) Update(ctx context.Context, org *domain.Organization) error {
-	query := `
-		UPDATE identify.organizations
-		SET name = $2, description = $3, avatar_url = $4, settings = $5,
-		    is_recruiting = $6, updated_by = $7, version = version + 1
-		WHERE id = $1 AND deleted_at IS NULL
-	`
-
-	_, err := r.pool.Exec(ctx, query,
+	_, err := r.pool.Exec(ctx, updateQuery,
 		org.ID, org.Name, org.Description, org.AvatarURL, org.Settings,
 		org.IsRecruiting, org.UpdatedBy,
 	)
@@ -197,15 +302,13 @@ func (r *organizationRepository) Update(ctx context.Context, org *domain.Organiz
 
 // Delete xóa mềm organization
 func (r *organizationRepository) Delete(ctx context.Context, id uuid.UUID) error {
-	query := `
-		UPDATE identify.organizations
-		SET deleted_at = NOW()
-		WHERE id = $1 AND deleted_at IS NULL
-	`
-
-	_, err := r.pool.Exec(ctx, query, id)
+	_, err := r.pool.Exec(ctx, deleteQuery, id)
 	return err
 }
+
+// =============================================================================
+// Membership Operations
+// =============================================================================
 
 // GetMembers lấy danh sách thành viên của organization
 func (r *organizationRepository) GetMembers(ctx context.Context, orgID uuid.UUID, limit, offset int) ([]*domain.OrganizationMembership, int64, error) {
@@ -271,17 +374,7 @@ func (r *organizationRepository) GetMembers(ctx context.Context, orgID uuid.UUID
 
 // GetMembership lấy membership của user trong org
 func (r *organizationRepository) GetMembership(ctx context.Context, userID, orgID uuid.UUID) (*domain.OrganizationMembership, error) {
-	query := `
-		SELECT user_id, organization_id, status, role, is_active,
-		       contribution_count, quality_score, metadata,
-		       invited_by, invited_at, joined_at, left_at,
-		       created_by, updated_by, deleted_by, version,
-		       created_at, updated_at, deleted_at
-		FROM identify.user_organization_memberships
-		WHERE user_id = $1 AND organization_id = $2 AND deleted_at IS NULL
-	`
-
-	rows, err := r.pool.Query(ctx, query, userID, orgID)
+	rows, err := r.pool.Query(ctx, getMembershipQuery, userID, orgID)
 	if err != nil {
 		return nil, err
 	}
@@ -296,21 +389,13 @@ func (r *organizationRepository) GetMembership(ctx context.Context, userID, orgI
 
 // AddMember thêm thành viên vào organization
 func (r *organizationRepository) AddMember(ctx context.Context, membership *domain.OrganizationMembership) error {
-	query := `
-		INSERT INTO identify.user_organization_memberships (
-			user_id, organization_id, status, role, is_active, 
-			invited_by, invited_at, joined_at, created_by
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-	`
-
-	_, err := r.pool.Exec(ctx, query,
+	_, err := r.pool.Exec(ctx, addMemberQuery,
 		membership.UserID, membership.OrganizationID, membership.Status, membership.Role, membership.IsActive,
 		membership.InvitedBy, membership.InvitedAt, membership.JoinedAt, membership.CreatedBy,
 	)
 
 	if err == nil {
-		// Update member_count
-		r.pool.Exec(ctx, `UPDATE identify.organizations SET member_count = member_count + 1 WHERE id = $1`, membership.OrganizationID)
+		r.pool.Exec(ctx, incrementMemberCountQuery, membership.OrganizationID)
 	}
 
 	return err
@@ -318,13 +403,7 @@ func (r *organizationRepository) AddMember(ctx context.Context, membership *doma
 
 // UpdateMember cập nhật thông tin thành viên
 func (r *organizationRepository) UpdateMember(ctx context.Context, membership *domain.OrganizationMembership) error {
-	query := `
-		UPDATE identify.user_organization_memberships
-		SET status = $3, role = $4, is_active = $5, updated_by = $6, version = version + 1
-		WHERE user_id = $1 AND organization_id = $2 AND deleted_at IS NULL
-	`
-
-	_, err := r.pool.Exec(ctx, query,
+	_, err := r.pool.Exec(ctx, updateMemberQuery,
 		membership.UserID, membership.OrganizationID, membership.Status, membership.Role,
 		membership.IsActive, membership.UpdatedBy,
 	)
@@ -334,19 +413,13 @@ func (r *organizationRepository) UpdateMember(ctx context.Context, membership *d
 
 // RemoveMember xóa thành viên khỏi organization
 func (r *organizationRepository) RemoveMember(ctx context.Context, userID, orgID uuid.UUID) error {
-	query := `
-		UPDATE identify.user_organization_memberships
-		SET deleted_at = NOW(), left_at = NOW()
-		WHERE user_id = $1 AND organization_id = $2 AND deleted_at IS NULL
-	`
-
-	result, err := r.pool.Exec(ctx, query, userID, orgID)
+	result, err := r.pool.Exec(ctx, removeMemberQuery, userID, orgID)
 	if err != nil {
 		return err
 	}
 
 	if result.RowsAffected() > 0 {
-		r.pool.Exec(ctx, `UPDATE identify.organizations SET member_count = member_count - 1 WHERE id = $1 AND member_count > 0`, orgID)
+		r.pool.Exec(ctx, decrementMemberCountQuery, orgID)
 	}
 
 	return nil
@@ -400,20 +473,18 @@ func (r *organizationRepository) GetUserOrganizations(ctx context.Context, userI
 // CountUserMemberships đếm số memberships của user (không bao gồm owner)
 func (r *organizationRepository) CountUserMemberships(ctx context.Context, userID uuid.UUID) (int, error) {
 	var count int
-	query := `SELECT COUNT(*) FROM identify.user_organization_memberships WHERE user_id = $1 AND role::text != 'owner' AND deleted_at IS NULL`
-	err := r.pool.QueryRow(ctx, query, userID).Scan(&count)
+	err := r.pool.QueryRow(ctx, countUserMembershipsQuery, userID).Scan(&count)
 	return count, err
 }
 
 // IsUserOwnerOfAnyOrg kiểm tra user đã là owner của org nào chưa
 func (r *organizationRepository) IsUserOwnerOfAnyOrg(ctx context.Context, userID uuid.UUID) (bool, error) {
 	var exists bool
-	query := `SELECT EXISTS(SELECT 1 FROM identify.user_organization_memberships WHERE user_id = $1 AND role::text = 'owner' AND deleted_at IS NULL)`
-	err := r.pool.QueryRow(ctx, query, userID).Scan(&exists)
+	err := r.pool.QueryRow(ctx, isUserOwnerQuery, userID).Scan(&exists)
 	return exists, err
 }
 
-// UpdateStatistics cập nhật thống kê organization
+// UpdateStatistics cập nhật thống kê organization (dynamic query)
 func (r *organizationRepository) UpdateStatistics(ctx context.Context, id uuid.UUID, stats domain.OrganizationStatisticsUpdate) error {
 	var setClauses []string
 	var args []any
@@ -453,15 +524,13 @@ func (r *organizationRepository) UpdateStatistics(ctx context.Context, id uuid.U
 	return err
 }
 
+// =============================================================================
+// Pending Invites
+// =============================================================================
+
 // CreatePendingInvite tạo pending invite mới
 func (r *organizationRepository) CreatePendingInvite(ctx context.Context, invite *domain.OrganizationPendingInvite) error {
-	query := `
-		INSERT INTO identify.organization_pending_invites (
-			id, organization_id, user_id, invited_by, status, expires_at
-		) VALUES ($1, $2, $3, $4, $5, $6)
-	`
-
-	_, err := r.pool.Exec(ctx, query,
+	_, err := r.pool.Exec(ctx, createInviteQuery,
 		invite.ID, invite.OrganizationID, invite.UserID, invite.InvitedBy, invite.Status, invite.ExpiresAt,
 	)
 
@@ -470,13 +539,7 @@ func (r *organizationRepository) CreatePendingInvite(ctx context.Context, invite
 
 // GetPendingInvite lấy pending invite theo ID
 func (r *organizationRepository) GetPendingInvite(ctx context.Context, id uuid.UUID) (*domain.OrganizationPendingInvite, error) {
-	query := `
-		SELECT id, organization_id, user_id, invited_by, status, approved_by, processed_at, expires_at, created_at
-		FROM identify.organization_pending_invites
-		WHERE id = $1
-	`
-
-	rows, err := r.pool.Query(ctx, query, id)
+	rows, err := r.pool.Query(ctx, getInviteByIDQuery, id)
 	if err != nil {
 		return nil, err
 	}
@@ -491,13 +554,7 @@ func (r *organizationRepository) GetPendingInvite(ctx context.Context, id uuid.U
 
 // GetPendingInviteByUserAndOrg lấy pending invite của user trong org
 func (r *organizationRepository) GetPendingInviteByUserAndOrg(ctx context.Context, userID, orgID uuid.UUID) (*domain.OrganizationPendingInvite, error) {
-	query := `
-		SELECT id, organization_id, user_id, invited_by, status, approved_by, processed_at, expires_at, created_at
-		FROM identify.organization_pending_invites
-		WHERE user_id = $1 AND organization_id = $2 AND status = 'pending'
-	`
-
-	rows, err := r.pool.Query(ctx, query, userID, orgID)
+	rows, err := r.pool.Query(ctx, getInviteByUserOrgQuery, userID, orgID)
 	if err != nil {
 		return nil, err
 	}
@@ -510,7 +567,7 @@ func (r *organizationRepository) GetPendingInviteByUserAndOrg(ctx context.Contex
 	return &invite, nil
 }
 
-// ListPendingInvites lấy danh sách pending invites của org
+// ListPendingInvites lấy danh sách pending invites của org (với User info)
 func (r *organizationRepository) ListPendingInvites(ctx context.Context, orgID uuid.UUID) ([]*domain.OrganizationPendingInvite, error) {
 	query := `
 		SELECT p.id, p.organization_id, p.user_id, p.invited_by, p.status, 
@@ -566,13 +623,7 @@ func (r *organizationRepository) ListPendingInvites(ctx context.Context, orgID u
 
 // UpdatePendingInvite cập nhật pending invite
 func (r *organizationRepository) UpdatePendingInvite(ctx context.Context, invite *domain.OrganizationPendingInvite) error {
-	query := `
-		UPDATE identify.organization_pending_invites
-		SET status = $2, approved_by = $3, processed_at = $4
-		WHERE id = $1
-	`
-
-	_, err := r.pool.Exec(ctx, query,
+	_, err := r.pool.Exec(ctx, updateInviteQuery,
 		invite.ID, invite.Status, invite.ApprovedBy, invite.ProcessedAt,
 	)
 
@@ -581,20 +632,17 @@ func (r *organizationRepository) UpdatePendingInvite(ctx context.Context, invite
 
 // DeletePendingInvite xóa pending invite
 func (r *organizationRepository) DeletePendingInvite(ctx context.Context, id uuid.UUID) error {
-	query := `DELETE FROM identify.organization_pending_invites WHERE id = $1`
-	_, err := r.pool.Exec(ctx, query, id)
+	_, err := r.pool.Exec(ctx, deleteInviteQuery, id)
 	return err
 }
 
+// =============================================================================
+// Reports
+// =============================================================================
+
 // CreateReport tạo report mới
 func (r *organizationRepository) CreateReport(ctx context.Context, report *domain.OrganizationReport) error {
-	query := `
-		INSERT INTO identify.organization_reports (
-			id, organization_id, reporter_id, reason, description, status
-		) VALUES ($1, $2, $3, $4, $5, $6)
-	`
-
-	_, err := r.pool.Exec(ctx, query,
+	_, err := r.pool.Exec(ctx, createReportQuery,
 		report.ID, report.OrganizationID, report.ReporterID, report.Reason, report.Description, report.Status,
 	)
 
@@ -603,16 +651,7 @@ func (r *organizationRepository) CreateReport(ctx context.Context, report *domai
 
 // GetReport lấy report theo ID
 func (r *organizationRepository) GetReport(ctx context.Context, id uuid.UUID) (*domain.OrganizationReport, error) {
-	query := `
-		SELECT id, organization_id, reporter_id, reason, description,
-		       org_response, org_responded_by, org_responded_at,
-		       status, resolved_by, resolved_at, resolution_note,
-		       created_at, updated_at
-		FROM identify.organization_reports
-		WHERE id = $1
-	`
-
-	rows, err := r.pool.Query(ctx, query, id)
+	rows, err := r.pool.Query(ctx, getReportByIDQuery, id)
 	if err != nil {
 		return nil, err
 	}
@@ -627,16 +666,7 @@ func (r *organizationRepository) GetReport(ctx context.Context, id uuid.UUID) (*
 
 // GetReportByUserAndOrg lấy report của user về org
 func (r *organizationRepository) GetReportByUserAndOrg(ctx context.Context, userID, orgID uuid.UUID) (*domain.OrganizationReport, error) {
-	query := `
-		SELECT id, organization_id, reporter_id, reason, description,
-		       org_response, org_responded_by, org_responded_at,
-		       status, resolved_by, resolved_at, resolution_note,
-		       created_at, updated_at
-		FROM identify.organization_reports
-		WHERE reporter_id = $1 AND organization_id = $2 AND status IN ('pending', 'org_responded')
-	`
-
-	rows, err := r.pool.Query(ctx, query, userID, orgID)
+	rows, err := r.pool.Query(ctx, getReportByUserOrgQuery, userID, orgID)
 	if err != nil {
 		return nil, err
 	}
@@ -649,7 +679,7 @@ func (r *organizationRepository) GetReportByUserAndOrg(ctx context.Context, user
 	return &report, nil
 }
 
-// ListReportsByOrg lấy danh sách reports của org
+// ListReportsByOrg lấy danh sách reports của org (với Reporter info)
 func (r *organizationRepository) ListReportsByOrg(ctx context.Context, orgID uuid.UUID) ([]*domain.OrganizationReport, error) {
 	query := `
 		SELECT r.id, r.organization_id, r.reporter_id, r.reason, r.description,
@@ -698,14 +728,7 @@ func (r *organizationRepository) ListReportsByOrg(ctx context.Context, orgID uui
 // UpdateReport cập nhật report
 func (r *organizationRepository) UpdateReport(ctx context.Context, report *domain.OrganizationReport) error {
 	now := time.Now()
-	query := `
-		UPDATE identify.organization_reports
-		SET org_response = $2, org_responded_by = $3, org_responded_at = $4, 
-		    status = $5, updated_at = $6
-		WHERE id = $1
-	`
-
-	_, err := r.pool.Exec(ctx, query,
+	_, err := r.pool.Exec(ctx, updateReportQuery,
 		report.ID, report.OrgResponse, report.OrgRespondedBy, report.OrgRespondedAt,
 		report.Status, now,
 	)

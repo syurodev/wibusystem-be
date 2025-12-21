@@ -1,3 +1,43 @@
+// ============================================================================
+// Organization Service
+// ============================================================================
+//
+// Service này cung cấp business logic cho Organization module.
+// Quản lý các nhóm dịch (translation teams) trong hệ thống.
+//
+// Organization Management:
+//   - CreateOrganization: Tạo org mới (kiểm tra user chưa là owner)
+//   - UpdateOrganization: Cập nhật thông tin org
+//   - DeleteOrganization: Soft delete org
+//   - GetOrganizationByID/GetOrganizationBySlug: Lấy org
+//   - ListOrganizations: Lấy danh sách với filter
+//   - UpdateSettings: Cập nhật settings (bypass invite, etc.)
+//
+// Membership Management:
+//   - GetMembers: Lấy danh sách members
+//   - GetUserOrganizations: Lấy orgs của user (owned + member)
+//   - InviteMember: Mời user vào org (tạo pending invite nếu cần approval)
+//   - RemoveMember: Xóa member (không thể xóa owner)
+//   - UpdateMemberRole: Thay đổi role (admin/member)
+//   - LeaveOrganization: Rời org (owner không thể rời)
+//
+// Invite Management:
+//   - ListPendingInvites: Lấy danh sách invites
+//   - ProcessPendingInvite: Approve/reject invite
+//
+// Report System:
+//   - ReportOrganization: Báo cáo org vi phạm
+//   - ListReports: Lấy danh sách reports
+//   - RespondToReport: Org response to report
+//   - HasUserReported: Kiểm tra user đã report chưa
+//
+// Business Rules:
+//   - MaxMembershipCount: Giới hạn số orgs user có thể tham gia (5)
+//   - User chỉ có thể own 1 org
+//   - Owner không thể rời org, phải transfer ownership trước
+//
+// ============================================================================
+
 package organization
 
 import (
