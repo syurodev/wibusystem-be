@@ -90,6 +90,68 @@ const (
 	OwnerTypeOrg  = "org"  // Content owned by an organization
 )
 
+// ============================================================================
+// Analytics Enums
+// ============================================================================
+
+// AnalyticsPeriod định nghĩa các khoảng thời gian cho analytics queries
+type AnalyticsPeriod string
+
+const (
+	PeriodDay   AnalyticsPeriod = "day"
+	PeriodWeek  AnalyticsPeriod = "week"
+	PeriodMonth AnalyticsPeriod = "month"
+	PeriodYear  AnalyticsPeriod = "year"
+)
+
+// IsValid kiểm tra xem period có hợp lệ không
+func (p AnalyticsPeriod) IsValid() bool {
+	switch p {
+	case PeriodDay, PeriodWeek, PeriodMonth, PeriodYear:
+		return true
+	default:
+		return false
+	}
+}
+
+// ToClickHouseInterval chuyển đổi period sang ClickHouse INTERVAL format
+func (p AnalyticsPeriod) ToClickHouseInterval() string {
+	switch p {
+	case PeriodDay:
+		return "1 DAY"
+	case PeriodWeek:
+		return "7 DAY"
+	case PeriodMonth:
+		return "30 DAY"
+	case PeriodYear:
+		return "365 DAY"
+	default:
+		return "7 DAY"
+	}
+}
+
+// AnalyticsEntityType định nghĩa các loại entity cho analytics ranking
+type AnalyticsEntityType string
+
+const (
+	EntityTypeGenre   AnalyticsEntityType = "genre"
+	EntityTypeCreator AnalyticsEntityType = "creator"
+	EntityTypeOrg     AnalyticsEntityType = "org"
+	EntityTypeNovel   AnalyticsEntityType = "novel"
+	EntityTypeManga   AnalyticsEntityType = "manga"
+	EntityTypeAnime   AnalyticsEntityType = "anime"
+)
+
+// IsValid kiểm tra xem entity type có hợp lệ không
+func (e AnalyticsEntityType) IsValid() bool {
+	switch e {
+	case EntityTypeGenre, EntityTypeCreator, EntityTypeOrg, EntityTypeNovel, EntityTypeManga, EntityTypeAnime:
+		return true
+	default:
+		return false
+	}
+}
+
 // ViewEvent represents a single view tracking event for analytics.
 // This struct is used to store view events in ClickHouse for detailed analytics.
 type ViewEvent struct {

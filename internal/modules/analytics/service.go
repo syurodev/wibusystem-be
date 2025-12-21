@@ -1,3 +1,36 @@
+// ============================================================================
+// Analytics Service
+// ============================================================================
+//
+// Service này cung cấp business logic cho Analytics module.
+// Kết hợp data từ ClickHouse (real-time views) và PostgreSQL (entity details).
+//
+// Trending Operations:
+//   - GetTopTrending: Lấy top trending media (novel/manga/anime)
+//   - hydrateTrendingItems: Enrich trending data với details từ PostgreSQL
+//   - getFallbackTrending: Fallback khi ClickHouse không có data
+//
+// Creator/Org Leaderboards:
+//   - GetMostActiveCreators: Top creators theo hoạt động publish
+//   - GetActiveOrganizations: Top orgs theo hoạt động publish
+//   - GetRisingStars: New creators với views cao (90 ngày gần đây)
+//
+// View-based Rankings:
+//   - GetTopGenresByViews: Top genres theo views (cached 30 phút)
+//   - GetTopCreatorsByViews: Top creators theo views
+//   - GetTopOrgsByViews: Top orgs theo views
+//   - GetTop*WithRankComparison: Rankings kèm so sánh với kỳ trước
+//
+// Other:
+//   - GetFreshUpdates: Chapters mới publish gần đây
+//   - GetCreatorViewStats: Stats cho list creators
+//
+// Caching Strategy:
+//   - Redis cache với TTL 30 phút cho các list queries
+//   - Cache key format: analytics:{query_type}:{period}:{offset}:{limit}
+//
+// ============================================================================
+
 package analytics
 
 import (
@@ -15,8 +48,7 @@ import (
 	"go.uber.org/zap"
 )
 
-// AnalyticsService handles analytics and trending logic.
-// AnalyticsService handles analytics and trending logic.
+// analyticsServiceImpl implements analytics and trending logic.
 type analyticsServiceImpl struct {
 	viewAnalyticsRepo domain.ViewAnalyticsRepository
 	novelService      novel.NovelService // Keep NovelService for complex hydration logic if safe
@@ -73,7 +105,6 @@ type TrendingItem struct {
 	// Add other fields as needed
 }
 
-// GetTopTrending retrieves top trending media.
 // GetTopTrending retrieves top trending media.
 func (s *analyticsServiceImpl) GetTopTrending(ctx context.Context, mediaType string, timeRange string, limit int) ([]map[string]any, error) {
 	// 1. Get trending IDs from ClickHouse
