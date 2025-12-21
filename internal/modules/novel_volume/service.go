@@ -1,3 +1,28 @@
+// ============================================================================
+// Novel Volume Service
+// ============================================================================
+//
+// Service này cung cấp business logic cho NovelVolume module.
+// Volume là cấp giữa trong cấu trúc phân cấp: Novel > Volume > Chapter.
+//
+// CRUD Operations:
+//   - CreateVolume: Tạo volume mới với auto-calculated volume number
+//   - UpdateVolume: Cập nhật thông tin volume với history tracking
+//   - DeleteVolume: Soft delete volume
+//   - GetVolumeByID: Lấy chi tiết volume
+//   - GetVolumesByNovelID: Lấy danh sách volumes của một novel
+//
+// State Operations:
+//   - PublishVolume: Xuất bản volume với history tracking
+//   - UnpublishVolume: Ẩn volume với history tracking
+//   - UpdateDisplayOrder: Cập nhật thứ tự hiển thị
+//
+// History Tracking:
+//   - Tất cả các thay đổi quan trọng (update, publish, unpublish) được
+//     log vào VolumeHistory để audit trail
+//
+// ============================================================================
+
 package novel_volume
 
 import (
@@ -14,7 +39,7 @@ import (
 	pkgerrors "system/pkg/errors"
 )
 
-// VolumeService provides business logic for volumes
+// volumeServiceImpl implements VolumeService interface
 type volumeServiceImpl struct {
 	volumeRepo domain.NovelVolumeRepository
 	historyRepo VolumeHistoryRepository

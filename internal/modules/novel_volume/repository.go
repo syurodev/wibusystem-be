@@ -1,13 +1,70 @@
+// ============================================================================
+// Novel Volume Repository
+// ============================================================================
+//
+// Repository này triển khai NovelVolumeRepository interface từ domain package.
+// Volume là cấp giữa trong cấu trúc phân cấp: Novel > Volume > Chapter.
+//
+// CRUD Operations:
+//   - GetByID: Lấy volume theo ID
+//   - GetByNovelIDAndNumber: Lấy volume theo novel ID và volume number
+//   - GetByNovelID: Lấy danh sách volumes của một novel (hỗ trợ publishedOnly filter)
+//   - Create: Tạo volume mới
+//   - Update: Cập nhật thông tin volume
+//   - Delete: Soft delete volume
+//
+// State Operations:
+//   - Publish: Xuất bản volume (is_published = true)
+//   - Unpublish: Ẩn volume (is_published = false)
+//   - UpdateDisplayOrder: Cập nhật thứ tự hiển thị
+//
+// Statistics:
+//   - UpdateStatistics: Cập nhật chapter_count và word_count từ chapters
+//
+// SQL queries được load từ thư mục queries/ sử dụng go:embed.
+//
+// ============================================================================
+
 package novel_volume
 
 import (
 	"context"
+	_ "embed"
 	"system/internal/domain"
 
 	"github.com/gofrs/uuid/v5"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
+
+// SQL queries embedded từ files
+//
+//go:embed queries/get_by_id.sql
+var getByIDQuery string
+
+//go:embed queries/get_by_novel_id_and_number.sql
+var getByNovelIDAndNumberQuery string
+
+//go:embed queries/create.sql
+var createQuery string
+
+//go:embed queries/update.sql
+var updateQuery string
+
+//go:embed queries/delete.sql
+var deleteQuery string
+
+//go:embed queries/update_display_order.sql
+var updateDisplayOrderQuery string
+
+//go:embed queries/publish.sql
+var publishQuery string
+
+//go:embed queries/unpublish.sql
+var unpublishQuery string
+
+//go:embed queries/update_statistics.sql
+var updateStatisticsQuery string
 
 // volumeRepository triển khai NovelVolumeRepository sử dụng pgx
 type volumeRepository struct {
@@ -21,18 +78,7 @@ func NewVolumeRepository(pool *pgxpool.Pool) domain.NovelVolumeRepository {
 
 // GetByID lấy volume từ database theo ID
 func (r *volumeRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.NovelVolume, error) {
-	query := `
-		SELECT v.id, v.novel_id, v.volume_number, v.title, v.slug, v.description,
-		       v.cover_image_url, v.chapter_count, v.word_count, v.display_order,
-		       v.is_published, v.published_at, v.created_by, v.updated_by, v.deleted_by,
-		       v.version, v.created_at, v.updated_at, v.deleted_at,
-		       n.title as novel_title
-		FROM catalog.novel_volumes v
-		LEFT JOIN catalog.novels n ON v.novel_id = n.id
-		WHERE v.id = $1 AND v.deleted_at IS NULL
-	`
-
-	rows, err := r.pool.Query(ctx, query, id)
+	rows, err := r.pool.Query(ctx, getByIDQuery, id)
 	if err != nil {
 		return nil, err
 	}
@@ -47,18 +93,7 @@ func (r *volumeRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.N
 
 // GetByNovelIDAndNumber lấy volume theo novel ID và volume number
 func (r *volumeRepository) GetByNovelIDAndNumber(ctx context.Context, novelID uuid.UUID, volumeNumber int) (*domain.NovelVolume, error) {
-	query := `
-		SELECT v.id, v.novel_id, v.volume_number, v.title, v.slug, v.description,
-		       v.cover_image_url, v.chapter_count, v.word_count, v.display_order,
-		       v.is_published, v.published_at, v.created_by, v.updated_by, v.deleted_by,
-		       v.version, v.created_at, v.updated_at, v.deleted_at,
-		       n.title as novel_title
-		FROM catalog.novel_volumes v
-		LEFT JOIN catalog.novels n ON v.novel_id = n.id
-		WHERE v.novel_id = $1 AND v.volume_number = $2 AND v.deleted_at IS NULL
-	`
-
-	rows, err := r.pool.Query(ctx, query, novelID, volumeNumber)
+	rows, err := r.pool.Query(ctx, getByNovelIDAndNumberQuery, novelID, volumeNumber)
 	if err != nil {
 		return nil, err
 	}
@@ -73,6 +108,8 @@ func (r *volumeRepository) GetByNovelIDAndNumber(ctx context.Context, novelID uu
 
 // GetByNovelID lấy danh sách volume theo novel ID
 func (r *volumeRepository) GetByNovelID(ctx context.Context, novelID uuid.UUID, publishedOnly bool) ([]*domain.NovelVolume, error) {
+	// Query cơ bản từ getByIDQuery nhưng cần điều chỉnh WHERE clause
+	// Không thể embed trực tiếp vì cần dynamic filter
 	query := `
 		SELECT v.id, v.novel_id, v.volume_number, v.title, v.slug, v.description,
 		       v.cover_image_url, v.chapter_count, v.word_count, v.display_order,
@@ -105,14 +142,7 @@ func (r *volumeRepository) GetByNovelID(ctx context.Context, novelID uuid.UUID, 
 
 // Create tạo volume mới trong database
 func (r *volumeRepository) Create(ctx context.Context, volume *domain.NovelVolume) error {
-	query := `
-		INSERT INTO catalog.novel_volumes (
-			id, novel_id, volume_number, title, slug, description,
-			cover_image_url, display_order, is_published, created_by
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-	`
-
-	_, err := r.pool.Exec(ctx, query,
+	_, err := r.pool.Exec(ctx, createQuery,
 		volume.ID,
 		volume.NovelID,
 		volume.VolumeNumber,
@@ -130,19 +160,7 @@ func (r *volumeRepository) Create(ctx context.Context, volume *domain.NovelVolum
 
 // Update cập nhật thông tin volume
 func (r *volumeRepository) Update(ctx context.Context, volume *domain.NovelVolume) error {
-	query := `
-		UPDATE catalog.novel_volumes
-		SET volume_number = $2,
-		    title = $3,
-		    slug = $4,
-		    description = $5,
-		    cover_image_url = $6,
-		    display_order = $7,
-		    is_published = $8
-		WHERE id = $1 AND deleted_at IS NULL
-	`
-
-	_, err := r.pool.Exec(ctx, query,
+	_, err := r.pool.Exec(ctx, updateQuery,
 		volume.ID,
 		volume.VolumeNumber,
 		volume.Title,
@@ -158,71 +176,30 @@ func (r *volumeRepository) Update(ctx context.Context, volume *domain.NovelVolum
 
 // Delete xóa mềm volume
 func (r *volumeRepository) Delete(ctx context.Context, id uuid.UUID) error {
-	query := `
-		UPDATE catalog.novel_volumes
-		SET deleted_at = NOW()
-		WHERE id = $1 AND deleted_at IS NULL
-	`
-
-	_, err := r.pool.Exec(ctx, query, id)
+	_, err := r.pool.Exec(ctx, deleteQuery, id)
 	return err
 }
 
 // UpdateDisplayOrder cập nhật thứ tự hiển thị của volume
 func (r *volumeRepository) UpdateDisplayOrder(ctx context.Context, id uuid.UUID, order int) error {
-	query := `
-		UPDATE catalog.novel_volumes
-		SET display_order = $2
-		WHERE id = $1 AND deleted_at IS NULL
-	`
-
-	_, err := r.pool.Exec(ctx, query, id, order)
+	_, err := r.pool.Exec(ctx, updateDisplayOrderQuery, id, order)
 	return err
 }
 
 // Publish xuất bản volume
 func (r *volumeRepository) Publish(ctx context.Context, id uuid.UUID) error {
-	query := `
-		UPDATE catalog.novel_volumes
-		SET is_published = true,
-		    published_at = COALESCE(published_at, NOW())
-		WHERE id = $1 AND deleted_at IS NULL
-	`
-
-	_, err := r.pool.Exec(ctx, query, id)
+	_, err := r.pool.Exec(ctx, publishQuery, id)
 	return err
 }
 
 // Unpublish ẩn volume
 func (r *volumeRepository) Unpublish(ctx context.Context, id uuid.UUID) error {
-	query := `
-		UPDATE catalog.novel_volumes
-		SET is_published = false
-		WHERE id = $1 AND deleted_at IS NULL
-	`
-
-	_, err := r.pool.Exec(ctx, query, id)
+	_, err := r.pool.Exec(ctx, unpublishQuery, id)
 	return err
 }
 
 // UpdateStatistics cập nhật chapter_count và word_count của volume dựa trên chapters
 func (r *volumeRepository) UpdateStatistics(ctx context.Context, volumeID uuid.UUID) error {
-	query := `
-		UPDATE catalog.novel_volumes v
-		SET 
-			chapter_count = COALESCE((
-				SELECT COUNT(*)
-				FROM catalog.novel_chapters c
-				WHERE c.volume_id = v.id AND c.deleted_at IS NULL
-			), 0),
-			word_count = COALESCE((
-				SELECT SUM(word_count)
-				FROM catalog.novel_chapters c
-				WHERE c.volume_id = v.id AND c.deleted_at IS NULL
-			), 0)
-		WHERE v.id = $1 AND v.deleted_at IS NULL
-	`
-
-	_, err := r.pool.Exec(ctx, query, volumeID)
+	_, err := r.pool.Exec(ctx, updateStatisticsQuery, volumeID)
 	return err
 }
