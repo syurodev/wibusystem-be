@@ -16,6 +16,16 @@ const (
 	UserStatusDeleted   UserStatus = "deleted"
 )
 
+// IsValid kiểm tra xem status có hợp lệ không
+func (s UserStatus) IsValid() bool {
+	switch s {
+	case UserStatusActive, UserStatusSuspended, UserStatusDeleted:
+		return true
+	default:
+		return false
+	}
+}
+
 // User là domain model cho người dùng trong hệ thống
 type User struct {
 	ID            uuid.UUID      `json:"id"`

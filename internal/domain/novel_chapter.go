@@ -17,6 +17,16 @@ const (
 	NovelChapterStatusScheduled NovelChapterStatus = "scheduled"
 )
 
+// IsValid kiểm tra xem status có hợp lệ không
+func (s NovelChapterStatus) IsValid() bool {
+	switch s {
+	case NovelChapterStatusDraft, NovelChapterStatusPublished, NovelChapterStatusScheduled:
+		return true
+	default:
+		return false
+	}
+}
+
 // NovelChapter là domain model cho chapter/chương trong hệ thống
 // Đây là cấp thấp nhất trong cấu trúc phân cấp Novel > NovelVolume > NovelChapter
 type NovelChapter struct {

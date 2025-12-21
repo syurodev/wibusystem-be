@@ -1,3 +1,34 @@
+// ============================================================================
+// Novel Chapter Service
+// ============================================================================
+//
+// Service này cung cấp business logic cho NovelChapter module.
+// Chapter là cấp thấp nhất trong cấu trúc phân cấp: Novel > Volume > Chapter.
+//
+// CRUD Operations:
+//   - CreateChapter: Tạo chapter mới với validation và statistics update
+//   - UpdateChapter: Cập nhật chapter với history tracking
+//   - DeleteChapter: Soft delete chapter
+//   - GetChapterByID: Lấy chi tiết chapter
+//   - GetChaptersByNovelID: Lấy danh sách chapters theo novel (với filter)
+//   - GetChaptersByVolumeID: Lấy danh sách chapters theo volume
+//
+// State Operations:
+//   - PublishChapter: Xuất bản chapter ngay lập tức + history + activity tracking
+//   - ScheduleChapter: Đặt lịch xuất bản chapter
+//   - GetScheduledChapters: Lấy chapters đến lịch xuất bản
+//
+// Statistics:
+//   - UpdateStatistics: Cập nhật view/like/comment counts
+//
+// Other:
+//   - GetRecentChapters: Lấy chapters mới xuất bản gần đây
+//
+// History Tracking:
+//   - Các thay đổi quan trọng (được log vào ChapterHistory để audit trail
+//
+// ============================================================================
+
 package novel_chapter
 
 import (
@@ -15,7 +46,7 @@ import (
 	pkgerrors "system/pkg/errors"
 )
 
-// ChapterService provides business logic for chapters
+// chapterServiceImpl implements ChapterService interface
 type chapterServiceImpl struct {
 	chapterRepo domain.NovelChapterRepository
 	volumeRepo  domain.NovelVolumeRepository
@@ -85,7 +116,7 @@ func (s *chapterServiceImpl) CreateChapter(
 	}
 
 	// Validate status
-	if !isValidChapterStatus(status) {
+	if !domain.NovelChapterStatus(status).IsValid() {
 		return nil, pkgerrors.BadRequest(I18nInvalidChapterStatus, "invalid chapter status")
 	}
 
@@ -212,7 +243,7 @@ func (s *chapterServiceImpl) UpdateChapter(
 	}
 
 	// Validate status
-	if !isValidChapterStatus(status) {
+	if !domain.NovelChapterStatus(status).IsValid() {
 		return nil, pkgerrors.BadRequest(I18nInvalidChapterStatus, "invalid chapter status")
 	}
 
@@ -506,15 +537,7 @@ func (s *chapterServiceImpl) UpdateStatistics(ctx context.Context, id uuid.UUID,
 	return s.chapterRepo.UpdateStatistics(ctx, id, stats)
 }
 
-// Helper function to validate chapter status
-func isValidChapterStatus(status string) bool {
-	validStatuses := map[string]bool{
-		"draft":     true,
-		"published": true,
-		"scheduled": true,
-	}
-	return validStatuses[status]
-}
+
 
 // Helper function to count words in text
 func countWords(text string) int {

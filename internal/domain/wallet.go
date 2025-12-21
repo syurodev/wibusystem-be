@@ -57,6 +57,16 @@ const (
 	TopupStatusFailed    TopupStatus = "failed"
 )
 
+// IsValid kểm tra xem status có hợp lệ không
+func (s TopupStatus) IsValid() bool {
+	switch s {
+	case TopupStatusPending, TopupStatusSuccess, TopupStatusExpired, TopupStatusCancelled, TopupStatusFailed:
+		return true
+	default:
+		return false
+	}
+}
+
 // TopupOrder represents a coin top-up order
 type TopupOrder struct {
 	ID                  uuid.UUID
@@ -99,6 +109,17 @@ const (
 	TransactionTypeRefund          TransactionType = "refund"
 	TransactionTypeAdminAdjustment TransactionType = "admin_adjustment"
 )
+
+// IsValid kiểm tra xem transaction type có hợp lệ không
+func (t TransactionType) IsValid() bool {
+	switch t {
+	case TransactionTypeTopup, TransactionTypePurchaseChapter, TransactionTypePurchaseSeries,
+		TransactionTypeRental, TransactionTypeSubscription, TransactionTypeRefund, TransactionTypeAdminAdjustment:
+		return true
+	default:
+		return false
+	}
+}
 
 // NotificationType represents the type of WebSocket notification
 type NotificationType string

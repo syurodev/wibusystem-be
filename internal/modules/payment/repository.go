@@ -1,3 +1,23 @@
+// ============================================================================
+// Payment Configuration Repository
+// ============================================================================
+//
+// Repository này triển khai PaymentConfigurationRepository interface.
+// Quản lý cấu hình động cho payment system (API keys, thresholds, etc.)
+//
+// CRUD Operations:
+//   - GetByKey: Lấy config theo key
+//   - GetAll: Lấy tất cả configs
+//   - GetByPrefix: Lấy configs theo prefix (e.g., "sepay.")
+//   - Create: Tạo config mới
+//   - Update: Cập nhật config value
+//   - Delete: Xóa config
+//   - UpsertMany: Batch upsert nhiều configs
+//
+// SQL queries được load từ thư mục queries/ sử dụng go:embed.
+//
+// ============================================================================
+
 package payment
 
 import (

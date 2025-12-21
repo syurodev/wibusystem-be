@@ -1,7 +1,38 @@
+// ============================================================================
+// User Repository
+// ============================================================================
+//
+// Repository này triển khai UserRepository interface từ domain package.
+// Quản lý dữ liệu user trong hệ thống authentication/authorization.
+//
+// CRUD Operations:
+//   - GetByID: Lấy user theo ID
+//   - GetByEmail: Lấy user theo email (cho login)
+//   - GetByUsername: Lấy user theo username
+//   - Create: Tạo user mới
+//   - Update: Cập nhật thông tin user
+//
+// Authentication:
+//   - UpdateLastLogin: Cập nhật thời gian đăng nhập cuối
+//
+// Authorization:
+//   - GetGlobalPermissions: Lấy global permissions của user
+//   - GetOrganizationPermissions: Lấy permissions trong organization
+//   - GetGlobalRoles: Lấy global roles của user
+//   - GetOrganizationRoles: Lấy roles trong organization
+//
+// Statistics:
+//   - UpdateFirstContentPostedAt: Cập nhật thời điểm post content đầu tiên
+//
+// SQL queries được load từ thư mục queries/ sử dụng go:embed.
+//
+// ============================================================================
+
 package user
 
 import (
 	"context"
+	_ "embed"
 	"encoding/json"
 	"system/internal/domain"
 	"time"
@@ -10,6 +41,41 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
+
+// SQL queries embedded từ files
+//
+//go:embed queries/get_by_id.sql
+var getByIDQuery string
+
+//go:embed queries/get_by_email.sql
+var getByEmailQuery string
+
+//go:embed queries/get_by_username.sql
+var getByUsernameQuery string
+
+//go:embed queries/create.sql
+var createQuery string
+
+//go:embed queries/update.sql
+var updateQuery string
+
+//go:embed queries/update_last_login.sql
+var updateLastLoginQuery string
+
+//go:embed queries/get_global_permissions.sql
+var getGlobalPermissionsQuery string
+
+//go:embed queries/get_organization_permissions.sql
+var getOrganizationPermissionsQuery string
+
+//go:embed queries/get_global_roles.sql
+var getGlobalRolesQuery string
+
+//go:embed queries/get_organization_roles.sql
+var getOrganizationRolesQuery string
+
+//go:embed queries/update_first_content_posted_at.sql
+var updateFirstContentPostedAtQuery string
 
 // userRepository triển khai UserRepository sử dụng pgx
 type userRepository struct {
@@ -23,15 +89,7 @@ func NewUserRepository(pool *pgxpool.Pool) domain.UserRepository {
 
 // GetByID lấy user từ database theo ID
 func (r *userRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.User, error) {
-	query := `
-		SELECT id, email, email_verified, password_hash, full_name, avatar_url,
-		       phone, status, created_at, updated_at, last_login_at, settings,
-		       display_name, username, bio, is_verified
-		FROM identify.users
-		WHERE id = $1 AND status != 'deleted'
-	`
-
-	rows, err := r.pool.Query(ctx, query, id)
+	rows, err := r.pool.Query(ctx, getByIDQuery, id)
 	if err != nil {
 		return nil, err
 	}
@@ -46,15 +104,7 @@ func (r *userRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.Use
 
 // GetByEmail lấy user từ database theo email
 func (r *userRepository) GetByEmail(ctx context.Context, email string) (*domain.User, error) {
-	query := `
-		SELECT id, email, email_verified, password_hash, full_name, avatar_url,
-		       phone, status, created_at, updated_at, last_login_at, settings,
-		       display_name, username, bio, is_verified
-		FROM identify.users
-		WHERE email = $1 AND status != 'deleted'
-	`
-
-	rows, err := r.pool.Query(ctx, query, email)
+	rows, err := r.pool.Query(ctx, getByEmailQuery, email)
 	if err != nil {
 		return nil, err
 	}
@@ -69,15 +119,7 @@ func (r *userRepository) GetByEmail(ctx context.Context, email string) (*domain.
 
 // GetByUsername lấy user từ database theo username
 func (r *userRepository) GetByUsername(ctx context.Context, username string) (*domain.User, error) {
-	query := `
-		SELECT id, email, email_verified, password_hash, full_name, avatar_url,
-		       phone, status, created_at, updated_at, last_login_at, settings,
-		       display_name, username, bio, is_verified
-		FROM identify.users
-		WHERE LOWER(username) = LOWER($1) AND status != 'deleted'
-	`
-
-	rows, err := r.pool.Query(ctx, query, username)
+	rows, err := r.pool.Query(ctx, getByUsernameQuery, username)
 	if err != nil {
 		return nil, err
 	}
@@ -92,19 +134,12 @@ func (r *userRepository) GetByUsername(ctx context.Context, username string) (*d
 
 // Create tạo user mới trong database
 func (r *userRepository) Create(ctx context.Context, user *domain.User) error {
-	query := `
-		INSERT INTO identify.users (
-			id, email, email_verified, password_hash, full_name,
-			avatar_url, phone, status, settings
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb)
-	`
-
 	settingsJSON, err := json.Marshal(user.Settings)
 	if err != nil {
 		return err
 	}
 
-	_, err = r.pool.Exec(ctx, query,
+	_, err = r.pool.Exec(ctx, createQuery,
 		user.ID,
 		user.Email,
 		user.EmailVerified,
@@ -121,23 +156,6 @@ func (r *userRepository) Create(ctx context.Context, user *domain.User) error {
 
 // Update cập nhật thông tin user
 func (r *userRepository) Update(ctx context.Context, user *domain.User) error {
-	query := `
-		UPDATE identify.users
-		SET email = $2,
-		    email_verified = $3,
-		    password_hash = $4,
-		    full_name = $5,
-		    avatar_url = $6,
-		    phone = $7,
-		    status = $8,
-		    settings = $9::jsonb,
-		    display_name = $10,
-		    username = $11,
-		    bio = $12::jsonb,
-		    updated_at = NOW()
-		WHERE id = $1
-	`
-
 	settingsJSON, err := json.Marshal(user.Settings)
 	if err != nil {
 		return err
@@ -148,7 +166,7 @@ func (r *userRepository) Update(ctx context.Context, user *domain.User) error {
 		return err
 	}
 
-	_, err = r.pool.Exec(ctx, query,
+	_, err = r.pool.Exec(ctx, updateQuery,
 		user.ID,
 		user.Email,
 		user.EmailVerified,
@@ -168,21 +186,13 @@ func (r *userRepository) Update(ctx context.Context, user *domain.User) error {
 
 // UpdateLastLogin cập nhật thời gian đăng nhập cuối
 func (r *userRepository) UpdateLastLogin(ctx context.Context, userID uuid.UUID) error {
-	query := `
-		UPDATE identify.users
-		SET last_login_at = NOW()
-		WHERE id = $1
-	`
-
-	_, err := r.pool.Exec(ctx, query, userID)
+	_, err := r.pool.Exec(ctx, updateLastLoginQuery, userID)
 	return err
 }
 
 // GetGlobalPermissions lấy danh sách global permissions của user
 func (r *userRepository) GetGlobalPermissions(ctx context.Context, userID uuid.UUID) ([]string, error) {
-	query := `SELECT permission_name FROM identify.get_user_global_permissions($1)`
-
-	rows, err := r.pool.Query(ctx, query, userID)
+	rows, err := r.pool.Query(ctx, getGlobalPermissionsQuery, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -202,11 +212,7 @@ func (r *userRepository) GetGlobalPermissions(ctx context.Context, userID uuid.U
 
 // GetOrganizationPermissions lấy danh sách permissions của user trong organization
 func (r *userRepository) GetOrganizationPermissions(ctx context.Context, userID, organizationID uuid.UUID) ([]string, error) {
-	query := `
-		SELECT identify.get_user_organization_permissions($1, $2)
-	`
-
-	rows, err := r.pool.Query(ctx, query, userID, organizationID)
+	rows, err := r.pool.Query(ctx, getOrganizationPermissionsQuery, userID, organizationID)
 	if err != nil {
 		return nil, err
 	}
@@ -233,14 +239,7 @@ func (r *userRepository) GetOrganizationPermissions(ctx context.Context, userID,
 
 // GetGlobalRoles lấy danh sách global roles của user
 func (r *userRepository) GetGlobalRoles(ctx context.Context, userID uuid.UUID) ([]string, error) {
-	query := `
-		SELECT r.name
-		FROM identify.user_global_roles ugr
-		JOIN identify.roles r ON ugr.role_id = r.id
-		WHERE ugr.user_id = $1
-	`
-
-	rows, err := r.pool.Query(ctx, query, userID)
+	rows, err := r.pool.Query(ctx, getGlobalRolesQuery, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -260,14 +259,7 @@ func (r *userRepository) GetGlobalRoles(ctx context.Context, userID uuid.UUID) (
 
 // GetOrganizationRoles lấy danh sách roles của user trong organization
 func (r *userRepository) GetOrganizationRoles(ctx context.Context, userID, organizationID uuid.UUID) ([]string, error) {
-	query := `
-		SELECT r.name
-		FROM identify.user_organization_roles uor
-		JOIN identify.roles r ON uor.role_id = r.id
-		WHERE uor.user_id = $1 AND uor.organization_id = $2
-	`
-
-	rows, err := r.pool.Query(ctx, query, userID, organizationID)
+	rows, err := r.pool.Query(ctx, getOrganizationRolesQuery, userID, organizationID)
 	if err != nil {
 		return nil, err
 	}
@@ -287,12 +279,7 @@ func (r *userRepository) GetOrganizationRoles(ctx context.Context, userID, organ
 
 // UpdateFirstContentPostedAt updates first content posted time if not set
 func (r *userRepository) UpdateFirstContentPostedAt(ctx context.Context, userID uuid.UUID, postedAt time.Time) error {
-	query := `
-		UPDATE identify.user_statistics
-		SET first_content_posted_at = $2
-		WHERE user_id = $1 AND first_content_posted_at IS NULL
-	`
 	// Note: We use execute, if row not updated (because already set) it's fine.
-	_, err := r.pool.Exec(ctx, query, userID, postedAt)
+	_, err := r.pool.Exec(ctx, updateFirstContentPostedAtQuery, userID, postedAt)
 	return err
 }

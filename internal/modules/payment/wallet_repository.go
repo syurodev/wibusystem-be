@@ -1,3 +1,37 @@
+// ============================================================================
+// Payment Wallet Repositories
+// ============================================================================
+//
+// File này chứa các repository implementations cho Payment module:
+//
+// WalletRepository:
+//   - GetByUserID: Lấy wallet theo user ID
+//   - GetOrCreateByUserID: Lấy hoặc tạo wallet cho user
+//   - LockForUpdate: Lock row để update (for transactions)
+//   - AddCoins: Thêm coins vào wallet
+//   - DeductCoins: Trừ coins từ wallet
+//
+// CoinPackageRepository:
+//   - GetByID: Lấy package theo ID
+//   - GetBySlug: Lấy package theo slug
+//   - ListActive: Lấy tất cả packages đang active
+//
+// TopupOrderRepository:
+//   - Create: Tạo topup order mới
+//   - GetByID/GetByOrderCode/GetBySepayTransactionID
+//   - UpdateStatus: Cập nhật status của order
+//   - ListByUserID: Lấy danh sách orders của user
+//   - ExpirePendingOrders: Đánh dấu orders hết hạn
+//
+// TransactionRepository:
+//   - Create: Tạo transaction record
+//   - ListByUserID: Lấy danh sách transactions
+//   - GetByReferenceID: Lấy transaction theo reference
+//
+// SQL queries được load từ thư mục queries/ sử dụng go:embed.
+//
+// ============================================================================
+
 package payment
 
 import (

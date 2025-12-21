@@ -1,3 +1,32 @@
+// ============================================================================
+// User Service
+// ============================================================================
+//
+// Service này cung cấp business logic cho User module.
+// Quản lý user operations trong hệ thống authentication/authorization.
+//
+// Profile Operations:
+//   - GetUserByID: Lấy thông tin user theo ID
+//   - GetUserByEmail: Lấy thông tin user theo email
+//   - GetUserByUsername: Lấy thông tin user theo username
+//   - GetProfile: Lấy profile của user
+//   - UpdateProfile: Cập nhật profile (display name, avatar, bio, username)
+//
+// Settings Operations:
+//   - GetSettings: Lấy settings của user
+//   - UpdateSettings: Merge và cập nhật settings
+//
+// Security Operations:
+//   - ChangePassword: Thay đổi password với validation
+//   - GetSessions: Lấy danh sách sessions
+//   - DeleteSession: Xóa session
+//
+// Authorization:
+//   - GetGlobalPermissions/GetOrganizationPermissions
+//   - GetGlobalRoles/GetOrganizationRoles
+//
+// ============================================================================
+
 package user
 
 import (
@@ -13,7 +42,7 @@ import (
 	"system/pkg/util/validator"
 )
 
-// UserService cung cấp business logic cho user operations
+// userServiceImpl implements UserService interface
 type userServiceImpl struct {
 	userRepo    domain.UserRepository
 	sessionRepo domain.SessionRepository

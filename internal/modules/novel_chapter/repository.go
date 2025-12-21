@@ -1,7 +1,39 @@
+// ============================================================================
+// Novel Chapter Repository
+// ============================================================================
+//
+// Repository này triển khai NovelChapterRepository interface từ domain package.
+// Chapter là cấp thấp nhất trong cấu trúc phân cấp: Novel > Volume > Chapter.
+//
+// CRUD Operations:
+//   - GetByID: Lấy chapter theo ID
+//   - GetByNovelIDAndNumber: Lấy chapter theo novel ID và chapter number
+//   - GetByNovelID: Lấy danh sách chapters (hỗ trợ filter động)
+//   - GetByVolumeID: Lấy danh sách chapters theo volume
+//   - Create: Tạo chapter mới
+//   - Update: Cập nhật thông tin chapter
+//   - Delete: Soft delete chapter
+//
+// State Operations:
+//   - Publish: Xuất bản chapter ngay lập tức
+//   - Schedule: Đặt lịch xuất bản chapter
+//   - GetScheduledChapters: Lấy chapters đến lịch xuất bản
+//
+// Statistics:
+//   - IncrementViewCount: Tăng view count cho chapter
+//   - BatchIncrementViewCount: Batch tăng view count (tối ưu performance)
+//   - UpdateStatistics: Cập nhật view/like/comment counts
+//
+// SQL queries ổn định được load từ queries/ sử dụng go:embed.
+// Các queries động (filter, pagination) được build trong code.
+//
+// ============================================================================
+
 package novel_chapter
 
 import (
 	"context"
+	_ "embed"
 	"fmt"
 	"strings"
 	"system/internal/domain"
@@ -11,6 +43,38 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
+
+// SQL queries embedded từ files
+//
+//go:embed queries/get_by_id.sql
+var getByIDQuery string
+
+//go:embed queries/get_by_novel_id_and_number.sql
+var getByNovelIDAndNumberQuery string
+
+//go:embed queries/create.sql
+var createQuery string
+
+//go:embed queries/update.sql
+var updateQuery string
+
+//go:embed queries/delete.sql
+var deleteQuery string
+
+//go:embed queries/publish.sql
+var publishQuery string
+
+//go:embed queries/schedule.sql
+var scheduleQuery string
+
+//go:embed queries/get_scheduled.sql
+var getScheduledQuery string
+
+//go:embed queries/increment_view_count.sql
+var incrementViewCountQuery string
+
+//go:embed queries/get_recent.sql
+var getRecentQuery string
 
 // chapterRepository triển khai ChapterRepository sử dụng pgx
 type chapterRepository struct {
@@ -24,17 +88,7 @@ func NewChapterRepository(pool *pgxpool.Pool) domain.NovelChapterRepository {
 
 // GetByID lấy chapter từ database theo ID
 func (r *chapterRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.NovelChapter, error) {
-	query := `
-		SELECT id, novel_id, volume_id, chapter_number, title, slug, content,
-		       word_count, character_count, is_free, price, currency, status,
-		       view_count, like_count, comment_count, display_order, author_notes,
-		       published_at, scheduled_at, created_at, updated_at, deleted_at,
-		       created_by, updated_by, deleted_by, version
-		FROM catalog.novel_chapters
-		WHERE id = $1 AND deleted_at IS NULL
-	`
-
-	rows, err := r.pool.Query(ctx, query, id)
+	rows, err := r.pool.Query(ctx, getByIDQuery, id)
 	if err != nil {
 		return nil, err
 	}
@@ -49,17 +103,7 @@ func (r *chapterRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.
 
 // GetByNovelIDAndNumber lấy chapter theo novel ID và chapter number
 func (r *chapterRepository) GetByNovelIDAndNumber(ctx context.Context, novelID uuid.UUID, chapterNumber int) (*domain.NovelChapter, error) {
-	query := `
-		SELECT id, novel_id, volume_id, chapter_number, title, slug, content,
-		       word_count, character_count, is_free, price, currency, status,
-		       view_count, like_count, comment_count, display_order, author_notes,
-		       published_at, scheduled_at, created_at, updated_at, deleted_at,
-		       created_by, updated_by, deleted_by, version
-		FROM catalog.novel_chapters
-		WHERE novel_id = $1 AND chapter_number = $2 AND deleted_at IS NULL
-	`
-
-	rows, err := r.pool.Query(ctx, query, novelID, chapterNumber)
+	rows, err := r.pool.Query(ctx, getByNovelIDAndNumberQuery, novelID, chapterNumber)
 	if err != nil {
 		return nil, err
 	}
@@ -195,15 +239,7 @@ func (r *chapterRepository) GetByVolumeID(ctx context.Context, volumeID uuid.UUI
 
 // Create tạo chapter mới trong database
 func (r *chapterRepository) Create(ctx context.Context, chapter *domain.NovelChapter) error {
-	query := `
-		INSERT INTO catalog.novel_chapters (
-			id, novel_id, volume_id, chapter_number, title, slug, content,
-			word_count, character_count, is_free, price, currency, status,
-			display_order, author_notes, scheduled_at, created_by, updated_by
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
-	`
-
-	_, err := r.pool.Exec(ctx, query,
+	_, err := r.pool.Exec(ctx, createQuery,
 		chapter.ID,
 		chapter.NovelID,
 		chapter.VolumeID,
@@ -229,27 +265,7 @@ func (r *chapterRepository) Create(ctx context.Context, chapter *domain.NovelCha
 
 // Update cập nhật thông tin chapter
 func (r *chapterRepository) Update(ctx context.Context, chapter *domain.NovelChapter) error {
-	query := `
-		UPDATE catalog.novel_chapters
-		SET volume_id = $2,
-		    chapter_number = $3,
-		    title = $4,
-		    slug = $5,
-		    content = $6,
-		    word_count = $7,
-		    character_count = $8,
-		    is_free = $9,
-		    price = $10,
-		    currency = $11,
-		    status = $12,
-		    display_order = $13,
-		    author_notes = $14,
-		    scheduled_at = $15,
-		    updated_by = $16
-		WHERE id = $1 AND deleted_at IS NULL
-	`
-
-	_, err := r.pool.Exec(ctx, query,
+	_, err := r.pool.Exec(ctx, updateQuery,
 		chapter.ID,
 		chapter.VolumeID,
 		chapter.ChapterNumber,
@@ -273,59 +289,25 @@ func (r *chapterRepository) Update(ctx context.Context, chapter *domain.NovelCha
 
 // Delete xóa mềm chapter
 func (r *chapterRepository) Delete(ctx context.Context, id uuid.UUID) error {
-	query := `
-		UPDATE catalog.novel_chapters
-		SET deleted_at = NOW()
-		WHERE id = $1 AND deleted_at IS NULL
-	`
-
-	_, err := r.pool.Exec(ctx, query, id)
+	_, err := r.pool.Exec(ctx, deleteQuery, id)
 	return err
 }
 
 // Publish xuất bản chapter ngay lập tức
 func (r *chapterRepository) Publish(ctx context.Context, id uuid.UUID) error {
-	query := `
-		UPDATE catalog.novel_chapters
-		SET status = 'published',
-		    published_at = COALESCE(published_at, NOW()),
-		    scheduled_at = NULL
-		WHERE id = $1 AND deleted_at IS NULL
-	`
-
-	_, err := r.pool.Exec(ctx, query, id)
+	_, err := r.pool.Exec(ctx, publishQuery, id)
 	return err
 }
 
 // Schedule đặt lịch xuất bản chapter
 func (r *chapterRepository) Schedule(ctx context.Context, id uuid.UUID, scheduledAt time.Time) error {
-	query := `
-		UPDATE catalog.novel_chapters
-		SET status = 'scheduled',
-		    scheduled_at = $2
-		WHERE id = $1 AND deleted_at IS NULL
-	`
-
-	_, err := r.pool.Exec(ctx, query, id, scheduledAt)
+	_, err := r.pool.Exec(ctx, scheduleQuery, id, scheduledAt)
 	return err
 }
 
 // GetScheduledChapters lấy danh sách chapter cần xuất bản
 func (r *chapterRepository) GetScheduledChapters(ctx context.Context, before time.Time) ([]*domain.NovelChapter, error) {
-	query := `
-		SELECT id, novel_id, volume_id, chapter_number, title, slug, content,
-		       word_count, character_count, is_free, price, currency, status,
-		       view_count, like_count, comment_count, display_order, author_notes,
-		       published_at, scheduled_at, created_at, updated_at, deleted_at,
-		       created_by, updated_by, deleted_by, version
-		FROM catalog.novel_chapters
-		WHERE status = 'scheduled'
-		  AND scheduled_at <= $1
-		  AND deleted_at IS NULL
-		ORDER BY scheduled_at ASC
-	`
-
-	rows, err := r.pool.Query(ctx, query, before)
+	rows, err := r.pool.Query(ctx, getScheduledQuery, before)
 	if err != nil {
 		return nil, err
 	}
@@ -340,13 +322,7 @@ func (r *chapterRepository) GetScheduledChapters(ctx context.Context, before tim
 
 // IncrementViewCount tăng view count
 func (r *chapterRepository) IncrementViewCount(ctx context.Context, id uuid.UUID) error {
-	query := `
-		UPDATE catalog.novel_chapters
-		SET view_count = view_count + 1
-		WHERE id = $1 AND deleted_at IS NULL
-	`
-
-	_, err := r.pool.Exec(ctx, query, id)
+	_, err := r.pool.Exec(ctx, incrementViewCountQuery, id)
 	return err
 }
 
@@ -435,19 +411,7 @@ func (r *chapterRepository) BatchIncrementViewCount(ctx context.Context, increme
 
 // GetRecentChapters retrieves recently published chapters across all novels
 func (r *chapterRepository) GetRecentChapters(ctx context.Context, limit int) ([]*domain.NovelChapter, error) {
-	query := `
-		SELECT id, novel_id, volume_id, chapter_number, title, slug, content,
-		       word_count, character_count, is_free, price, currency, status,
-		       view_count, like_count, comment_count, display_order, author_notes,
-		       published_at, scheduled_at, created_at, updated_at, deleted_at,
-		       created_by, updated_by, deleted_by, version
-		FROM catalog.novel_chapters
-		WHERE status = 'published' AND deleted_at IS NULL
-		ORDER BY published_at DESC
-		LIMIT $1
-	`
-
-	rows, err := r.pool.Query(ctx, query, limit)
+	rows, err := r.pool.Query(ctx, getRecentQuery, limit)
 	if err != nil {
 		return nil, err
 	}
