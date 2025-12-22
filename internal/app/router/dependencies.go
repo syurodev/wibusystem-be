@@ -14,6 +14,7 @@ import (
 	embedding_module "system/internal/modules/embedding"
 	genre_module "system/internal/modules/genre"
 	media_module "system/internal/modules/media"
+	media_progress_module "system/internal/modules/media_progress"
 	novel_module "system/internal/modules/novel"
 	novel_chapter "system/internal/modules/novel_chapter"
 	novel_volume "system/internal/modules/novel_volume"
@@ -63,6 +64,7 @@ type Repositories struct {
 	CoinPackage        domain.CoinPackageRepository
 	TopupOrder         domain.TopupOrderRepository
 	Transaction        domain.TransactionRepository
+	MediaProgress      domain.MediaProgressRepository
 }
 
 // Services chứa tất cả service instances
@@ -91,6 +93,7 @@ type Services struct {
 	Wallet        payment_module.WalletUseCase
 	Topup         payment_module.TopupUseCase
 	TransactionSvc payment_module.TransactionUseCase
+	MediaProgress  media_progress_module.Service
 	SocketHub     *socket.Hub
 }
 
@@ -113,6 +116,7 @@ type Handlers struct {
 	PaymentConfig *payment_module.Handler
 	Wallet        *payment_module.WalletHandler
 	Webhook       *payment_module.WebhookHandler
+	MediaProgress *media_progress_module.Handler
 	Socket        *socket.Handler
 }
 
@@ -205,6 +209,7 @@ func newRepositories(db *database.PostgresDB, rdb *database.RedisClient, ch *dat
 		CoinPackage:        payment_module.NewCoinPackageRepository(db.Pool),
 		TopupOrder:         payment_module.NewTopupOrderRepository(db.Pool),
 		Transaction:        payment_module.NewTransactionRepository(db.Pool),
+		MediaProgress:      media_progress_module.NewRepository(db.Pool),
 	}
 }
 
@@ -352,6 +357,12 @@ func newServices(
 		Wallet:        walletUC,
 		Topup:         topupUC,
 		TransactionSvc: transactionUC,
+		MediaProgress:  media_progress_module.NewService(
+			repos.MediaProgress,
+			repos.Novel,
+			repos.Chapter,
+			zapLogger,
+		),
 		SocketHub:     socketHub,
 	}, nil
 }
@@ -517,5 +528,6 @@ func newHandlers(
 		Wallet:        payment_module.NewWalletHandler(services.Wallet, services.Topup, services.TransactionSvc, zapLogger),
 		Webhook:       payment_module.NewWebhookHandler(services.Topup, services.PaymentConfig, zapLogger),
 		Socket:        socket.NewHandler(services.SocketHub, zapLogger),
+		MediaProgress: media_progress_module.NewHandler(services.MediaProgress),
 	}
 }

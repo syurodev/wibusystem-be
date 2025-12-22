@@ -47,6 +47,19 @@ func (r *oauth2SessionRepository) DeleteSessionBySignature(ctx context.Context, 
 	return err
 }
 
+// GetSessionWithClientBySignature lấy session data và client_id từ DB.
+func (r *oauth2SessionRepository) GetSessionWithClientBySignature(ctx context.Context, signature string) ([]byte, string, error) {
+	var sessionData []byte
+	var clientID string
+	query := `SELECT session_data, client_id FROM identify.oauth2_sessions WHERE signature = $1 AND active = TRUE`
+	err := r.pool.QueryRow(ctx, query, signature).Scan(&sessionData, &clientID)
+	if err != nil {
+		return nil, "", err
+	}
+	return sessionData, clientID, nil
+}
+
+
 // RevokeAllUserSessions đánh dấu inactive tất cả sessions của một user (theo subject_id).
 func (r *oauth2SessionRepository) RevokeAllUserSessions(ctx context.Context, subjectID string) error {
 	query := `

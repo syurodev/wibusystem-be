@@ -174,6 +174,15 @@ func registerAPIRoutes(router *gin.Engine, deps *Dependencies, zapLogger *zap.Lo
 
 	// Wallet & Payment routes
 	deps.Handlers.Wallet.RegisterWalletRoutes(apiV1, authMiddleware)
+
+	// Media Progress routes (authenticated)
+	historyGroup := apiV1.Group("/history")
+	historyGroup.Use(authMiddleware)
+	deps.Handlers.MediaProgress.RegisterHistoryRoutes(historyGroup)
+
+	progressGroup := apiV1.Group("/progress")
+	progressGroup.Use(authMiddleware)
+	deps.Handlers.MediaProgress.RegisterProgressRoutes(progressGroup)
 	
 	// Webhook routes (Public)
 	deps.Handlers.Webhook.RegisterWebhookRoutes(router)

@@ -1,0 +1,14 @@
+{
+  "media_progress.get_success": "Progress retrieved successfully.",
+  "media_progress.update_success": "Progress updated successfully.",
+  "media_progress.delete_success": "Progress deleted successfully.",
+  "media_progress.clear_success": "All progress cleared successfully.",
+  "media_progress.mark_complete_success": "Chapter marked as read.",
+  "media_progress.get_failed": "Failed to retrieve progress.",
+  "media_progress.update_failed": "Failed to update progress.",
+  "media_progress.delete_failed": "Failed to delete progress.",
+  "media_progress.clear_failed": "Failed to clear progress.",
+  "media_progress.mark_complete_failed": "Failed to mark chapter as read.",
+  "media_progress.not_found": "Progress not found.",
+  "media_progress.invalid_id": "Invalid progress ID."
+}

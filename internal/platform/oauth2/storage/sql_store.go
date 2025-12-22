@@ -98,7 +98,8 @@ func (s *SQLStore) CreateRefreshTokenSession(ctx context.Context, signature stri
 }
 
 func (s *SQLStore) GetRefreshTokenSession(ctx context.Context, signature string, session fosite.Session) (fosite.Requester, error) {
-	data, err := s.sessionRepo.GetSessionBySignature(ctx, signature)
+	// Lấy cả session_data và client_id từ DB
+	data, clientID, err := s.sessionRepo.GetSessionWithClientBySignature(ctx, signature)
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return nil, fosite.ErrNotFound.WithWrap(err)
@@ -110,8 +111,50 @@ func (s *SQLStore) GetRefreshTokenSession(ctx context.Context, signature string,
 	if err := json.Unmarshal(data, requester); err != nil {
 		return nil, fosite.ErrServerError.WithWrap(err)
 	}
+
+	// Hydrate lại client từ database
+	clientUUID, err := uuid.FromString(clientID)
+	if err != nil {
+		zap.L().Error("sql store: invalid client id format in session",
+			zap.String("signature", signature),
+			zap.String("client_id", clientID),
+			zap.Error(err),
+		)
+		return nil, fosite.ErrInvalidRequest.WithDebug("invalid client id in stored session")
+	}
+
+	domainClient, err := s.clientRepo.GetClientByID(ctx, clientUUID)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			zap.L().Warn("sql store: client not found for refresh token session",
+				zap.String("signature", signature),
+				zap.String("client_id", clientID),
+			)
+			return nil, fosite.ErrNotFound.WithWrap(err).WithDebug("Client not found")
+		}
+		zap.L().Error("sql store: failed to load client for refresh token session",
+			zap.String("signature", signature),
+			zap.String("client_id", clientID),
+			zap.Error(err),
+		)
+		return nil, fosite.ErrServerError.WithWrap(err)
+	}
+
+	// Tạo fosite client từ domain client
+	fositeClient := &fosite.DefaultClient{
+		ID:            domainClient.ID.String(),
+		Secret:        []byte(domainClient.SecretHash),
+		RedirectURIs:  domainClient.RedirectURIs,
+		GrantTypes:    domainClient.GrantTypes,
+		ResponseTypes: domainClient.ResponseTypes,
+		Scopes:        domainClient.Scopes,
+		Public:        domainClient.IsPublic,
+	}
+
+	requester.Client = fositeClient
 	return requester, nil
 }
+
 
 func (s *SQLStore) DeleteRefreshTokenSession(ctx context.Context, signature string) error {
 	return s.sessionRepo.DeleteSessionBySignature(ctx, signature)

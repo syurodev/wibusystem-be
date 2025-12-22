@@ -14,6 +14,10 @@ type OAuth2SessionRepository interface {
 	// GetSessionBySignature lấy một session từ database bằng signature của nó.
 	GetSessionBySignature(ctx context.Context, signature string) ([]byte, error)
 
+	// GetSessionWithClientBySignature lấy session data và client_id từ database.
+	// Method này được dùng để hydrate lại client khi load session từ SQL.
+	GetSessionWithClientBySignature(ctx context.Context, signature string) (sessionData []byte, clientID string, err error)
+
 	// DeleteSessionBySignature xóa một session khỏi database.
 	DeleteSessionBySignature(ctx context.Context, signature string) error
 

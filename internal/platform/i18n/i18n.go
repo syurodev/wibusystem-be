@@ -17,6 +17,7 @@ import (
 	creator_locale "system/internal/modules/creator/locale"
 	genre_locale "system/internal/modules/genre/locale"
 	media_locale "system/internal/modules/media/locale"
+	media_progress_locale "system/internal/modules/media_progress/locale"
 	oauth2_locale "system/internal/modules/oauth2/locale"
 	organization_locale "system/internal/modules/organization/locale"
 	payment_locale "system/internal/modules/payment/locale"
@@ -143,6 +144,12 @@ func InitI18n(log *zap.Logger) error {
 		return err
 	}
 	log.Info("Successfully loaded payment module i18n")
+
+	if err := media_progress_locale.RegisterI18n(bundle); err != nil {
+		log.Error("Failed to register media_progress i18n", zap.Error(err))
+		return err
+	}
+	log.Info("Successfully loaded media_progress module i18n")
 
 	return nil
 }

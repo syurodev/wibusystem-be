@@ -1,0 +1,14 @@
+{
+  "media_progress.get_success": "Lấy tiến độ thành công.",
+  "media_progress.update_success": "Cập nhật tiến độ thành công.",
+  "media_progress.delete_success": "Xóa tiến độ thành công.",
+  "media_progress.clear_success": "Xóa toàn bộ lịch sử thành công.",
+  "media_progress.mark_complete_success": "Đã đánh dấu chapter đã đọc.",
+  "media_progress.get_failed": "Không thể lấy tiến độ.",
+  "media_progress.update_failed": "Không thể cập nhật tiến độ.",
+  "media_progress.delete_failed": "Không thể xóa tiến độ.",
+  "media_progress.clear_failed": "Không thể xóa lịch sử.",
+  "media_progress.mark_complete_failed": "Không thể đánh dấu chapter đã đọc.",
+  "media_progress.not_found": "Không tìm thấy tiến độ.",
+  "media_progress.invalid_id": "ID tiến độ không hợp lệ."
+}
