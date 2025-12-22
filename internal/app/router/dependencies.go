@@ -84,7 +84,6 @@ type Services struct {
 	Analytics    analytics_module.AnalyticsService
 	Creator      creator_module.CreatorService
 	Cache        *cache.CacheService
-	Media        media_module.MediaService
 	WebAuthn     auth_module.WebAuthnService
 	User         user_module.UserService
 	Organization organization_module.OrganizationService
@@ -109,7 +108,6 @@ type Handlers struct {
 	Volume       *novel_volume.Handler
 	Chapter      *novel_chapter.Handler
 	User         *user_module.Handler
-	Media        *media_module.Handler
 	Creator      *creator_module.Handler
 	Organization *organization_module.Handler
 	Embedding    *embedding_module.Handler
@@ -117,6 +115,7 @@ type Handlers struct {
 	Wallet        *payment_module.WalletHandler
 	Webhook       *payment_module.WebhookHandler
 	MediaProgress *media_progress_module.Handler
+	Media         *media_module.Handler
 	Socket        *socket.Handler
 }
 
@@ -289,7 +288,6 @@ func newServices(
 	)
 
 	cacheSvc := cache.NewCacheService(rdb, zapLogger)
-	mediaSvc := media_module.NewMediaService(analyticsSvc, creatorSvc, cacheSvc, zapLogger)
 
 	webauthnSvc, err := auth_module.NewWebAuthnService(
 		cfg.WebAuthn,
@@ -348,7 +346,6 @@ func newServices(
 		Analytics:    analyticsSvc,
 		Creator:      creatorSvc,
 		Cache:        cacheSvc,
-		Media:        mediaSvc,
 		WebAuthn:     webauthnSvc,
 		User:         userSvc,
 		Organization: organization_module.NewService(repos.Organization),
@@ -513,11 +510,6 @@ func newHandlers(
 			)
 		}(),
 		User:        user_module.NewHandler(services.User),
-		Media: func() *media_module.Handler {
-			trendingUC := media_module.NewGetTrendingUseCase(services.Analytics)
-			homeUC := media_module.NewGetHomeDataUseCase(services.Media)
-			return media_module.NewHandler(trendingUC, homeUC)
-		}(),
 		Creator: func() *creator_module.Handler {
 			uc := creator_module.NewListCreatorsUseCase(services.Creator)
 			return creator_module.NewHandler(uc, services.Analytics)
@@ -529,5 +521,6 @@ func newHandlers(
 		Webhook:       payment_module.NewWebhookHandler(services.Topup, services.PaymentConfig, zapLogger),
 		Socket:        socket.NewHandler(services.SocketHub, zapLogger),
 		MediaProgress: media_progress_module.NewHandler(services.MediaProgress),
+		Media:         media_module.NewHandler(services.Analytics),
 	}
 }

@@ -150,10 +150,6 @@ func registerAPIRoutes(router *gin.Engine, deps *Dependencies, zapLogger *zap.Lo
 	// Creator routes
 	deps.Handlers.Creator.RegisterRoutes(apiV1)
 
-	// Media routes (trending, home page data)
-	mediaGroup := apiV1.Group("/media")
-	deps.Handlers.Media.RegisterRoutes(mediaGroup)
-
 	// Auth API routes
 	registerAuthAPIRoutes(apiV1, deps, zapLogger)
 
@@ -183,6 +179,9 @@ func registerAPIRoutes(router *gin.Engine, deps *Dependencies, zapLogger *zap.Lo
 	progressGroup := apiV1.Group("/progress")
 	progressGroup.Use(authMiddleware)
 	deps.Handlers.MediaProgress.RegisterProgressRoutes(progressGroup)
+
+	// Media routes (Public)
+	deps.Handlers.Media.RegisterRoutes(apiV1)
 	
 	// Webhook routes (Public)
 	deps.Handlers.Webhook.RegisterWebhookRoutes(router)

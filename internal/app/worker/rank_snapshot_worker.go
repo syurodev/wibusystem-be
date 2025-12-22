@@ -45,6 +45,34 @@ func (w *RankSnapshotWorker) Stop() {
 	w.logger.Info("RankSnapshotWorker stopped")
 }
 
+// TriggerNow manually triggers a rank snapshot (for testing/debugging)
+func (w *RankSnapshotWorker) TriggerNow(period string, entityType string, limit int) error {
+	w.logger.Info("Manually triggering rank snapshot",
+		zap.String("period", period),
+		zap.String("entity_type", entityType),
+		zap.Int("limit", limit),
+	)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+	defer cancel()
+
+	err := w.analyticsRepo.CreateRankSnapshot(ctx, time.Now(), period, entityType, limit)
+	if err != nil {
+		w.logger.Error("Failed to create manual rank snapshot",
+			zap.String("period", period),
+			zap.String("entity_type", entityType),
+			zap.Error(err),
+		)
+		return err
+	}
+
+	w.logger.Info("Successfully created manual rank snapshot",
+		zap.String("period", period),
+		zap.String("entity_type", entityType),
+	)
+	return nil
+}
+
 func (w *RankSnapshotWorker) run() {
 	defer w.wg.Done()
 

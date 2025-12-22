@@ -284,8 +284,8 @@ type ViewTrackingRepository interface {
 type RankStat struct {
 	EntityID     uuid.UUID
 	EntityType   string // "genre", "creator", "org", "novel", "manga", "anime"
-	TotalViews   int64
-	UniqueUsers  int64
+	TotalViews   uint64
+	UniqueUsers  uint64
 	CurrentRank  int
 	PreviousRank *int // nil = mục mới
 	RankChange   *int // dương = tăng, âm = giảm, 0 = không đổi, nil = mục mới
@@ -330,7 +330,9 @@ type ViewAnalyticsRepository interface {
 	// Returns:
 	//   - []RankStat: Danh sách xếp hạng kèm so sánh
 	//   - error: Lỗi nếu có
-	GetRankWithComparison(ctx context.Context, period string, entityType string, limit int) ([]RankStat, error)
+	// GetRankWithComparison lấy danh sách top entities kèm so sánh thứ hạng với kỳ trước.
+	// offset: 0 = current period, 1 = previous period
+	GetRankWithComparison(ctx context.Context, period string, entityType string, offset int, limit int) ([]RankStat, error)
 
 	// GetViewStats retrieves aggregated view statistics cho một entity trong time range.
 	// Query này aggregate data từ ClickHouse để provide analytics.

@@ -789,12 +789,13 @@ func (r *viewAnalyticsClickHouseRepo) CreateRankSnapshot(ctx context.Context, sn
 }
 
 // GetRankWithComparison lấy danh sách top entities kèm so sánh thứ hạng với kỳ trước.
-func (r *viewAnalyticsClickHouseRepo) GetRankWithComparison(ctx context.Context, period string, entityType string, limit int) ([]domain.RankStat, error) {
+// offset: 0 = current period, 1 = previous period, etc.
+func (r *viewAnalyticsClickHouseRepo) GetRankWithComparison(ctx context.Context, period string, entityType string, offset int, limit int) ([]domain.RankStat, error) {
 	// Tính toán snapshot date hiện tại và kỳ trước
 	now := time.Now()
 	var currentSnapshotDate, prevSnapshotDate time.Time
 
-	// Logic xác định snapshot date (đầu kỳ)
+	// Logic xác định snapshot date (đầu kỳ) với offset
 	switch period {
 	case "week":
 		// Tuần hiện tại (bắt đầu từ Thứ 2)
@@ -802,14 +803,16 @@ func (r *viewAnalyticsClickHouseRepo) GetRankWithComparison(ctx context.Context,
 		if weekday == 0 {
 			weekday = 7
 		}
-		currentSnapshotDate = time.Date(now.Year(), now.Month(), now.Day()-weekday+1, 0, 0, 0, 0, now.Location())
+		baseMonday := time.Date(now.Year(), now.Month(), now.Day()-weekday+1, 0, 0, 0, 0, now.Location())
+		currentSnapshotDate = baseMonday.AddDate(0, 0, -7*offset)
 		prevSnapshotDate = currentSnapshotDate.AddDate(0, 0, -7)
 	case "month":
-		currentSnapshotDate = time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location())
+		baseMonth := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location())
+		currentSnapshotDate = baseMonth.AddDate(0, -offset, 0)
 		prevSnapshotDate = currentSnapshotDate.AddDate(0, -1, 0)
 	case "year":
-		currentSnapshotDate = time.Date(now.Year(), 1, 1, 0, 0, 0, 0, now.Location())
-		prevSnapshotDate = time.Date(now.Year()-1, 1, 1, 0, 0, 0, 0, now.Location())
+		currentSnapshotDate = time.Date(now.Year()-offset, 1, 1, 0, 0, 0, 0, now.Location())
+		prevSnapshotDate = currentSnapshotDate.AddDate(-1, 0, 0)
 	default:
 		return nil, fmt.Errorf("invalid period: %s", period)
 	}
@@ -836,10 +839,10 @@ func (r *viewAnalyticsClickHouseRepo) GetRankWithComparison(ctx context.Context,
 	`
 
 	rows, err := r.ch.Conn.Query(ctx, query,
-		prevSnapshotDate,
+		prevSnapshotDate.Format("2006-01-02"),
 		period,
 		entityType,
-		currentSnapshotDate,
+		currentSnapshotDate.Format("2006-01-02"),
 		limit,
 	)
 	if err != nil {
@@ -850,12 +853,15 @@ func (r *viewAnalyticsClickHouseRepo) GetRankWithComparison(ctx context.Context,
 	var stats []domain.RankStat
 	for rows.Next() {
 		var s domain.RankStat
+		var currentRank uint32
 		var prevRankNull *uint32 // ClickHouse Nullable(UInt32) scans to *uint32 or similar
 
 		s.EntityType = entityType
-		if err := rows.Scan(&s.EntityID, &s.TotalViews, &s.UniqueUsers, &s.CurrentRank, &prevRankNull); err != nil {
+		if err := rows.Scan(&s.EntityID, &s.TotalViews, &s.UniqueUsers, &currentRank, &prevRankNull); err != nil {
 			return nil, fmt.Errorf("failed to scan rank stat: %w", err)
 		}
+		
+		s.CurrentRank = int(currentRank)
 
 		// Xử lý PreviousRank và RankChange
 		if prevRankNull != nil {

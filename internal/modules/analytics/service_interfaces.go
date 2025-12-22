@@ -52,7 +52,8 @@ type AnalyticsService interface {
 	GetTopOrgsWithRankComparison(ctx context.Context, period string, limit int) ([]OrgRankResponse, error)
 
 	// GetTopMediaWithRankComparison retrieves top media (novel/manga/anime) with rank comparison
-	GetTopMediaWithRankComparison(ctx context.Context, period string, mediaType string, limit int) ([]MediaRankResponse, error)
+	// offset: 0 = current period, 1 = previous period
+	GetTopMediaWithRankComparison(ctx context.Context, period string, mediaType string, offset int, limit int) ([]MediaRankResponse, error)
 }
 
 // GenreRankResponse wraps Genre with rank info
@@ -85,5 +86,6 @@ type MediaRankResponse struct {
 	Stats       domain.RankStat
 	Authors     []*domain.Author
 	Artist      []*domain.Artist
+	Novel       *domain.Novel // Full novel data for hydration
 }
 

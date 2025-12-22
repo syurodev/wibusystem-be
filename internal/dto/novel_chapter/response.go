@@ -72,3 +72,9 @@ type ChapterSummaryResponse struct {
 	Status        string  `json:"status"`
 	PublishedAt   *string `json:"published_at,omitempty"`
 }
+
+type MinimalChapterInfo struct {
+	ID          string `json:"id"`
+	Title       string `json:"title"`
+	PublishedAt string `json:"published_at"`
+}

@@ -578,7 +578,7 @@ func (s *analyticsServiceImpl) GetTopOrgsByViews(ctx context.Context, period str
 
 // GetTopGenresWithRankComparison retrieves top genres with rank comparison
 func (s *analyticsServiceImpl) GetTopGenresWithRankComparison(ctx context.Context, period string, limit int) ([]GenreRankResponse, error) {
-	stats, err := s.viewAnalyticsRepo.GetRankWithComparison(ctx, period, "genre", limit)
+	stats, err := s.viewAnalyticsRepo.GetRankWithComparison(ctx, period, "genre", 0, limit)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get genre rank stats: %w", err)
 	}
@@ -591,8 +591,8 @@ func (s *analyticsServiceImpl) GetTopGenresWithRankComparison(ctx context.Contex
 			continue
 		}
 		// Hydrate stats into genre object
-		genre.TotalViews = stat.TotalViews
-		genre.ActiveReaders = stat.UniqueUsers
+		genre.TotalViews = int64(stat.TotalViews)
+		genre.ActiveReaders = int64(stat.UniqueUsers)
 		
 		results = append(results, GenreRankResponse{
 			Genre: genre,
@@ -604,7 +604,7 @@ func (s *analyticsServiceImpl) GetTopGenresWithRankComparison(ctx context.Contex
 
 // GetTopCreatorsWithRankComparison retrieves top creators with rank comparison
 func (s *analyticsServiceImpl) GetTopCreatorsWithRankComparison(ctx context.Context, period string, limit int) ([]CreatorRankResponse, error) {
-	stats, err := s.viewAnalyticsRepo.GetRankWithComparison(ctx, period, "creator", limit)
+	stats, err := s.viewAnalyticsRepo.GetRankWithComparison(ctx, period, "creator", 0, limit)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get creator rank stats: %w", err)
 	}
@@ -627,7 +627,7 @@ func (s *analyticsServiceImpl) GetTopCreatorsWithRankComparison(ctx context.Cont
 
 // GetTopOrgsWithRankComparison retrieves top orgs with rank comparison
 func (s *analyticsServiceImpl) GetTopOrgsWithRankComparison(ctx context.Context, period string, limit int) ([]OrgRankResponse, error) {
-	stats, err := s.viewAnalyticsRepo.GetRankWithComparison(ctx, period, "org", limit)
+	stats, err := s.viewAnalyticsRepo.GetRankWithComparison(ctx, period, "org", 0, limit)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get org rank stats: %w", err)
 	}
@@ -649,16 +649,19 @@ func (s *analyticsServiceImpl) GetTopOrgsWithRankComparison(ctx context.Context,
 }
 
 // GetTopMediaWithRankComparison retrieves top media (novel/manga/anime) with rank comparison
-func (s *analyticsServiceImpl) GetTopMediaWithRankComparison(ctx context.Context, period string, mediaType string, limit int) ([]MediaRankResponse, error) {
+func (s *analyticsServiceImpl) GetTopMediaWithRankComparison(ctx context.Context, period string, mediaType string, offset int, limit int) ([]MediaRankResponse, error) {
 	// Validate mediaType
 	if mediaType != "novel" && mediaType != "manga" && mediaType != "anime" {
 		return nil, fmt.Errorf("invalid media type: %s", mediaType)
 	}
 
-	stats, err := s.viewAnalyticsRepo.GetRankWithComparison(ctx, period, mediaType, limit)
+	stats, err := s.viewAnalyticsRepo.GetRankWithComparison(ctx, period, mediaType, offset, limit)
 	if err != nil {
+		s.logger.Error("GetRankWithComparison failed", zap.String("period", period), zap.String("mediaType", mediaType), zap.Error(err))
 		return nil, fmt.Errorf("failed to get media rank stats: %w", err)
 	}
+
+	s.logger.Info("GetRankWithComparison result", zap.Int("count", len(stats)), zap.String("period", period), zap.String("mediaType", mediaType))
 
 	results := make([]MediaRankResponse, 0, len(stats))
 	
@@ -681,12 +684,13 @@ func (s *analyticsServiceImpl) GetTopMediaWithRankComparison(ctx context.Context
 			}
 
 			resp := MediaRankResponse{
-				ID:    novel.ID,
-				Title: novel.Title,
-				Slug:  novel.Slug,
-				Type:  "novel",
-				Stats: stat,
+				ID:      novel.ID,
+				Title:   novel.Title,
+				Slug:    novel.Slug,
+				Type:    "novel",
+				Stats:   stat,
 				Authors: authors,
+				Novel:   novel,
 			}
 			if novel.CoverImageURL != nil {
 				resp.Cover = *novel.CoverImageURL

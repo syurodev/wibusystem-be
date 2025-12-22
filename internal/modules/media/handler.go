@@ -1,87 +1,101 @@
+// ============================================================================
+// Media Handler
+// ============================================================================
+//
+// Handler này cung cấp API endpoints cho Media module.
+// Endpoint chính:
+//   - GET /media/top: Lấy top media (anime, manga, novel) theo period (week/month/year).
+//     Hiện tại chỉ hỗ trợ novel.
+//
+// ============================================================================
+
 package media
 
 import (
 	"net/http"
 	"strconv"
 
+	res "system/internal/dto/media"
+	analytics_module "system/internal/modules/analytics"
 	"system/pkg/util/response"
 
 	"github.com/gin-gonic/gin"
 )
 
-// Handler handles media API endpoints
-// Cung cấp APIs cho tất cả media types (anime, manga, novel) combined
+// Handler handles HTTP requests for media module
 type Handler struct {
-	getTrendingUC GetTrendingUseCase
-	getHomeDataUC GetHomeDataUseCase
+	analyticsSvc analytics_module.AnalyticsService
 }
 
-// NewHandler creates a new media Handler instance
-func NewHandler(getTrendingUC GetTrendingUseCase, getHomeDataUC GetHomeDataUseCase) *Handler {
+// NewHandler creates a new media handler
+func NewHandler(analyticsSvc analytics_module.AnalyticsService) *Handler {
 	return &Handler{
-		getTrendingUC: getTrendingUC,
-		getHomeDataUC: getHomeDataUC,
+		analyticsSvc: analyticsSvc,
 	}
 }
 
-// GetTrending returns top trending media
-// @Summary Get top trending media
-// @Description Get top trending media (novel, manga, anime) based on views
+// TopMediaResponse là response cho GET /media/top
+type TopMediaResponse struct {
+	Anime []res.MediaSeriesResponse `json:"anime"`
+	Manga []res.MediaSeriesResponse `json:"manga"`
+	Novel []res.MediaSeriesResponse `json:"novel"`
+}
+
+// GetTop retrieves top media for each type (anime, manga, novel)
+// @Summary Get top media by views
+// @Description Get top media for each type based on views in a calendar period. Returns empty array for types without data.
 // @Tags Media
 // @Accept json
 // @Produce json
-// @Param type query string false "Media type (novel, manga, anime)"
-// @Param range query string false "Time range (day, week, month)"
-// @Param limit query int false "Limit (default 20)"
-// @Success 200 {array} mediadto.MediaSeriesResponse
-// @Router /api/v1/media/trending [get]
-func (h *Handler) GetTrending(c *gin.Context) {
-	mediaType := c.Query("type")
-	timeRange := c.Query("range")
-	limitStr := c.Query("limit")
+// @Param period query string false "Time period (day, week, month, year)" default(week)
+// @Param limit query int false "Number of items per type" default(1)
+// @Param offset query int false "Period offset (0=current, 1=previous)" default(0)
+// @Success 200 {object} TopMediaResponse
+// @Router /media/top [get]
+func (h *Handler) GetTop(c *gin.Context) {
+	ctx := c.Request.Context()
 
-	limit := 20 // Default limit
-	if limitStr != "" {
-		if l, err := strconv.Atoi(limitStr); err == nil && l > 0 {
-			limit = l
+	period := c.DefaultQuery("period", "week")
+
+	// Validate period
+	validPeriods := map[string]bool{"day": true, "week": true, "month": true, "year": true}
+	if !validPeriods[period] {
+		period = "week"
+	}
+
+	limit := 1
+	if l, err := strconv.Atoi(c.DefaultQuery("limit", "1")); err == nil && l > 0 && l <= 10 {
+		limit = l
+	}
+
+	offset := 0
+	if o, err := strconv.Atoi(c.DefaultQuery("offset", "0")); err == nil && o >= 0 && o <= 52 {
+		offset = o
+	}
+
+	resp := TopMediaResponse{
+		Anime: []res.MediaSeriesResponse{},
+		Manga: []res.MediaSeriesResponse{},
+		Novel: []res.MediaSeriesResponse{},
+	}
+
+	// Get top novels by views for the period
+	novelRanks, err := h.analyticsSvc.GetTopMediaWithRankComparison(ctx, period, "novel", offset, limit)
+	if err == nil && len(novelRanks) > 0 {
+		for _, rank := range novelRanks {
+			if mapped := mapMediaRankToResponse(&rank); mapped != nil {
+				resp.Novel = append(resp.Novel, *mapped)
+			}
 		}
 	}
-	
-	includeRankChange := c.Query("include_rank_change") == "true"
 
-	// Call UseCase
-	results, err := h.getTrendingUC.Execute(c.Request.Context(), GetTrendingInput{
-		MediaType:         mediaType,
-		Range:             timeRange,
-		Limit:             limit,
-		IncludeRankChange: includeRankChange,
-	})
-	if err != nil {
-		// Since logic is moved to usecase, we can't distinguish serialization error easily unless we wrap errors,
-		// but generic error message is fine for now.
-		response.Error(c, http.StatusInternalServerError, "GET_TRENDING_FAILED", I18nAnalyticsGetTrendingFailed, err.Error())
-		return
-	}
+	// TODO: When manga/anime are implemented, add similar calls here
 
-	response.Success(c, http.StatusOK, I18nAnalyticsGetTrendingSuccess, results, nil)
+	response.Success(c, http.StatusOK, I18nMediaGetTopSuccess, resp, nil)
 }
 
-// GetHomeData returns aggregated data for the home page
-// @Summary Get home page data
-// @Description Get aggregated data for home page (hero, trending, creators, genres) across all media types
-// @Tags Media
-// @Produce json
-// @Success 200 {object} response.StandardResponse{data=mediadto.HomeData}
-// @Failure 500 {object} response.StandardResponse
-// @Router /api/v1/media/home [get]
-func (h *Handler) GetHomeData(c *gin.Context) {
-	homeData, err := h.getHomeDataUC.Execute(c.Request.Context(), GetHomeDataInput{})
-	if err != nil {
-		response.Error(c, http.StatusInternalServerError, "GET_HOME_DATA_FAILED", I18nMediaGetHomeFailed, nil)
-		return
-	}
-
-	response.Success(c, http.StatusOK, I18nMediaGetHomeSuccess, homeData, nil)
+// RegisterRoutes registers media routes
+func (h *Handler) RegisterRoutes(rg *gin.RouterGroup) {
+	mediaGroup := rg.Group("/media")
+	mediaGroup.GET("/top", h.GetTop)
 }
-
-

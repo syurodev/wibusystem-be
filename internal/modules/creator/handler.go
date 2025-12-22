@@ -255,7 +255,7 @@ func (h *Handler) GetTopCreatorsByViews(c *gin.Context) {
 				UpdatedAt:   u.UpdatedAt.Format(time.RFC3339),
 				IsVerified:  u.IsVerified,
 				Bio:         u.Bio,
-				TotalViews:  uwr.Stats.TotalViews, // Use stats from rank snapshot
+				TotalViews:  int64(uwr.Stats.TotalViews), // Use stats from rank snapshot
 				
 				CurrentRank:  &currentRank,
 				PreviousRank: prevRank,

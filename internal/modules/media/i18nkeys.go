@@ -13,6 +13,7 @@ const (
 const (
 	I18nMediaGetHomeSuccess = "media.get_home_success"
 	I18nMediaGetHomeFailed  = "media.get_home_failed"
+	I18nMediaGetTopSuccess  = "media.get_top_success"
 
 	// Analytics-related keys used in media handler
 	I18nAnalyticsGetTrendingSuccess  = "analytics.get_trending_success"
