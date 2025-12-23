@@ -94,8 +94,4 @@ func (h *Handler) GetTop(c *gin.Context) {
 	response.Success(c, http.StatusOK, I18nMediaGetTopSuccess, resp, nil)
 }
 
-// RegisterRoutes registers media routes
-func (h *Handler) RegisterRoutes(rg *gin.RouterGroup) {
-	mediaGroup := rg.Group("/media")
-	mediaGroup.GET("/top", h.GetTop)
-}
+

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gofrs/uuid/v5"
@@ -32,6 +33,7 @@ type Handler struct {
 	getNovelFullUC  GetNovelFullUseCase
 	volumeService   novel_volume.VolumeService
 	chapterService  novel_chapter.ChapterService
+	topNovelSvc     TopNovelService
 }
 
 // NewHandler creates a new novel Handler instance
@@ -46,6 +48,7 @@ func NewHandler(
 	getNovelFullUC GetNovelFullUseCase,
 	volumeService novel_volume.VolumeService,
 	chapterService novel_chapter.ChapterService,
+	topNovelSvc TopNovelService,
 ) *Handler {
 	return &Handler{
 		novelService:    novelService,
@@ -58,6 +61,7 @@ func NewHandler(
 		getNovelFullUC:  getNovelFullUC,
 		volumeService:   volumeService,
 		chapterService:  chapterService,
+		topNovelSvc:     topNovelSvc,
 	}
 }
 
@@ -375,6 +379,61 @@ func (h *Handler) ListNovels(c *gin.Context) {
 	response.Success(c, http.StatusOK, I18nListSuccess, novelResponses, meta)
 }
 
+// GetTop retrieves top novels by views for a calendar period
+// @Summary Get top novels by views
+// @Description Get top novels based on views in a calendar period (week/month/year)
+// @Tags Novels
+// @Accept json
+// @Produce json
+// @Param period query string false "Time period (day, week, month, year)" default(week)
+// @Param limit query int false "Number of items to return" default(10)
+// @Param offset query int false "Period offset (0=current, 1=previous)" default(0)
+// @Success 200 {object} response.StandardResponse{data=[]noveldto.NovelResponse}
+// @Failure 500 {object} response.StandardResponse
+// @Router /api/v1/novels/top [get]
+func (h *Handler) GetTop(c *gin.Context) {
+	ctx := c.Request.Context()
+
+	period := c.DefaultQuery("period", "week")
+
+	// Validate period
+	validPeriods := map[string]bool{"day": true, "week": true, "month": true, "year": true}
+	if !validPeriods[period] {
+		period = "week"
+	}
+
+	limit := 10
+	if l, err := strconv.Atoi(c.DefaultQuery("limit", "10")); err == nil && l > 0 && l <= 50 {
+		limit = l
+	}
+
+	offset := 0
+	if o, err := strconv.Atoi(c.DefaultQuery("offset", "0")); err == nil && o >= 0 && o <= 52 {
+		offset = o
+	}
+
+	results, err := h.topNovelSvc.GetTopNovelsWithRank(ctx, period, offset, limit)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "GET_TOP_FAILED", I18nListFailed, nil)
+		return
+	}
+
+	novelResponses := make([]noveldto.NovelResponse, 0, len(results))
+	for _, result := range results {
+		if result.Novel != nil {
+			resp := mapToNovelResponse(result.Novel)
+			// Override views with analytics data (more accurate for the period)
+			resp.Views = int64(result.Stats.TotalViews)
+			// Add rank info
+			resp.CurrentRank = &result.Stats.CurrentRank
+			resp.PreviousRank = result.Stats.PreviousRank
+			resp.RankChange = result.Stats.RankChange
+			novelResponses = append(novelResponses, resp)
+		}
+	}
+
+	response.Success(c, http.StatusOK, I18nGetTopSuccess, novelResponses, nil)
+}
 // IncrementViewCount tăng view count của novel
 // @Summary Increment novel view count
 // @Tags Novels

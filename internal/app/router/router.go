@@ -181,7 +181,7 @@ func registerAPIRoutes(router *gin.Engine, deps *Dependencies, zapLogger *zap.Lo
 	deps.Handlers.MediaProgress.RegisterProgressRoutes(progressGroup)
 
 	// Media routes (Public)
-	deps.Handlers.Media.RegisterRoutes(apiV1)
+	deps.Handlers.Media.RegisterRoutes(apiV1, authMiddleware)
 	
 	// Webhook routes (Public)
 	deps.Handlers.Webhook.RegisterWebhookRoutes(router)

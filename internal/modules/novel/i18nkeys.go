@@ -37,4 +37,5 @@ const (
 	I18nInvalidArtistID   = "novel.invalid_artist_id"
 	I18nIncrementViewFailed = "novel.increment_view_failed"
 	I18nViewIncremented     = "novel.view_incremented"
+	I18nGetTopSuccess       = "novel.get_top_success"
 )

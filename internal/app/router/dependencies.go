@@ -469,11 +469,13 @@ func newHandlers(
 			listNovelsUC := novel_module.NewListNovelsUseCase(services.Novel)
 			viewCountUC := novel_module.NewIncrementViewCountUseCase(services.Novel)
 			getNovelFullUC := novel_module.NewGetNovelFullUseCase(services.Novel)
+			topNovelAdapter := NewTopNovelAdapter(services.Analytics)
 			return novel_module.NewHandler(
 				services.Novel, createNovelUC,
 				updateNovelUC, deleteNovelUC, getNovelUC,
 				listNovelsUC, viewCountUC, getNovelFullUC,
 				services.Volume, services.Chapter,
+				topNovelAdapter,
 			)
 		}(),
 		Volume: func() *novel_volume.Handler {

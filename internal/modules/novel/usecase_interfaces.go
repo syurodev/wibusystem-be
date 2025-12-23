@@ -121,3 +121,24 @@ type GetNovelFullUseCase interface {
 	Execute(ctx context.Context, input GetNovelFullInput) (*NovelFullData, error)
 }
 
+// MediaRankStat represents rank statistics for a media item
+// Matches domain.RankStat structure
+type MediaRankStat struct {
+	EntityID     uuid.UUID
+	TotalViews   int
+	CurrentRank  int
+	PreviousRank *int
+	RankChange   *int
+}
+
+// MediaRankResult represents a novel with its rank statistics
+type MediaRankResult struct {
+	Novel *domain.Novel
+	Stats MediaRankStat
+}
+
+// TopNovelService defines interface for getting top novels
+// Used to avoid import cycle with analytics module
+type TopNovelService interface {
+	GetTopNovelsWithRank(ctx context.Context, period string, offset int, limit int) ([]MediaRankResult, error)
+}
