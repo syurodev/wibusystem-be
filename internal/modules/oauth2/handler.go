@@ -825,7 +825,6 @@ func (h *Handler) LoginCheck(c *gin.Context) {
 	})
 }
 
-
 // ScopeInfo chứa thông tin về scope
 type ScopeInfo struct {
 	Name        string
@@ -942,11 +941,11 @@ func (h *Handler) ConsentPage(c *gin.Context) {
 	)
 
 	c.HTML(http.StatusOK, "oauth2/consent.html", gin.H{
-		"RequestID":          requestID,
-		"ClientName":         domainClient.ClientName,
-		"ClientID":           clientUUID.String(),
-		"Scopes":             scopes,
-		"ShowPasskeyPrompt":  showPasskeyPrompt,
+		"RequestID":         requestID,
+		"ClientName":        domainClient.ClientName,
+		"ClientID":          clientUUID.String(),
+		"Scopes":            scopes,
+		"ShowPasskeyPrompt": showPasskeyPrompt,
 	})
 }
 

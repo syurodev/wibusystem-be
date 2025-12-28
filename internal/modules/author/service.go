@@ -47,7 +47,7 @@ type authorServiceImpl struct {
 }
 
 // NewAuthorService tạo một instance mới của AuthorService
-func NewService(authorRepo domain.AuthorRepository) *authorServiceImpl {
+func NewService(authorRepo domain.AuthorRepository) AuthorService {
 	return &authorServiceImpl{
 		authorRepo: authorRepo,
 	}
@@ -103,8 +103,8 @@ func (s *authorServiceImpl) CreateAuthor(ctx context.Context, name, biography st
 	}
 
 	if err := s.authorRepo.Create(ctx, author); err != nil {
-		if strings.Contains(err.Error(), "authors_slug_key") || 
-		   strings.Contains(err.Error(), "duplicate key") {
+		if strings.Contains(err.Error(), "authors_slug_key") ||
+			strings.Contains(err.Error(), "duplicate key") {
 			return nil, pkgerrors.Conflict(I18nSlugAlreadyExists, "slug already exists")
 		}
 		return nil, err

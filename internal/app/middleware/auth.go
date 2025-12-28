@@ -31,9 +31,9 @@ func RequireAuth(provider OAuth2Provider, logger *zap.Logger) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// Lấy Authorization header
 		authHeader := c.GetHeader("Authorization")
-		
+
 		// DEBUG LOGGING
-		logger.Info("Auth Middleware: Checking Authorization header", 
+		logger.Info("Auth Middleware: Checking Authorization header",
 			zap.String("path", c.Request.URL.Path),
 			zap.String("auth_header_len", strconv.Itoa(len(authHeader))),
 			zap.Bool("has_auth_header", authHeader != ""),
@@ -76,7 +76,7 @@ func RequireAuth(provider OAuth2Provider, logger *zap.Logger) gin.HandlerFunc {
 			return
 		}
 
-		logger.Info("Auth Middleware: Token valid", 
+		logger.Info("Auth Middleware: Token valid",
 			zap.String("subject", ar.GetSession().GetSubject()),
 			zap.String("client_id", ar.GetClient().GetID()),
 		)
@@ -207,4 +207,3 @@ func min(a, b int) int {
 	}
 	return b
 }
-

@@ -27,7 +27,7 @@ CREATE TYPE catalog.report_status AS ENUM (
 -- OWNERSHIP TRANSFERS TABLE
 -- =====================================================
 CREATE TABLE catalog.ownership_transfers (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
     novel_id UUID NOT NULL REFERENCES catalog.novels(id) ON DELETE CASCADE,
 
     -- Source ownership
@@ -87,7 +87,7 @@ COMMENT ON COLUMN catalog.ownership_transfers.requires_approval IS 'TRUE for 2-w
 -- EXCLUSIVE TRANSLATION REPORTS TABLE
 -- =====================================================
 CREATE TABLE catalog.exclusive_translation_reports (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
     novel_id UUID NOT NULL REFERENCES catalog.novels(id) ON DELETE CASCADE,
     language VARCHAR(10) NOT NULL, -- ISO 639-1
 

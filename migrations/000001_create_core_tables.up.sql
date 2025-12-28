@@ -11,7 +11,7 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 -- Description: Bảng toàn cục cho tất cả tài khoản người dùng
 -- =====================================================
 CREATE TABLE users (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
     email VARCHAR(255) UNIQUE NOT NULL,
     email_verified BOOLEAN NOT NULL DEFAULT FALSE,
     password_hash VARCHAR(255) NOT NULL,
@@ -49,7 +49,7 @@ COMMENT ON COLUMN users.password_hash IS 'Mật khẩu đã được hash (bcryp
 -- Description: Lưu trữ thông tin về các tổ chức (organizations/translation teams)
 -- =====================================================
 CREATE TABLE organizations (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
     name VARCHAR(255) NOT NULL,
     slug VARCHAR(255) UNIQUE NOT NULL,
     status VARCHAR(50) NOT NULL DEFAULT 'active', -- active, suspended, archived
@@ -116,7 +116,7 @@ COMMENT ON TYPE permission_scope IS 'Phạm vi của permission: global (toàn h
 -- Description: Danh sách master của tất cả các quyền trong hệ thống
 -- =====================================================
 CREATE TABLE permissions (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
     name VARCHAR(255) UNIQUE NOT NULL, -- e.g., 'user:view_self', 'content:create_anime'
     scope permission_scope NOT NULL,
     description TEXT,
@@ -153,7 +153,7 @@ COMMENT ON TYPE role_scope IS 'Phạm vi của role: global (toàn hệ thống)
 -- Description: Danh sách master của tất cả các vai trò
 -- =====================================================
 CREATE TABLE roles (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
     name VARCHAR(255) UNIQUE NOT NULL, -- e.g., 'SUPER_ADMIN', 'ORGANIZATION_ADMIN', 'USER'
     slug VARCHAR(255) UNIQUE NOT NULL, -- URL-friendly version
     scope role_scope NOT NULL,

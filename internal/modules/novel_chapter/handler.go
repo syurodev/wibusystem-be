@@ -9,11 +9,11 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/gofrs/uuid/v5"
-	"github.com/jackc/pgx/v5"
 
 	"system/internal/app/middleware"
 	"system/internal/domain"
 	chapterdto "system/internal/dto/novel_chapter"
+	ent "system/internal/ent/generated"
 	pkgerrors "system/pkg/errors"
 	"system/pkg/util/response"
 	"system/pkg/util/timeutil"
@@ -21,17 +21,17 @@ import (
 
 // Handler handles chapter-related HTTP requests
 type Handler struct {
-	chapterService            ChapterService
-	createChapterUC           CreateChapterUseCase
-	updateChapterUC           UpdateChapterUseCase
-	deleteChapterUC           DeleteChapterUseCase
-	getChapterUC              GetChapterUseCase
-	listChaptersByNovelUC     ListChaptersByNovelUseCase
-	listChaptersByVolumeUC    ListChaptersByVolumeUseCase
-	publishChapterUC          PublishChapterUseCase
-	scheduleChapterUC         ScheduleChapterUseCase
-	viewTrackingSvc           ViewTracker
-	updateStatisticsUC        UpdateStatisticsUseCase
+	chapterService         ChapterService
+	createChapterUC        CreateChapterUseCase
+	updateChapterUC        UpdateChapterUseCase
+	deleteChapterUC        DeleteChapterUseCase
+	getChapterUC           GetChapterUseCase
+	listChaptersByNovelUC  ListChaptersByNovelUseCase
+	listChaptersByVolumeUC ListChaptersByVolumeUseCase
+	publishChapterUC       PublishChapterUseCase
+	scheduleChapterUC      ScheduleChapterUseCase
+	viewTrackingSvc        ViewTracker
+	updateStatisticsUC     UpdateStatisticsUseCase
 }
 
 // NewHandler creates a new chapter Handler instance
@@ -49,17 +49,17 @@ func NewHandler(
 	updateStatisticsUC UpdateStatisticsUseCase,
 ) *Handler {
 	return &Handler{
-		chapterService:            chapterService,
-		createChapterUC:           createChapterUC,
-		updateChapterUC:           updateChapterUC,
-		deleteChapterUC:           deleteChapterUC,
-		getChapterUC:              getChapterUC,
-		listChaptersByNovelUC:     listChaptersByNovelUC,
-		listChaptersByVolumeUC:    listChaptersByVolumeUC,
-		publishChapterUC:          publishChapterUC,
-		scheduleChapterUC:         scheduleChapterUC,
-		viewTrackingSvc:           viewTrackingSvc,
-		updateStatisticsUC:        updateStatisticsUC,
+		chapterService:         chapterService,
+		createChapterUC:        createChapterUC,
+		updateChapterUC:        updateChapterUC,
+		deleteChapterUC:        deleteChapterUC,
+		getChapterUC:           getChapterUC,
+		listChaptersByNovelUC:  listChaptersByNovelUC,
+		listChaptersByVolumeUC: listChaptersByVolumeUC,
+		publishChapterUC:       publishChapterUC,
+		scheduleChapterUC:      scheduleChapterUC,
+		viewTrackingSvc:        viewTrackingSvc,
+		updateStatisticsUC:     updateStatisticsUC,
 	}
 }
 
@@ -126,7 +126,6 @@ func (h *Handler) CreateChapter(c *gin.Context) {
 	resp := mapToChapterDetailResponse(chapter)
 	response.Success(c, http.StatusCreated, I18nCreatedSuccess, resp, nil)
 }
-
 
 // UpdateChapter updates a chapter
 // @Summary Update a chapter
@@ -262,7 +261,7 @@ func (h *Handler) GetChapter(c *gin.Context) {
 			response.Error(c, appErr.StatusCode, appErr.ErrCode, appErr.I18nKey, nil)
 			return
 		}
-		if err == pgx.ErrNoRows {
+		if ent.IsNotFound(err) {
 			response.Error(c, http.StatusNotFound, "CHAPTER_NOT_FOUND", I18nNotFound, nil)
 			return
 		}
@@ -520,7 +519,6 @@ func (h *Handler) IncrementViewCount(c *gin.Context) {
 
 	response.Success(c, http.StatusOK, "chapter.view_tracked", nil, nil)
 }
-
 
 // UpdateStatistics updates chapter statistics
 // @Summary Update chapter statistics

@@ -5,11 +5,11 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/gofrs/uuid/v5"
-	"github.com/jackc/pgx/v5"
 
 	"system/internal/app/middleware"
 	"system/internal/domain"
 	volumedto "system/internal/dto/novel_volume"
+	ent "system/internal/ent/generated"
 	pkgerrors "system/pkg/errors"
 	"system/pkg/util/response"
 )
@@ -17,15 +17,15 @@ import (
 // Handler handles volume-related HTTP requests
 // Handler handles volume-related HTTP requests
 type Handler struct {
-	volumeService             VolumeService
-	createVolumeUC            CreateVolumeUseCase
-	updateVolumeUC            UpdateVolumeUseCase
-	deleteVolumeUC            DeleteVolumeUseCase
-	getVolumeUC               GetVolumeUseCase
-	listVolumesByNovelUC      ListVolumesByNovelUseCase
-	updateDisplayOrderUC      UpdateDisplayOrderUseCase
-	publishVolumeUC           PublishVolumeUseCase
-	unpublishVolumeUC         UnpublishVolumeUseCase
+	volumeService        VolumeService
+	createVolumeUC       CreateVolumeUseCase
+	updateVolumeUC       UpdateVolumeUseCase
+	deleteVolumeUC       DeleteVolumeUseCase
+	getVolumeUC          GetVolumeUseCase
+	listVolumesByNovelUC ListVolumesByNovelUseCase
+	updateDisplayOrderUC UpdateDisplayOrderUseCase
+	publishVolumeUC      PublishVolumeUseCase
+	unpublishVolumeUC    UnpublishVolumeUseCase
 }
 
 // NewHandler creates a new volume Handler instance
@@ -41,15 +41,15 @@ func NewHandler(
 	unpublishVolumeUC UnpublishVolumeUseCase,
 ) *Handler {
 	return &Handler{
-		volumeService:             volumeService,
-		createVolumeUC:            createVolumeUC,
-		updateVolumeUC:            updateVolumeUC,
-		deleteVolumeUC:            deleteVolumeUC,
-		getVolumeUC:               getVolumeUC,
-		listVolumesByNovelUC:      listVolumesByNovelUC,
-		updateDisplayOrderUC:      updateDisplayOrderUC,
-		publishVolumeUC:           publishVolumeUC,
-		unpublishVolumeUC:         unpublishVolumeUC,
+		volumeService:        volumeService,
+		createVolumeUC:       createVolumeUC,
+		updateVolumeUC:       updateVolumeUC,
+		deleteVolumeUC:       deleteVolumeUC,
+		getVolumeUC:          getVolumeUC,
+		listVolumesByNovelUC: listVolumesByNovelUC,
+		updateDisplayOrderUC: updateDisplayOrderUC,
+		publishVolumeUC:      publishVolumeUC,
+		unpublishVolumeUC:    unpublishVolumeUC,
 	}
 }
 
@@ -186,7 +186,7 @@ func (h *Handler) GetVolume(c *gin.Context) {
 			response.Error(c, appErr.StatusCode, appErr.ErrCode, appErr.I18nKey, nil)
 			return
 		}
-		if err == pgx.ErrNoRows {
+		if ent.IsNotFound(err) {
 			response.Error(c, http.StatusNotFound, "VOLUME_NOT_FOUND", I18nNotFound, nil)
 			return
 		}

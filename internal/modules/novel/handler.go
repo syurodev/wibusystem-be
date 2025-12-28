@@ -9,11 +9,11 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/gofrs/uuid/v5"
-	"github.com/jackc/pgx/v5"
 
 	"system/internal/app/middleware"
 	"system/internal/domain"
 	noveldto "system/internal/dto/novel"
+	ent "system/internal/ent/generated"
 	"system/internal/modules/novel_chapter"
 	novel_volume "system/internal/modules/novel_volume"
 	pkgerrors "system/pkg/errors"
@@ -23,17 +23,17 @@ import (
 
 // Handler handles novel-related HTTP requests
 type Handler struct {
-	novelService    NovelService
-	createNovelUC   CreateNovelUseCase
-	updateNovelUC   UpdateNovelUseCase
-	deleteNovelUC   DeleteNovelUseCase
-	getNovelUC      GetNovelUseCase
-	listNovelsUC    ListNovelsUseCase
-	viewCountUC     IncrementViewCountUseCase
-	getNovelFullUC  GetNovelFullUseCase
-	volumeService   novel_volume.VolumeService
-	chapterService  novel_chapter.ChapterService
-	topNovelSvc     TopNovelService
+	novelService   NovelService
+	createNovelUC  CreateNovelUseCase
+	updateNovelUC  UpdateNovelUseCase
+	deleteNovelUC  DeleteNovelUseCase
+	getNovelUC     GetNovelUseCase
+	listNovelsUC   ListNovelsUseCase
+	viewCountUC    IncrementViewCountUseCase
+	getNovelFullUC GetNovelFullUseCase
+	volumeService  novel_volume.VolumeService
+	chapterService novel_chapter.ChapterService
+	topNovelSvc    TopNovelService
 }
 
 // NewHandler creates a new novel Handler instance
@@ -51,17 +51,17 @@ func NewHandler(
 	topNovelSvc TopNovelService,
 ) *Handler {
 	return &Handler{
-		novelService:    novelService,
-		createNovelUC:   createNovelUC,
-		updateNovelUC:   updateNovelUC,
-		deleteNovelUC:   deleteNovelUC,
-		getNovelUC:      getNovelUC,
-		listNovelsUC:    listNovelsUC,
-		viewCountUC:     viewCountUC,
-		getNovelFullUC:  getNovelFullUC,
-		volumeService:   volumeService,
-		chapterService:  chapterService,
-		topNovelSvc:     topNovelSvc,
+		novelService:   novelService,
+		createNovelUC:  createNovelUC,
+		updateNovelUC:  updateNovelUC,
+		deleteNovelUC:  deleteNovelUC,
+		getNovelUC:     getNovelUC,
+		listNovelsUC:   listNovelsUC,
+		viewCountUC:    viewCountUC,
+		getNovelFullUC: getNovelFullUC,
+		volumeService:  volumeService,
+		chapterService: chapterService,
+		topNovelSvc:    topNovelSvc,
 	}
 }
 
@@ -227,7 +227,7 @@ func (h *Handler) GetNovel(c *gin.Context) {
 			response.Error(c, appErr.StatusCode, appErr.ErrCode, appErr.I18nKey, nil)
 			return
 		}
-		if err == pgx.ErrNoRows {
+		if ent.IsNotFound(err) {
 			response.Error(c, http.StatusNotFound, "NOVEL_NOT_FOUND", I18nNotFound, nil)
 			return
 		}
@@ -434,6 +434,7 @@ func (h *Handler) GetTop(c *gin.Context) {
 
 	response.Success(c, http.StatusOK, I18nGetTopSuccess, novelResponses, nil)
 }
+
 // IncrementViewCount tăng view count của novel
 // @Summary Increment novel view count
 // @Tags Novels
@@ -476,11 +477,17 @@ func (h *Handler) GetNovelFull(c *gin.Context) {
 		Slug: identifier,
 	})
 	if err != nil {
-		if errors.Is(err, pkgerrors.ErrNovelNotFound) || errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, pkgerrors.ErrNovelNotFound) || ent.IsNotFound(err) {
 			response.Error(c, http.StatusNotFound, "NOVEL_NOT_FOUND", I18nNotFound, nil)
 			return
 		}
 		response.Error(c, http.StatusInternalServerError, "GET_FAILED", I18nGetFailed, nil)
+		return
+	}
+
+	// Check if data or data.Novel is nil
+	if data == nil || data.Novel == nil {
+		response.Error(c, http.StatusNotFound, "NOVEL_NOT_FOUND", I18nNotFound, nil)
 		return
 	}
 

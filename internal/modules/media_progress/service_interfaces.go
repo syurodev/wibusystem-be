@@ -73,10 +73,10 @@ type Service interface {
 
 // UpdateProgressInput chứa dữ liệu để update progress
 type UpdateProgressInput struct {
-	UserID      uuid.UUID
-	MediaType   string    // "novel", "manga", "anime"
-	MediaID     uuid.UUID // novel_id, manga_id, or anime_id
-	UnitID      uuid.UUID // chapter_id or episode_id
+	UserID    uuid.UUID
+	MediaType string    // "novel", "manga", "anime"
+	MediaID   uuid.UUID // novel_id, manga_id, or anime_id
+	UnitID    uuid.UUID // chapter_id or episode_id
 
 	// Position (optional, depends on media type)
 	// Novel: NovelPosition{node_id, preview}

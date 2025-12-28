@@ -22,7 +22,7 @@ func (h *Handler) RegisterRoutes(router *gin.RouterGroup, requireAuth gin.Handle
 			protected.DELETE("/:identifier", h.DeleteArtist)
 
 			// Merge routes
-			protected.POST("/merge", h.MergeArtist)          // POST /api/v1/artists/merge
+			protected.POST("/merge", h.MergeArtist)                // POST /api/v1/artists/merge
 			protected.POST("/merge/preview", h.PreviewMergeArtist) // POST /api/v1/artists/merge/preview
 		}
 	}

@@ -34,25 +34,24 @@ import (
 
 	"github.com/gofrs/uuid/v5"
 	"github.com/gosimple/slug"
+	"github.com/samber/lo"
 
 	"system/internal/domain"
-	db "system/internal/platform/database"
 	pkgerrors "system/pkg/errors"
 	"system/pkg/util/stringutil"
 )
 
 // novelServiceImpl implements NovelService interface
 type novelServiceImpl struct {
-	novelRepo  domain.NovelRepository
-	volumeRepo domain.NovelVolumeRepository
-	genreRepo  domain.GenreRepository
-	authorRepo domain.AuthorRepository
-	artistRepo domain.ArtistRepository
+	novelRepo   domain.NovelRepository
+	volumeRepo  domain.NovelVolumeRepository
+	genreRepo   domain.GenreRepository
+	authorRepo  domain.AuthorRepository
+	artistRepo  domain.ArtistRepository
 	creatorRepo domain.CreatorRepository
-	txManager  db.TransactionManager
 }
 
-// NewNovelService tạo một instance mới của NovelService
+// NewService tạo một instance mới của NovelService
 func NewService(
 	novelRepo domain.NovelRepository,
 	volumeRepo domain.NovelVolumeRepository,
@@ -60,8 +59,7 @@ func NewService(
 	authorRepo domain.AuthorRepository,
 	artistRepo domain.ArtistRepository,
 	creatorRepo domain.CreatorRepository,
-	txManager db.TransactionManager,
-) *novelServiceImpl {
+) NovelService {
 	return &novelServiceImpl{
 		novelRepo:   novelRepo,
 		volumeRepo:  volumeRepo,
@@ -69,7 +67,6 @@ func NewService(
 		authorRepo:  authorRepo,
 		artistRepo:  artistRepo,
 		creatorRepo: creatorRepo,
-		txManager:   txManager,
 	}
 }
 
@@ -150,14 +147,13 @@ func (s *novelServiceImpl) CreateNovel(
 		if err := s.genreRepo.AddNovelGenres(ctx, id, genreIDs, ownerID); err != nil {
 			fmt.Printf("Failed to add genres: %v\n", err)
 		} else {
-             increments := make(map[uuid.UUID]int)
-             for _, gid := range genreIDs {
-                 increments[gid] = 1
-             }
-             if err := s.genreRepo.BatchIncrementNovelCount(ctx, increments); err != nil {
-                 fmt.Printf("Failed to increment genre novel count: %v\n", err)
-             }
-        }
+			increments := lo.SliceToMap(genreIDs, func(gid uuid.UUID) (uuid.UUID, int) {
+				return gid, 1
+			})
+			if err := s.genreRepo.BatchIncrementNovelCount(ctx, increments); err != nil {
+				fmt.Printf("Failed to increment genre novel count: %v\n", err)
+			}
+		}
 	}
 
 	for i, authorID := range authorIDs {
@@ -294,8 +290,6 @@ func (s *novelServiceImpl) DeleteNovelEntity(ctx context.Context, id uuid.UUID) 
 	return s.novelRepo.Delete(ctx, id)
 }
 
-
-
 // GetNovelByID lấy thông tin novel theo ID
 func (s *novelServiceImpl) GetNovelByID(ctx context.Context, id uuid.UUID) (*domain.Novel, error) {
 	return s.novelRepo.GetByID(ctx, id)
@@ -335,12 +329,10 @@ func (s *novelServiceImpl) ListNovels(ctx context.Context, page, limit int, owne
 	}
 
 	// Convert string statuses to domain.NovelStatus slice
-	var statuses []domain.NovelStatus
-	for _, statusStr := range statusStrs {
-		if domain.NovelStatus(statusStr).IsValid() {
-			statuses = append(statuses, domain.NovelStatus(statusStr))
-		}
-	}
+	statuses := lo.FilterMap(statusStrs, func(s string, _ int) (domain.NovelStatus, bool) {
+		status := domain.NovelStatus(s)
+		return status, status.IsValid()
+	})
 
 	var origLang *string
 	if originalLanguage != "" {
@@ -384,8 +376,6 @@ func (s *novelServiceImpl) GetNovelsByIDs(ctx context.Context, ids []uuid.UUID) 
 func (s *novelServiceImpl) IncrementViewCount(ctx context.Context, id uuid.UUID) error {
 	return s.novelRepo.IncrementViewCount(ctx, id)
 }
-
-
 
 // GetNovelGenres lấy danh sách genre IDs của novel
 func (s *novelServiceImpl) GetNovelGenres(ctx context.Context, novelID uuid.UUID) ([]uuid.UUID, error) {
@@ -431,4 +421,3 @@ func (s *novelServiceImpl) GetNovelFull(ctx context.Context, slug string) (*Nove
 	// Fallback: không hỗ trợ, trả về error
 	return nil, pkgerrors.Internal("novel.get_full_not_supported", "GetNovelFull not supported by repository")
 }
-

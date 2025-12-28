@@ -42,7 +42,7 @@ type NovelVolume struct {
 
 	// Relationships (loaded via JOIN)
 	Novel      *Novel `db:"-"` // Optional: được load bởi JOIN query
-	NovelTitle string          // Novel title for display
+	NovelTitle string // Novel title for display
 }
 
 // NovelVolumeRepository định nghĩa interface cho việc truy cập dữ liệu volume

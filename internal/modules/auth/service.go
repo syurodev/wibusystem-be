@@ -6,10 +6,10 @@ import (
 	"time"
 
 	"github.com/gofrs/uuid/v5"
-	"github.com/jackc/pgx/v5"
 	"go.uber.org/zap"
 
 	"system/internal/domain"
+	ent "system/internal/ent/generated"
 	"system/internal/modules/user"
 	pkgerrors "system/pkg/errors"
 	"system/pkg/util/crypto"
@@ -30,7 +30,7 @@ func NewService(
 	verificationRepo domain.EmailVerificationRepository,
 	passwordResetRepo domain.PasswordResetRepository,
 	roleRepo domain.RoleRepository,
-) *authServiceImpl {
+) AuthService {
 	return &authServiceImpl{
 		userService:       userService,
 		verificationRepo:  verificationRepo,
@@ -43,7 +43,7 @@ func NewService(
 func (s *authServiceImpl) RegisterUser(ctx context.Context, email, password, fullName string) (*domain.User, string, error) {
 	// Kiểm tra email đã tồn tại chưa
 	existingUser, err := s.userService.GetUserByEmail(ctx, email)
-	if err != nil && err != pgx.ErrNoRows {
+	if err != nil && !ent.IsNotFound(err) {
 		return nil, "", fmt.Errorf("failed to check existing user: %w", err)
 	}
 	if existingUser != nil {
@@ -78,8 +78,8 @@ func (s *authServiceImpl) RegisterUser(ctx context.Context, email, password, ful
 			"created_at": time.Now().Format(time.RFC3339),
 			"updated_at": time.Now().Format(time.RFC3339),
 		},
-		CreatedAt:     time.Now(),
-		UpdatedAt:     time.Now(),
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
 	}
 
 	if err := s.userService.CreateUser(ctx, user); err != nil {
@@ -162,7 +162,7 @@ func (s *authServiceImpl) VerifyEmail(ctx context.Context, tokenStr string) erro
 	// Lấy token
 	token, err := s.verificationRepo.GetByToken(ctx, tokenStr)
 	if err != nil {
-		if err == pgx.ErrNoRows {
+		if ent.IsNotFound(err) {
 			return pkgerrors.BadRequest(I18nInvalidToken, "invalid token")
 		}
 		return fmt.Errorf("failed to get token: %w", err)
@@ -204,7 +204,7 @@ func (s *authServiceImpl) CreatePasswordResetToken(ctx context.Context, email st
 	// Tìm user theo email
 	user, err := s.userService.GetUserByEmail(ctx, email)
 	if err != nil {
-		if err == pgx.ErrNoRows {
+		if ent.IsNotFound(err) {
 			// Không tiết lộ email không tồn tại (security best practice)
 			return "", nil
 		}
@@ -243,7 +243,7 @@ func (s *authServiceImpl) ResetPassword(ctx context.Context, tokenStr, newPasswo
 	// Lấy token
 	token, err := s.passwordResetRepo.GetByToken(ctx, tokenStr)
 	if err != nil {
-		if err == pgx.ErrNoRows {
+		if ent.IsNotFound(err) {
 			return pkgerrors.BadRequest(I18nInvalidToken, "invalid token")
 		}
 		return fmt.Errorf("failed to get token: %w", err)

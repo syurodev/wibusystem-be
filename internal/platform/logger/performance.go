@@ -23,11 +23,11 @@ func NewPerformanceLogger(logger *zap.Logger) *PerformanceLogger {
 type OperationType string
 
 const (
-	OpTypeHTTP         OperationType = "http"
-	OpTypeDatabase     OperationType = "database"
-	OpTypeRedis        OperationType = "redis"
-	OpTypeExternal     OperationType = "external_api"
-	OpTypeOAuth2       OperationType = "oauth2"
+	OpTypeHTTP           OperationType = "http"
+	OpTypeDatabase       OperationType = "database"
+	OpTypeRedis          OperationType = "redis"
+	OpTypeExternal       OperationType = "external_api"
+	OpTypeOAuth2         OperationType = "oauth2"
 	OpTypeAuthentication OperationType = "authentication"
 )
 
@@ -39,25 +39,25 @@ type PerformanceMetric struct {
 	Success       bool          `json:"success"`
 
 	// HTTP specific
-	Method        string        `json:"method,omitempty"`
-	Path          string        `json:"path,omitempty"`
-	StatusCode    int           `json:"status_code,omitempty"`
+	Method     string `json:"method,omitempty"`
+	Path       string `json:"path,omitempty"`
+	StatusCode int    `json:"status_code,omitempty"`
 
 	// Database specific
-	Query         string        `json:"query,omitempty"`
-	QueryType     string        `json:"query_type,omitempty"` // SELECT, INSERT, UPDATE, DELETE
-	RowsAffected  int64         `json:"rows_affected,omitempty"`
+	Query        string `json:"query,omitempty"`
+	QueryType    string `json:"query_type,omitempty"` // SELECT, INSERT, UPDATE, DELETE
+	RowsAffected int64  `json:"rows_affected,omitempty"`
 
 	// Cache specific
-	CacheHit      *bool         `json:"cache_hit,omitempty"`
+	CacheHit *bool `json:"cache_hit,omitempty"`
 
 	// Error information
-	Error         string        `json:"error,omitempty"`
+	Error string `json:"error,omitempty"`
 
 	// Additional metadata
-	Metadata      map[string]any `json:"metadata,omitempty"`
+	Metadata map[string]any `json:"metadata,omitempty"`
 
-	Timestamp     time.Time     `json:"timestamp"`
+	Timestamp time.Time `json:"timestamp"`
 }
 
 // LogMetric logs a performance metric

@@ -45,4 +45,3 @@ type OAuth2AdminService interface {
 	DeleteClient(ctx context.Context, clientID uuid.UUID) error
 	RegenerateClientSecret(ctx context.Context, clientID uuid.UUID) (string, error)
 }
-

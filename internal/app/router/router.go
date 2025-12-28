@@ -10,18 +10,26 @@ import (
 	"system/configs"
 	"system/internal/app/middleware"
 	oauth2_module "system/internal/modules/oauth2"
-	"system/internal/platform/database"
 	"system/internal/platform/i18n"
 	"system/internal/platform/logger"
 	"time"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	"github.com/ory/fosite"
 	"go.uber.org/zap"
 )
 
-// NewRouter khởi tạo và cấu hình Gin router.
-func NewRouter(cfg *configs.Config, i18nInstance *i18n.I18n, zapLogger *zap.Logger, db *database.PostgresDB, rdb *database.RedisClient, ch *database.ClickHouseClient) *gin.Engine {
+// NewRouterWithHandlers creates a Gin router with pre-built handlers from Wire DI.
+// This is the Wire-compatible version that accepts handlers directly.
+func NewRouterWithHandlers(
+	cfg *configs.Config,
+	i18nInstance *i18n.I18n,
+	zapLogger *zap.Logger,
+	handlers *Handlers,
+	services *Services,
+	oauth2Provider fosite.OAuth2Provider,
+) *gin.Engine {
 	// Thiết lập Gin mode
 	if cfg.Server.IsProd {
 		gin.SetMode(gin.ReleaseMode)
@@ -49,19 +57,20 @@ func NewRouter(cfg *configs.Config, i18nInstance *i18n.I18n, zapLogger *zap.Logg
 		c.JSON(http.StatusOK, gin.H{"status": "UP"})
 	})
 
-	// --- Khởi tạo Dependencies ---
-	deps, err := NewDependencies(cfg, db, rdb, ch, zapLogger)
-	if err != nil {
-		zapLogger.Fatal("Failed to initialize dependencies", zap.Error(err))
+	// Create Dependencies wrapper for route registration compatibility
+	deps := &Dependencies{
+		Handlers:       handlers,
+		Services:       services,
+		OAuth2Provider: oauth2Provider,
 	}
 
 	// --- Đăng ký Routes ---
 	registerAPIRoutes(router, deps, zapLogger)
 	registerOAuth2Routes(router, deps)
-	registerAuthRoutes(router, deps.Handlers, deps.Services, zapLogger)
+	registerAuthRoutes(router, handlers, services, zapLogger)
 
 	// WebSocket
-	router.GET("/ws", deps.Handlers.Socket.HandleWebSocket)
+	router.GET("/ws", handlers.Socket.HandleWebSocket)
 
 	return router
 }
@@ -182,7 +191,7 @@ func registerAPIRoutes(router *gin.Engine, deps *Dependencies, zapLogger *zap.Lo
 
 	// Media routes (Public)
 	deps.Handlers.Media.RegisterRoutes(apiV1, authMiddleware)
-	
+
 	// Webhook routes (Public)
 	deps.Handlers.Webhook.RegisterWebhookRoutes(router)
 }
@@ -200,7 +209,7 @@ func registerNovelRoutes(apiV1 *gin.RouterGroup, deps *Dependencies, authMiddlew
 	// Volume routes (Namespace: /novels/volumes)
 	volumeGroup := apiV1.Group("/novels/volumes")
 	volumeGroup.GET("/:identifier", h.Volume.GetVolume)
-	
+
 	protectedVolume := volumeGroup.Group("", authMiddleware)
 	protectedVolume.PUT("/:identifier", h.Volume.UpdateVolume)
 	protectedVolume.DELETE("/:identifier", h.Volume.DeleteVolume)

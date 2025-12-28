@@ -51,12 +51,12 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/gofrs/uuid/v5"
-	"github.com/jackc/pgx/v5"
 	"go.uber.org/zap"
 
 	"system/internal/app/middleware"
 	"system/internal/domain"
 	artistdto "system/internal/dto/artist"
+	ent "system/internal/ent/generated"
 	pkgerrors "system/pkg/errors"
 	"system/pkg/util/jsonutil"
 	"system/pkg/util/response"
@@ -64,15 +64,15 @@ import (
 )
 
 type Handler struct {
-	createArtistUC  CreateArtistUseCase
-	updateArtistUC  UpdateArtistUseCase
-	deleteArtistUC  DeleteArtistUseCase
-	getArtistUC     GetArtistUseCase
-	listArtistsUC   ListArtistsUseCase
-	listSelectUC    ListSelectionUseCase
-	mergeArtistsUC  MergeArtistsUseCase
-	previewMergeUC  PreviewMergeUseCase
-	logger          *zap.Logger
+	createArtistUC CreateArtistUseCase
+	updateArtistUC UpdateArtistUseCase
+	deleteArtistUC DeleteArtistUseCase
+	getArtistUC    GetArtistUseCase
+	listArtistsUC  ListArtistsUseCase
+	listSelectUC   ListSelectionUseCase
+	mergeArtistsUC MergeArtistsUseCase
+	previewMergeUC PreviewMergeUseCase
+	logger         *zap.Logger
 }
 
 func NewHandler(
@@ -87,15 +87,15 @@ func NewHandler(
 	logger *zap.Logger,
 ) *Handler {
 	return &Handler{
-		createArtistUC:  createArtistUC,
-		updateArtistUC:  updateArtistUC,
-		deleteArtistUC:  deleteArtistUC,
-		getArtistUC:     getArtistUC,
-		listArtistsUC:   listArtistsUC,
-		listSelectUC:    listSelectUC,
-		mergeArtistsUC:  mergeArtistsUC,
-		previewMergeUC:  previewMergeUC,
-		logger:          logger,
+		createArtistUC: createArtistUC,
+		updateArtistUC: updateArtistUC,
+		deleteArtistUC: deleteArtistUC,
+		getArtistUC:    getArtistUC,
+		listArtistsUC:  listArtistsUC,
+		listSelectUC:   listSelectUC,
+		mergeArtistsUC: mergeArtistsUC,
+		previewMergeUC: previewMergeUC,
+		logger:         logger,
 	}
 }
 
@@ -267,7 +267,7 @@ func (h *Handler) GetArtist(c *gin.Context) {
 			response.Error(c, appErr.StatusCode, appErr.ErrCode, appErr.I18nKey, nil)
 			return
 		}
-		if err == pgx.ErrNoRows {
+		if ent.IsNotFound(err) {
 			response.Error(c, http.StatusNotFound, "NotFound", I18nNotFound, nil)
 			return
 		}

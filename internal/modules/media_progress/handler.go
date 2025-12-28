@@ -49,12 +49,12 @@ func NewHandler(service Service) *Handler {
 
 // UpdateProgressRequest - request body for POST /api/v1/history
 type UpdateProgressRequest struct {
-	ContentID        string `json:"content_id" binding:"required"`
-	MediaType        string `json:"media_type"` // "novel", "manga", "anime" - nếu không có sẽ tự detect
-	LatestUnitID     string `json:"latest_unit_id" binding:"required"`
+	ContentID         string            `json:"content_id" binding:"required"`
+	MediaType         string            `json:"media_type"` // "novel", "manga", "anime" - nếu không có sẽ tự detect
+	LatestUnitID      string            `json:"latest_unit_id" binding:"required"`
 	NovelLastReadInfo *NovelPositionDTO `json:"novel_last_read_info,omitempty"`
-	MangaLastPageRead *int `json:"manga_last_page_read,omitempty"`
-	AnimeLastTime     *string `json:"anime_last_episode_time_viewed,omitempty"`
+	MangaLastPageRead *int              `json:"manga_last_page_read,omitempty"`
+	AnimeLastTime     *string           `json:"anime_last_episode_time_viewed,omitempty"`
 }
 
 // NovelPositionDTO - position info cho novel
@@ -65,42 +65,42 @@ type NovelPositionDTO struct {
 
 // MediaProgressResponse - response for a single progress item
 type MediaProgressResponse struct {
-	ID       string `json:"id"`
-	
+	ID string `json:"id"`
+
 	// Media info
-	Media    *MediaInfoResponse `json:"media"`
-	
+	Media *MediaInfoResponse `json:"media"`
+
 	// Current unit (chapter/episode)
 	LatestUnit *UnitInfoResponse `json:"latest_unit"`
-	
+
 	// Position (based on media type)
 	NovelLastReadInfo *NovelPositionDTO `json:"novel_last_read_info,omitempty"`
-	MangaLastPageRead *int `json:"manga_last_page_read,omitempty"`
-	AnimeLastTime     *string `json:"anime_last_episode_time_viewed,omitempty"`
-	
+	MangaLastPageRead *int              `json:"manga_last_page_read,omitempty"`
+	AnimeLastTime     *string           `json:"anime_last_episode_time_viewed,omitempty"`
+
 	// Progress stats
 	UserProgressPercentage float64 `json:"user_progress_percentage"`
-	TotalUnits     int `json:"total_units,omitempty"`
-	CompletedUnits int `json:"completed_units,omitempty"`
-	
+	TotalUnits             int     `json:"total_units,omitempty"`
+	CompletedUnits         int     `json:"completed_units,omitempty"`
+
 	// Timestamps
-	LastViewedAt   string `json:"last_viewed_at"`
+	LastViewedAt     string `json:"last_viewed_at"`
 	ContentUpdatedAt string `json:"content_updated_at,omitempty"`
 }
 
 // MediaInfoResponse - media info in progress response
 type MediaInfoResponse struct {
-	ID          string `json:"id"`
-	Title       string `json:"title"`
-	Slug        string `json:"slug"`
-	CoverURL    *string `json:"cover_url"`
-	Type        string `json:"type"`
-	Status      string `json:"status"`
-	Genres      []GenreDTO `json:"genres,omitempty"`
-	Author      *OwnerDTO `json:"author,omitempty"`
-	Rating      float64 `json:"rating,omitempty"`
-	Views       int64 `json:"views,omitempty"`
-	Favorites   int `json:"favorites,omitempty"`
+	ID        string     `json:"id"`
+	Title     string     `json:"title"`
+	Slug      string     `json:"slug"`
+	CoverURL  *string    `json:"cover_url"`
+	Type      string     `json:"type"`
+	Status    string     `json:"status"`
+	Genres    []GenreDTO `json:"genres,omitempty"`
+	Author    *OwnerDTO  `json:"author,omitempty"`
+	Rating    float64    `json:"rating,omitempty"`
+	Views     int64      `json:"views,omitempty"`
+	Favorites int        `json:"favorites,omitempty"`
 }
 
 // UnitInfoResponse - chapter/episode info
@@ -120,17 +120,17 @@ type GenreDTO struct {
 
 // OwnerDTO - owner/author info
 type OwnerDTO struct {
-	ID          string `json:"id"`
-	DisplayName string `json:"display_name"`
-	Username    string `json:"username"`
+	ID          string  `json:"id"`
+	DisplayName string  `json:"display_name"`
+	Username    string  `json:"username"`
 	AvatarURL   *string `json:"avatar_url"`
 }
 
 // UnitProgressResponse - response for chapter read status
 type UnitProgressResponse struct {
-	UnitID      string `json:"unit_id"`
-	Status      string `json:"status"`
-	IsRead      bool   `json:"is_read"`
+	UnitID      string  `json:"unit_id"`
+	Status      string  `json:"status"`
+	IsRead      bool    `json:"is_read"`
 	CompletedAt *string `json:"completed_at,omitempty"`
 }
 

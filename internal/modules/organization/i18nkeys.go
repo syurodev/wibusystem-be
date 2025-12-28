@@ -27,13 +27,13 @@ const (
 	I18nMemberRoleUpdatedSuccess = "organization.member_role_updated_success"
 
 	// Error messages
-	I18nCreateFailed  = "organization.create_failed"
-	I18nUpdateFailed  = "organization.update_failed"
-	I18nDeleteFailed  = "organization.delete_failed"
-	I18nGetFailed     = "organization.get_failed"
-	I18nListFailed    = "organization.list_failed"
-	I18nInviteFailed  = "organization.invite_failed"
-	I18nReportFailed  = "organization.report_failed"
+	I18nCreateFailed = "organization.create_failed"
+	I18nUpdateFailed = "organization.update_failed"
+	I18nDeleteFailed = "organization.delete_failed"
+	I18nGetFailed    = "organization.get_failed"
+	I18nListFailed   = "organization.list_failed"
+	I18nInviteFailed = "organization.invite_failed"
+	I18nReportFailed = "organization.report_failed"
 
 	// Validation and business errors
 	I18nNotFound               = "organization.not_found"

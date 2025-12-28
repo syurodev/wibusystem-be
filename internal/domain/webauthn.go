@@ -26,20 +26,20 @@ const (
 
 // WebAuthnCredential là domain model cho WebAuthn credential
 type WebAuthnCredential struct {
-	ID             uuid.UUID
-	UserID         uuid.UUID
-	CredentialID   string // Base64URL encoded credential ID
-	PublicKey      []byte // Public key trong binary format
+	ID              uuid.UUID
+	UserID          uuid.UUID
+	CredentialID    string // Base64URL encoded credential ID
+	PublicKey       []byte // Public key trong binary format
 	AttestationType AttestationType
-	AAGUID         []byte // Authenticator AAGUID (16 bytes)
-	SignCount      int32
-	Transports     []string // usb, nfc, ble, internal, hybrid
-	BackupEligible bool
-	BackupState    bool
-	CredentialName *string
-	CreatedAt      time.Time
-	UpdatedAt      time.Time
-	LastUsedAt     *time.Time
+	AAGUID          []byte // Authenticator AAGUID (16 bytes)
+	SignCount       int32
+	Transports      []string // usb, nfc, ble, internal, hybrid
+	BackupEligible  bool
+	BackupState     bool
+	CredentialName  *string
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
+	LastUsedAt      *time.Time
 }
 
 // WebAuthnSession là domain model cho WebAuthn session (temporary)

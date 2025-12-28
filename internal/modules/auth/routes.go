@@ -7,7 +7,7 @@ import (
 // RegisterAPIRoutes registers all auth API routes (v1/auth)
 func (h *Handler) RegisterAPIRoutes(group *gin.RouterGroup, sessionAuth gin.HandlerFunc) {
 	authGroup := group.Group("/auth")
-	
+
 	// Public auth endpoints
 	authGroup.POST("/register", h.Register)
 	authGroup.GET("/verify-email", h.VerifyEmail)

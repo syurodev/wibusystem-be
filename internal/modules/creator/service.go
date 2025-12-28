@@ -26,7 +26,7 @@ func NewService(
 	analyticsService analytics.AnalyticsService,
 	novelService novel.NovelService,
 	logger *zap.Logger,
-) *creatorServiceImpl {
+) CreatorService {
 	return &creatorServiceImpl{
 		creatorRepo:      creatorRepo,
 		analyticsService: analyticsService,
@@ -55,7 +55,7 @@ func (s *creatorServiceImpl) ListCreators(ctx context.Context, filter domain.Cre
 
 	// 3. Get view stats and popular work IDs
 	viewStats := s.getCreatorViewStats(ctx, userIDs, filter.ViewPeriod)
-	
+
 	popularWorkIDs := make([]uuid.UUID, 0)
 	for _, stats := range viewStats {
 		if stats.PopularWorkID != nil {

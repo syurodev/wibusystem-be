@@ -8,7 +8,7 @@
 -- Description: Lưu trữ WebAuthn/FIDO2 credentials cho passwordless authentication
 -- =====================================================
 CREATE TABLE identify.webauthn_credentials (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
     user_id UUID NOT NULL,
 
     -- WebAuthn credential data
@@ -70,7 +70,7 @@ COMMENT ON COLUMN identify.webauthn_credentials.last_used_at IS 'Timestamp lần
 -- Description: Lưu trữ temporary sessions cho WebAuthn registration/authentication flow
 -- =====================================================
 CREATE TABLE identify.webauthn_sessions (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
     user_id UUID, -- NULL for registration of new users, set for authentication
 
     -- Session data

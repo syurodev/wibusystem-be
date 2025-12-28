@@ -200,7 +200,7 @@ func (r *viewAnalyticsClickHouseRepo) GetTopTrending(ctx context.Context, mediaT
 	case "month":
 		interval = "30 DAY"
 	}
-	
+
 	// Note: ClickHouse parameter binding for INTERVAL is tricky, usually needs direct string injection or specific syntax.
 	// For safety, we'll use the validated interval string directly in the query since it's from a controlled switch.
 	query = fmt.Sprintf(`
@@ -860,7 +860,7 @@ func (r *viewAnalyticsClickHouseRepo) GetRankWithComparison(ctx context.Context,
 		if err := rows.Scan(&s.EntityID, &s.TotalViews, &s.UniqueUsers, &currentRank, &prevRankNull); err != nil {
 			return nil, fmt.Errorf("failed to scan rank stat: %w", err)
 		}
-		
+
 		s.CurrentRank = int(currentRank)
 
 		// Xử lý PreviousRank và RankChange
@@ -940,5 +940,3 @@ func calculateCalendarDateRange(period string, offset int) (time.Time, time.Time
 
 	return startDate, endDate
 }
-
-

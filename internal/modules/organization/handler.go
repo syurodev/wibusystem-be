@@ -7,12 +7,12 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/gofrs/uuid/v5"
-	"github.com/jackc/pgx/v5"
 	"go.uber.org/zap"
 
 	"system/internal/app/middleware"
 	"system/internal/domain"
 	orgdto "system/internal/dto/organization"
+	ent "system/internal/ent/generated"
 	analytics_module "system/internal/modules/analytics"
 	pkgerrors "system/pkg/errors"
 	"system/pkg/util/response"
@@ -559,7 +559,7 @@ func (h *Handler) getOrgBySlug(c *gin.Context) (*domain.Organization, error) {
 
 	org, err := h.orgService.GetOrganizationBySlug(c.Request.Context(), slug)
 	if err != nil {
-		if err == pgx.ErrNoRows {
+		if ent.IsNotFound(err) {
 			response.Error(c, http.StatusNotFound, "NotFound", I18nNotFound, nil)
 			return nil, err
 		}
@@ -575,7 +575,7 @@ func (h *Handler) handleError(c *gin.Context, err error, fallbackI18n string) {
 		response.Error(c, appErr.StatusCode, appErr.ErrCode, appErr.I18nKey, nil)
 		return
 	}
-	if err == pgx.ErrNoRows {
+	if ent.IsNotFound(err) {
 		response.Error(c, http.StatusNotFound, "NotFound", I18nNotFound, nil)
 		return
 	}
@@ -737,7 +737,7 @@ func (h *Handler) GetTopOrgsByViews(c *gin.Context) {
 		for i, owr := range orgsWithRank {
 			org := owr.Organization
 			resp := mapToOrganizationResponse(org)
-			
+
 			// Use pointers for optional fields
 			currentRank := owr.Stats.CurrentRank
 			var prevRank *int
@@ -776,4 +776,3 @@ func (h *Handler) GetTopOrgsByViews(c *gin.Context) {
 
 	response.Success(c, http.StatusOK, I18nListSuccess, orgResponses, nil)
 }
-

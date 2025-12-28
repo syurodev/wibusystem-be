@@ -7,7 +7,7 @@
 -- CHAPTER TRANSLATIONS TABLE
 -- =====================================================
 CREATE TABLE catalog.chapter_translations (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
     chapter_id UUID NOT NULL REFERENCES catalog.chapters(id) ON DELETE CASCADE,
     language VARCHAR(10) NOT NULL, -- ISO 639-1: en, vi, zh, ja, ko, etc.
 
@@ -79,7 +79,7 @@ COMMENT ON COLUMN catalog.chapter_translations.reviewer_rating IS 'Quality ratin
 -- TRANSLATION CONTRIBUTIONS TABLE
 -- =====================================================
 CREATE TABLE catalog.translation_contributions (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
     chapter_translation_id UUID NOT NULL REFERENCES catalog.chapter_translations(id) ON DELETE CASCADE,
     contributor_id UUID NOT NULL REFERENCES identify.users(id) ON DELETE CASCADE,
 
@@ -128,7 +128,7 @@ COMMENT ON COLUMN catalog.translation_contributions.changes IS 'JSONB documentin
 -- TRANSLATION HISTORY TABLE
 -- =====================================================
 CREATE TABLE catalog.translation_history (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
     chapter_translation_id UUID NOT NULL REFERENCES catalog.chapter_translations(id) ON DELETE CASCADE,
 
     -- Version tracking

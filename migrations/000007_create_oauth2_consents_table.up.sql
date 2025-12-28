@@ -8,7 +8,7 @@
 -- Description: Lưu trữ thông tin về quyền mà user đã cấp cho các OAuth2 clients
 -- =====================================================
 CREATE TABLE identify.oauth2_consents (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
 
     -- User và Client
     user_id UUID NOT NULL REFERENCES identify.users(id) ON DELETE CASCADE,

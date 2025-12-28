@@ -49,7 +49,7 @@ type userServiceImpl struct {
 }
 
 // NewUserService tạo một instance mới của UserService
-func NewService(userRepo domain.UserRepository, sessionRepo domain.SessionRepository) *userServiceImpl {
+func NewService(userRepo domain.UserRepository, sessionRepo domain.SessionRepository) UserService {
 	return &userServiceImpl{
 		userRepo:    userRepo,
 		sessionRepo: sessionRepo,
@@ -222,6 +222,7 @@ func (s *userServiceImpl) CreateUser(ctx context.Context, user *domain.User) err
 func (s *userServiceImpl) UpdateUser(ctx context.Context, user *domain.User) error {
 	return s.userRepo.Update(ctx, user)
 }
+
 // CreateSession creates a new session
 func (s *userServiceImpl) CreateSession(ctx context.Context, session *domain.UserSession, ttl time.Duration) error {
 	return s.sessionRepo.CreateSession(ctx, session, ttl)
@@ -231,6 +232,7 @@ func (s *userServiceImpl) CreateSession(ctx context.Context, session *domain.Use
 func (s *userServiceImpl) GetSession(ctx context.Context, sessionID string) (*domain.UserSession, error) {
 	return s.sessionRepo.GetSession(ctx, sessionID)
 }
+
 // UpdateLastLogin updates the last login timestamp
 func (s *userServiceImpl) UpdateLastLogin(ctx context.Context, userID uuid.UUID) error {
 	return s.userRepo.UpdateLastLogin(ctx, userID)

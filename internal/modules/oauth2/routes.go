@@ -16,8 +16,8 @@ func (h *Handler) RegisterRoutes(group *gin.RouterGroup) {
 	group.POST("/logout", h.Logout)         // Support both GET and POST for logout
 
 	// Login flow
-	group.GET("/login", h.LoginPage)    // Login page
-	group.POST("/login", h.LoginSubmit) // Login form submit
+	group.GET("/login", h.LoginPage)         // Login page
+	group.POST("/login", h.LoginSubmit)      // Login form submit
 	group.POST("/login/check", h.LoginCheck) // Check login status (for multi-step login)
 
 	// Consent flow

@@ -93,7 +93,7 @@ func (h *Handler) Register(c *gin.Context) {
 		zap.L().Error("Registration failed", zap.Error(err))
 		return
 	}
-	
+
 	user := result.User
 	verificationToken := result.VerificationToken
 

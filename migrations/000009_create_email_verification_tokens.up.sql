@@ -8,7 +8,7 @@
 -- Description: Lưu trữ tokens để verify email address
 -- =====================================================
 CREATE TABLE identify.email_verification_tokens (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
     user_id UUID NOT NULL REFERENCES identify.users(id) ON DELETE CASCADE,
     token VARCHAR(255) NOT NULL UNIQUE,
     expires_at TIMESTAMPTZ NOT NULL,

@@ -98,14 +98,14 @@ func (s *organizationServiceImpl) CreateOrganization(ctx context.Context, name, 
 	}
 
 	org := &domain.Organization{
-		ID:          id,
-		Name:        name,
-		Slug:        slug,
-		Status:      domain.OrganizationStatusActive,
-		Description: descJSON,
-		Settings:    json.RawMessage(`{"bypass_invite_approval": false}`),
+		ID:           id,
+		Name:         name,
+		Slug:         slug,
+		Status:       domain.OrganizationStatusActive,
+		Description:  descJSON,
+		Settings:     json.RawMessage(`{"bypass_invite_approval": false}`),
 		IsRecruiting: false,
-		CreatedBy:   &createdBy,
+		CreatedBy:    &createdBy,
 	}
 
 	if err := s.orgRepo.Create(ctx, org); err != nil {

@@ -26,10 +26,10 @@ type Author struct {
 	SocialLinks json.RawMessage
 
 	// Thống kê
-	NovelCount     int
-	TotalChapters  int
-	TotalViews     int64
-	FollowerCount  int
+	NovelCount    int
+	TotalChapters int
+	TotalViews    int64
+	FollowerCount int
 
 	// Status
 	IsVerified bool

@@ -206,4 +206,3 @@ func getUserIDFromContext(c *gin.Context) (uuid.UUID, error) {
 
 	return userID, nil
 }
-

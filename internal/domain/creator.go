@@ -9,15 +9,15 @@ import (
 
 // CreatorListFilter defines filter params for listing creators
 type CreatorListFilter struct {
-	Role        *string    // Filter by role (default: CREATOR)
-	Search      *string    // Search display_name/username
-	ViewPeriod  *string    // day, week, month, year, all
-	Page        int        // Default: 1
-	Limit       int        // Default: 20, max: 100
-	SortBy      string     // last_content_updated_at, total_views, follower_count
-	SortOrder   string     // asc, desc (default: desc)
-	CreatedFrom *time.Time // Filter created_at from
-	CreatedTo   *time.Time // Filter created_at to
+	Role                   *string    // Filter by role (default: CREATOR)
+	Search                 *string    // Search display_name/username
+	ViewPeriod             *string    // day, week, month, year, all
+	Page                   int        // Default: 1
+	Limit                  int        // Default: 20, max: 100
+	SortBy                 string     // last_content_updated_at, total_views, follower_count
+	SortOrder              string     // asc, desc (default: desc)
+	CreatedFrom            *time.Time // Filter created_at from
+	CreatedTo              *time.Time // Filter created_at to
 	FirstContentPostedFrom *time.Time // Filter by first content posted date from
 	FirstContentPostedTo   *time.Time // Filter by first content posted date to
 }

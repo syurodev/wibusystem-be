@@ -28,12 +28,12 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/gofrs/uuid/v5"
-	"github.com/jackc/pgx/v5"
 	"go.uber.org/zap"
 
 	"system/internal/app/middleware"
 	"system/internal/domain"
 	genredto "system/internal/dto/genre"
+	ent "system/internal/ent/generated"
 	analytics_module "system/internal/modules/analytics"
 	pkgerrors "system/pkg/errors"
 	"system/pkg/util/response"
@@ -41,16 +41,16 @@ import (
 )
 
 type Handler struct {
-	createGenreUC    CreateGenreUseCase
-	updateGenreUC    UpdateGenreUseCase
-	deleteGenreUC    DeleteGenreUseCase
-	getGenreUC       GetGenreUseCase
-	listGenresUC     ListGenresUseCase
-	listSelectUC     ListSelectionUseCase
-	mergeGenresUC    MergeGenresUseCase
-	previewMergeUC   PreviewMergeUseCase
-	analyticsSvc     analytics_module.AnalyticsService
-	logger           *zap.Logger
+	createGenreUC  CreateGenreUseCase
+	updateGenreUC  UpdateGenreUseCase
+	deleteGenreUC  DeleteGenreUseCase
+	getGenreUC     GetGenreUseCase
+	listGenresUC   ListGenresUseCase
+	listSelectUC   ListSelectionUseCase
+	mergeGenresUC  MergeGenresUseCase
+	previewMergeUC PreviewMergeUseCase
+	analyticsSvc   analytics_module.AnalyticsService
+	logger         *zap.Logger
 }
 
 func NewHandler(
@@ -66,16 +66,16 @@ func NewHandler(
 	logger *zap.Logger,
 ) *Handler {
 	return &Handler{
-		createGenreUC:    createGenreUC,
-		updateGenreUC:    updateGenreUC,
-		deleteGenreUC:    deleteGenreUC,
-		getGenreUC:       getGenreUC,
-		listGenresUC:     listGenresUC,
-		listSelectUC:     listSelectUC,
-		mergeGenresUC:    mergeGenresUC,
-		previewMergeUC:   previewMergeUC,
-		analyticsSvc:     analyticsSvc,
-		logger:           logger,
+		createGenreUC:  createGenreUC,
+		updateGenreUC:  updateGenreUC,
+		deleteGenreUC:  deleteGenreUC,
+		getGenreUC:     getGenreUC,
+		listGenresUC:   listGenresUC,
+		listSelectUC:   listSelectUC,
+		mergeGenresUC:  mergeGenresUC,
+		previewMergeUC: previewMergeUC,
+		analyticsSvc:   analyticsSvc,
+		logger:         logger,
 	}
 }
 
@@ -120,6 +120,7 @@ func (h *Handler) CreateGenre(c *gin.Context) {
 			response.Error(c, appErr.StatusCode, appErr.ErrCode, appErr.I18nKey, nil)
 			return
 		}
+		h.logger.Error("Failed to create genre", zap.Error(err))
 		response.Error(c, http.StatusInternalServerError, "InternalError", I18nCreateFailed, nil)
 		return
 	}
@@ -235,7 +236,7 @@ func (h *Handler) GetGenre(c *gin.Context) {
 			response.Error(c, appErr.StatusCode, appErr.ErrCode, appErr.I18nKey, nil)
 			return
 		}
-		if err == pgx.ErrNoRows {
+		if ent.IsNotFound(err) {
 			response.Error(c, http.StatusNotFound, "NotFound", I18nNotFound, nil)
 			return
 		}
@@ -494,7 +495,7 @@ func (h *Handler) GetTopGenresByViews(c *gin.Context) {
 
 	// Call analytics service
 	includeRankChange := c.Query("include_rank_change") == "true"
-	
+
 	if includeRankChange {
 		genresWithRank, err := h.analyticsSvc.GetTopGenresWithRankComparison(c.Request.Context(), period, limit)
 		if err != nil {
@@ -512,7 +513,7 @@ func (h *Handler) GetTopGenresByViews(c *gin.Context) {
 			} else if gwt.Genre.ActiveReaders < 100 {
 				trend = "falling"
 			}
-			
+
 			// Use pointers for optional fields
 			currentRank := gwt.Stats.CurrentRank
 			var prevRank *int
@@ -538,7 +539,7 @@ func (h *Handler) GetTopGenresByViews(c *gin.Context) {
 				Description:   gwt.Genre.Description,
 				CreatedAt:     gwt.Genre.CreatedAt.Format(timeutil.ISO8601Layout),
 				UpdatedAt:     gwt.Genre.UpdatedAt.Format(timeutil.ISO8601Layout),
-				
+
 				// Rank info
 				CurrentRank:  &currentRank,
 				PreviousRank: prevRank,
@@ -583,4 +584,3 @@ func (h *Handler) GetTopGenresByViews(c *gin.Context) {
 
 	response.Success(c, http.StatusOK, I18nListSuccess, genreResponses, nil)
 }
-

@@ -15,11 +15,11 @@ import (
 
 // OAuth2Service chứa business logic cho OAuth2 operations.
 type oauth2ServiceImpl struct {
-	userService          user.UserService // Use UserService instead of UserRepo and SessionRepo
-	authRequestRepo      domain.AuthRequestRepository
-	consentRepo          domain.ConsentRepository
-	oauth2SessionRepo    domain.OAuth2SessionRepository
-	clientRepo           domain.OAuth2ClientRepository
+	userService       user.UserService // Use UserService instead of UserRepo and SessionRepo
+	authRequestRepo   domain.AuthRequestRepository
+	consentRepo       domain.ConsentRepository
+	oauth2SessionRepo domain.OAuth2SessionRepository
+	clientRepo        domain.OAuth2ClientRepository
 }
 
 // NewOAuth2Service tạo instance mới của OAuth2Service.
@@ -29,7 +29,7 @@ func NewService(
 	consentRepo domain.ConsentRepository,
 	oauth2SessionRepo domain.OAuth2SessionRepository,
 	clientRepo domain.OAuth2ClientRepository,
-) *oauth2ServiceImpl {
+) OAuth2Service {
 	return &oauth2ServiceImpl{
 		userService:       userService,
 		authRequestRepo:   authRequestRepo,
@@ -112,16 +112,16 @@ func (s *oauth2ServiceImpl) GetUserSession(ctx context.Context, sessionID string
 
 // DeleteUserSession xóa session.
 func (s *oauth2ServiceImpl) DeleteUserSession(ctx context.Context, sessionID string) error {
-	// Need userID to delete session via UserService? 
+	// Need userID to delete session via UserService?
 	// UserService.DeleteSession(ctx, userIDStr, sessionID)
 	// But OAuth2Service previously just used sessionRepo.DeleteSession(ctx, sessionID)
 	// Let's use UserService.GetSession first to get userID
-	
+
 	session, err := s.userService.GetSession(ctx, sessionID)
 	if err != nil {
 		return nil // Session already gone
 	}
-	
+
 	return s.userService.DeleteSession(ctx, session.UserID, sessionID)
 }
 

@@ -36,5 +36,3 @@ const (
 	I18nCircularReference = "genre.circular_reference"
 	I18nHasChildren       = "genre.has_children"
 )
-
-

@@ -23,11 +23,11 @@ type ConfigListResponse struct {
 
 // WalletResponse là response cho thông tin ví
 type WalletResponse struct {
-	CoinBalance           string `json:"coin_balance"`
-	TotalDeposited        string `json:"total_deposited"`
-	TotalSpent            string `json:"total_spent"`
+	CoinBalance            string `json:"coin_balance"`
+	TotalDeposited         string `json:"total_deposited"`
+	TotalSpent             string `json:"total_spent"`
 	TotalSubscriptionSpent string `json:"total_subscription_spent"`
-	UpdatedAt             string `json:"updated_at"`
+	UpdatedAt              string `json:"updated_at"`
 }
 
 // === Coin Package Responses ===
@@ -37,10 +37,10 @@ type CoinPackageResponse struct {
 	ID           string `json:"id"`
 	Name         string `json:"name"`
 	Slug         string `json:"slug"`
-	CoinAmount   string `json:"coin_amount"`     // Base coins
-	BonusPercent int    `json:"bonus_percent"`   // % bonus
-	TotalCoins   string `json:"total_coins"`     // Base + bonus
-	PriceVND     string `json:"price_vnd"`       // Giá VND
+	CoinAmount   string `json:"coin_amount"`   // Base coins
+	BonusPercent int    `json:"bonus_percent"` // % bonus
+	TotalCoins   string `json:"total_coins"`   // Base + bonus
+	PriceVND     string `json:"price_vnd"`     // Giá VND
 	IsPopular    bool   `json:"is_popular"`
 }
 
@@ -54,8 +54,8 @@ type CoinPackageListResponse struct {
 // TopupOrderResponse là response cho đơn nạp
 type TopupOrderResponse struct {
 	ID              string  `json:"id"`
-	OrderCode       string  `json:"order_code"`        // Nội dung CK: "NAP" + code
-	CoinAmount      string  `json:"coin_amount"`       // Total coins (base + bonus)
+	OrderCode       string  `json:"order_code"`  // Nội dung CK: "NAP" + code
+	CoinAmount      string  `json:"coin_amount"` // Total coins (base + bonus)
 	BaseCoinAmount  string  `json:"base_coin_amount"`
 	BonusCoinAmount string  `json:"bonus_coin_amount"`
 	VNDAmount       string  `json:"vnd_amount"`
@@ -71,8 +71,8 @@ type TopupOrderResponse struct {
 
 // CreateTopupResponse là response khi tạo đơn nạp
 type CreateTopupResponse struct {
-	Order         TopupOrderResponse `json:"order"`
-	TransferInfo  TransferInfoResponse `json:"transfer_info"`
+	Order        TopupOrderResponse   `json:"order"`
+	TransferInfo TransferInfoResponse `json:"transfer_info"`
 }
 
 // TransferInfoResponse là thông tin chuyển khoản
@@ -96,15 +96,15 @@ type TopupOrderListResponse struct {
 
 // TransactionResponse là response cho một giao dịch
 type TransactionResponse struct {
-	ID            string          `json:"id"`
-	Type          string          `json:"type"`
-	CoinAmount    string          `json:"coin_amount"`    // + nạp, - tiêu
-	VNDAmount     *string         `json:"vnd_amount,omitempty"`
-	BalanceAfter  string          `json:"balance_after"`
-	Description   *string         `json:"description,omitempty"`
-	ReferenceType *string         `json:"reference_type,omitempty"`
-	ReferenceID   *string         `json:"reference_id,omitempty"`
-	CreatedAt     string          `json:"created_at"`
+	ID            string  `json:"id"`
+	Type          string  `json:"type"`
+	CoinAmount    string  `json:"coin_amount"` // + nạp, - tiêu
+	VNDAmount     *string `json:"vnd_amount,omitempty"`
+	BalanceAfter  string  `json:"balance_after"`
+	Description   *string `json:"description,omitempty"`
+	ReferenceType *string `json:"reference_type,omitempty"`
+	ReferenceID   *string `json:"reference_id,omitempty"`
+	CreatedAt     string  `json:"created_at"`
 }
 
 // TransactionListResponse là response cho lịch sử giao dịch

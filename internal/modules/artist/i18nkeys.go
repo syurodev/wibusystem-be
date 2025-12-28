@@ -36,5 +36,3 @@ const (
 	I18nSlugAlreadyExists = "artist.slug_already_exists"
 	I18nInUse             = "artist.in_use"
 )
-
-

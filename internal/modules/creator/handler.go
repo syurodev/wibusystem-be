@@ -26,21 +26,21 @@ func NewHandler(listCreatorsUC ListCreatorsUseCase, analyticsSvc analytics_modul
 
 // CreatorResponse represents the API response for a single creator
 type CreatorResponse struct {
-	ID                   string  `json:"id"`
-	DisplayName          string  `json:"display_name"`
-	Username             string  `json:"username"`
-	AvatarURL            string  `json:"avatar_url"`
-	CreatedAt            string  `json:"created_at"`
-	UpdatedAt            string  `json:"updated_at"`
-	FollowerCount        int     `json:"follower_count"`
-	WorksCount           int     `json:"works_count"`
-	TotalViews           int64   `json:"total_views"`
-	IsVerified           bool    `json:"is_verified"`
-	Bio                  []any   `json:"bio,omitempty"`
-	PopularWorkID        *string `json:"popular_work_id,omitempty"`
-	PopularWorkTitle     *string `json:"popular_work_title,omitempty"`
-	PopularWorkCoverURL  *string `json:"popular_work_cover_url,omitempty"`
-	
+	ID                  string  `json:"id"`
+	DisplayName         string  `json:"display_name"`
+	Username            string  `json:"username"`
+	AvatarURL           string  `json:"avatar_url"`
+	CreatedAt           string  `json:"created_at"`
+	UpdatedAt           string  `json:"updated_at"`
+	FollowerCount       int     `json:"follower_count"`
+	WorksCount          int     `json:"works_count"`
+	TotalViews          int64   `json:"total_views"`
+	IsVerified          bool    `json:"is_verified"`
+	Bio                 []any   `json:"bio,omitempty"`
+	PopularWorkID       *string `json:"popular_work_id,omitempty"`
+	PopularWorkTitle    *string `json:"popular_work_title,omitempty"`
+	PopularWorkCoverURL *string `json:"popular_work_cover_url,omitempty"`
+
 	// Rank Comparison (Optional)
 	CurrentRank  *int `json:"current_rank,omitempty"`
 	PreviousRank *int `json:"previous_rank,omitempty"`
@@ -232,7 +232,7 @@ func (h *Handler) GetTopCreatorsByViews(c *gin.Context) {
 		creators := make([]CreatorResponse, len(usersWithRank))
 		for i, uwr := range usersWithRank {
 			u := uwr.User
-			
+
 			// Use pointers for optional fields
 			currentRank := uwr.Stats.CurrentRank
 			var prevRank *int
@@ -256,7 +256,7 @@ func (h *Handler) GetTopCreatorsByViews(c *gin.Context) {
 				IsVerified:  u.IsVerified,
 				Bio:         u.Bio,
 				TotalViews:  int64(uwr.Stats.TotalViews), // Use stats from rank snapshot
-				
+
 				CurrentRank:  &currentRank,
 				PreviousRank: prevRank,
 				RankChange:   rankChange,
@@ -289,5 +289,3 @@ func (h *Handler) GetTopCreatorsByViews(c *gin.Context) {
 
 	response.Success(c, http.StatusOK, I18nCreatorListSuccess, creators, nil)
 }
-
-

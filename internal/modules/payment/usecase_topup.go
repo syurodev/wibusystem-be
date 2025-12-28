@@ -9,17 +9,16 @@ import (
 	"time"
 
 	"github.com/gofrs/uuid/v5"
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/zap"
 
 	"system/internal/domain"
 	paymentdto "system/internal/dto/payment"
+	ent "system/internal/ent/generated"
 	pkgerrors "system/pkg/errors"
 )
 
 type topupUseCase struct {
-	pool          *pgxpool.Pool
+	entClient     *ent.Client
 	walletRepo    domain.WalletRepository
 	packageRepo   domain.CoinPackageRepository
 	topupRepo     domain.TopupOrderRepository
@@ -30,7 +29,7 @@ type topupUseCase struct {
 }
 
 func NewTopupUseCase(
-	pool *pgxpool.Pool,
+	entClient *ent.Client,
 	walletRepo domain.WalletRepository,
 	packageRepo domain.CoinPackageRepository,
 	topupRepo domain.TopupOrderRepository,
@@ -40,7 +39,7 @@ func NewTopupUseCase(
 	logger *zap.Logger,
 ) TopupUseCase {
 	return &topupUseCase{
-		pool:          pool,
+		entClient:     entClient,
 		walletRepo:    walletRepo,
 		packageRepo:   packageRepo,
 		topupRepo:     topupRepo,
@@ -58,7 +57,7 @@ func (uc *topupUseCase) ListPackages(ctx context.Context) ([]*domain.CoinPackage
 func (uc *topupUseCase) GetPackage(ctx context.Context, packageID uuid.UUID) (*domain.CoinPackage, error) {
 	pkg, err := uc.packageRepo.GetByID(ctx, packageID)
 	if err != nil {
-		if err == pgx.ErrNoRows {
+		if isNotFoundError(err) {
 			return nil, pkgerrors.NotFound(I18nPackageNotFound, "coin package not found")
 		}
 		return nil, err
@@ -132,7 +131,7 @@ func (uc *topupUseCase) CreateTopupOrder(ctx context.Context, userID uuid.UUID, 
 func (uc *topupUseCase) GetTopupOrder(ctx context.Context, orderID uuid.UUID) (*domain.TopupOrder, error) {
 	order, err := uc.topupRepo.GetByID(ctx, orderID)
 	if err != nil {
-		if err == pgx.ErrNoRows {
+		if isNotFoundError(err) {
 			return nil, pkgerrors.NotFound(I18nTopupNotFound, "top-up order not found")
 		}
 		return nil, err
@@ -143,7 +142,7 @@ func (uc *topupUseCase) GetTopupOrder(ctx context.Context, orderID uuid.UUID) (*
 func (uc *topupUseCase) GetTopupOrderByCode(ctx context.Context, orderCode string) (*domain.TopupOrder, error) {
 	order, err := uc.topupRepo.GetByOrderCode(ctx, orderCode)
 	if err != nil {
-		if err == pgx.ErrNoRows {
+		if isNotFoundError(err) {
 			return nil, pkgerrors.NotFound(I18nTopupNotFound, "top-up order not found")
 		}
 		return nil, err
@@ -158,7 +157,7 @@ func (uc *topupUseCase) ListTopupOrders(ctx context.Context, userID uuid.UUID, l
 func (uc *topupUseCase) CancelTopupOrder(ctx context.Context, userID uuid.UUID, orderID uuid.UUID) error {
 	order, err := uc.topupRepo.GetByID(ctx, orderID)
 	if err != nil {
-		if err == pgx.ErrNoRows {
+		if isNotFoundError(err) {
 			return pkgerrors.NotFound(I18nTopupNotFound, "top-up order not found")
 		}
 		return err
@@ -217,14 +216,14 @@ func (uc *topupUseCase) ProcessWebhook(ctx context.Context, transactionID string
 		return pkgerrors.BadRequest(I18nTopupAmountMismatch, "amount mismatch")
 	}
 
-	// Process in transaction
-	tx, err := uc.pool.Begin(ctx)
+	// Process using Ent transaction
+	tx, err := uc.entClient.Tx(ctx)
 	if err != nil {
 		return err
 	}
 	defer func() {
 		if err != nil {
-			tx.Rollback(ctx)
+			tx.Rollback()
 		}
 	}()
 
@@ -256,7 +255,7 @@ func (uc *topupUseCase) ProcessWebhook(ctx context.Context, transactionID string
 		return err
 	}
 
-	if err = tx.Commit(ctx); err != nil {
+	if err = tx.Commit(); err != nil {
 		return err
 	}
 
@@ -269,18 +268,18 @@ func (uc *topupUseCase) ProcessWebhook(ctx context.Context, transactionID string
 	// Send notification using WebSocket
 	if uc.notifier != nil {
 		notification := paymentdto.TopupNotification{
-			Type:          string(domain.NotificationTypeTopupSuccess),
-			OrderID:       order.ID.String(),
-			OrderCode:     order.OrderCode,
-			CoinAmount:    order.CoinAmount.StringFixed(2),
-			NewBalance:    wallet.CoinBalance.StringFixed(2),
-			Message:       "Nạp coin thành công",
-			MessageKey:    I18nTopupSuccessNotification,
+			Type:       string(domain.NotificationTypeTopupSuccess),
+			OrderID:    order.ID.String(),
+			OrderCode:  order.OrderCode,
+			CoinAmount: order.CoinAmount.StringFixed(2),
+			NewBalance: wallet.CoinBalance.StringFixed(2),
+			Message:    "Nạp coin thành công",
+			MessageKey: I18nTopupSuccessNotification,
 			MessageParams: map[string]string{
 				"amount": order.CoinAmount.StringFixed(2),
 			},
 		}
-		
+
 		msgBytes, _ := json.Marshal(notification)
 		uc.notifier.SendToUser(order.UserID, msgBytes)
 	}
@@ -323,4 +322,18 @@ func findPrefixIndex(s, prefix string) int {
 
 func stringPtr(s string) *string {
 	return &s
+}
+
+// isNotFoundError checks if the error is a "not found" type error
+func isNotFoundError(err error) bool {
+	if err == nil {
+		return false
+	}
+	// Check for Ent's IsNotFound
+	if ent.IsNotFound(err) {
+		return true
+	}
+	// Check for common error messages
+	errStr := err.Error()
+	return errStr == "no rows in result set" || errStr == "sql: no rows in result set"
 }

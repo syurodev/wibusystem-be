@@ -1,5 +1,5 @@
 -- Migration: Convert all tables to use UUID v7
--- Description: Convert from gen_random_uuid() (UUID v4) to uuidv7() (UUID v7)
+-- Description: Convert from uuidv7() (UUID v4) to uuidv7() (UUID v7)
 -- Author: System
 -- Created: 2025-11-22
 -- Note: Only updates tables in identify schema (novel schema will be added in future)

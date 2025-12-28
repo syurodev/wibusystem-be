@@ -75,9 +75,9 @@ type VolumeInfoResponseWithChapters = volumeres.VolumeInfoResponseWithChapters
 // NovelFullResponse - response đầy đủ cho novel detail page
 type NovelFullResponse struct {
 	NovelDetailResponse
-	Owner    OwnerInfo                      `json:"owner"`
+	Owner    OwnerInfo                        `json:"owner"`
 	Volumes  []VolumeInfoResponseWithChapters `json:"volumes"`
-	Chapters []ChapterSummaryResponse       `json:"chapters"` // chapters không thuộc volume nào
+	Chapters []ChapterSummaryResponse         `json:"chapters"` // chapters không thuộc volume nào
 }
 
 // Aliases for volume/chapter response types (backward compat)

@@ -71,16 +71,16 @@ type ListTopupOrdersRequest struct {
 
 // SepayWebhookRequest là payload từ SePay webhook
 type SepayWebhookRequest struct {
-	Gateway          string `json:"gateway"`           // "MB", "VCB", etc.
-	TransactionID    string `json:"id"`                // ID giao dịch từ SePay
-	TransferType     string `json:"transferType"`      // "in" hoặc "out"
-	TransferAmount   int64  `json:"transferAmount"`    // Số tiền VND
-	Content          string `json:"content"`           // Nội dung chuyển khoản
-	TransactionDate  string `json:"transactionDate"`   // Format: "YYYY-MM-DD HH:mm:ss"
-	ReferenceNumber  string `json:"referenceNumber"`   // Mã tham chiếu từ ngân hàng
-	AccountNumber    string `json:"accountNumber"`     // Số tài khoản
-	SubAccount       string `json:"subAccount"`        // Sub account (nếu có)
-	Description      string `json:"description"`       // Mô tả
-	BankBrandName    string `json:"bankBrandName"`     // Tên ngân hàng
-	SepayAccountName string `json:"sepayAccountName"`  // Tên account SePay
+	Gateway          string `json:"gateway"`          // "MB", "VCB", etc.
+	TransactionID    string `json:"id"`               // ID giao dịch từ SePay
+	TransferType     string `json:"transferType"`     // "in" hoặc "out"
+	TransferAmount   int64  `json:"transferAmount"`   // Số tiền VND
+	Content          string `json:"content"`          // Nội dung chuyển khoản
+	TransactionDate  string `json:"transactionDate"`  // Format: "YYYY-MM-DD HH:mm:ss"
+	ReferenceNumber  string `json:"referenceNumber"`  // Mã tham chiếu từ ngân hàng
+	AccountNumber    string `json:"accountNumber"`    // Số tài khoản
+	SubAccount       string `json:"subAccount"`       // Sub account (nếu có)
+	Description      string `json:"description"`      // Mô tả
+	BankBrandName    string `json:"bankBrandName"`    // Tên ngân hàng
+	SepayAccountName string `json:"sepayAccountName"` // Tên account SePay
 }

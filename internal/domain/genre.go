@@ -19,7 +19,7 @@ type Genre struct {
 	Parent   *Genre `db:"-"` // Optional: được load bởi JOIN query
 
 	// Display (removed display_order)
-	IsActive     bool
+	IsActive bool
 
 	// Statistics (auto-updated by application)
 	NovelCount    int
@@ -85,7 +85,7 @@ type GenreRepository interface {
 
 	// AddNovelGenre thêm genre cho novel
 	AddNovelGenre(ctx context.Context, novelID, genreID, createdBy uuid.UUID) error
-	
+
 	// AddNovelGenres thêm nhiều genres cho novel (Batch Insert)
 	AddNovelGenres(ctx context.Context, novelID uuid.UUID, genreIDs []uuid.UUID, createdBy uuid.UUID) error
 

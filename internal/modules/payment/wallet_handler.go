@@ -63,11 +63,11 @@ func (h *WalletHandler) GetWallet(c *gin.Context) {
 	}
 
 	resp := paymentdto.WalletResponse{
-		CoinBalance:           paymentdto.DecimalToString(wallet.CoinBalance),
-		TotalDeposited:        paymentdto.DecimalToString(wallet.TotalDeposited),
-		TotalSpent:            paymentdto.DecimalToString(wallet.TotalSpent),
+		CoinBalance:            paymentdto.DecimalToString(wallet.CoinBalance),
+		TotalDeposited:         paymentdto.DecimalToString(wallet.TotalDeposited),
+		TotalSpent:             paymentdto.DecimalToString(wallet.TotalSpent),
 		TotalSubscriptionSpent: paymentdto.DecimalToString(wallet.TotalSubscriptionSpent),
-		UpdatedAt:             wallet.UpdatedAt.Format(time.RFC3339),
+		UpdatedAt:              wallet.UpdatedAt.Format(time.RFC3339),
 	}
 
 	response.Success(c, http.StatusOK, I18nWalletGetSuccess, resp, nil)

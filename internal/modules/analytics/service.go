@@ -34,9 +34,11 @@
 package analytics
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"fmt"
+	"slices"
 	"time"
 
 	"system/internal/domain"
@@ -45,13 +47,14 @@ import (
 
 	"github.com/gofrs/uuid/v5"
 	"github.com/redis/go-redis/v9"
+	"github.com/samber/lo"
 	"go.uber.org/zap"
 )
 
 // analyticsServiceImpl implements analytics and trending logic.
 type analyticsServiceImpl struct {
 	viewAnalyticsRepo domain.ViewAnalyticsRepository
-	novelService      novel.NovelService // Keep NovelService for complex hydration logic if safe
+	novelService      novel.NovelService       // Keep NovelService for complex hydration logic if safe
 	creatorRepo       domain.CreatorRepository // Use Repo to avoid cycle
 	orgRepo           domain.OrganizationRepository
 	chapterRepo       domain.NovelChapterRepository
@@ -72,7 +75,7 @@ func NewService(
 	genreRepo domain.GenreRepository,
 	redisClient *database.RedisClient,
 	logger *zap.Logger,
-) *analyticsServiceImpl {
+) AnalyticsService {
 	return &analyticsServiceImpl{
 		viewAnalyticsRepo: viewAnalyticsRepo,
 		novelService:      novelService,
@@ -128,10 +131,9 @@ func (s *analyticsServiceImpl) getFallbackTrending(ctx context.Context, mediaTyp
 			return nil, fmt.Errorf("failed to get fallback novels: %w", err)
 		}
 
-		results := []map[string]any{}
-		for _, n := range novels {
-			results = append(results, s.mapNovelToMediaSeries(n, uint64(n.ViewCount)))
-		}
+		results := lo.Map(novels, func(n *domain.Novel, _ int) map[string]any {
+			return s.mapNovelToMediaSeries(n, uint64(n.ViewCount))
+		})
 		return results, nil
 	}
 	return []map[string]any{}, nil
@@ -183,9 +185,7 @@ func (s *analyticsServiceImpl) hydrateTrendingItems(ctx context.Context, trendin
 			s.logger.Error("Failed to fetch trending novels", zap.Error(err))
 			// Continue partial?
 		} else {
-			for _, n := range novels {
-				novelMap[n.ID] = n
-			}
+			novelMap = lo.KeyBy(novels, func(n *domain.Novel) uuid.UUID { return n.ID })
 		}
 	}
 
@@ -229,13 +229,9 @@ func (s *analyticsServiceImpl) mapNovelToMediaSeries(n *domain.Novel, views uint
 		owner["avatar_url"] = *n.OwnerAvatarURL
 	}
 
-	genres := []map[string]any{}
-	for _, g := range n.Genres {
-		genres = append(genres, map[string]any{
-			"id":   g.ID,
-			"name": g.Name,
-		})
-	}
+	genres := lo.Map(n.Genres, func(g *domain.Genre, _ int) map[string]any {
+		return map[string]any{"id": g.ID, "name": g.Name}
+	})
 
 	return map[string]any{
 		"id":                n.ID,
@@ -258,19 +254,19 @@ func (s *analyticsServiceImpl) mapNovelToMediaSeries(n *domain.Novel, views uint
 		// Let's use `n.ViewCount` (total) to match the schema's semantic, but the list is ordered by trending views.
 		// Wait, if I use `views` from arg, it's `uint64`. `n.ViewCount` is `int64`.
 		// Let's use `n.ViewCount` for now.
-		// "views":             n.ViewCount, 
-		
+		// "views":             n.ViewCount,
+
 		// Actually, let's use the trending views because that's what makes it interesting in this context?
 		// No, let's stick to the entity's persistent data.
-		"views":     n.ViewCount,
-		"favorites": n.FavoriteCount,
-		"genres":    genres,
-		"owner":     owner,
+		"views":      n.ViewCount,
+		"favorites":  n.FavoriteCount,
+		"genres":     genres,
+		"owner":      owner,
 		"created_at": n.CreatedAt,
 		"updated_at": n.UpdatedAt,
-		
+
 		// Synopsis - JSONB content from database
-		"synopsis":          n.Synopsis,
+		"synopsis": n.Synopsis,
 	}
 }
 
@@ -333,7 +329,7 @@ func (s *analyticsServiceImpl) GetRisingStars(ctx context.Context, limit int) ([
 	since := time.Now().AddDate(0, 0, -90)
 	filter := domain.CreatorListFilter{
 		FirstContentPostedFrom: &since,
-		Limit:                  limit * 2, // Fetch more candidates
+		Limit:                  limit * 2,     // Fetch more candidates
 		SortBy:                 "total_views", // Note: Sorting by views here relies on PG data if available, or just fetch recent ones
 	}
 
@@ -351,7 +347,7 @@ func (s *analyticsServiceImpl) GetRisingStars(ctx context.Context, limit int) ([
 	userMap := make(map[uuid.UUID]*domain.User)
 	for i, c := range creatorsResult.Creators {
 		creatorIDs[i] = c.User.ID
-		// Copy user to heap to take address? 
+		// Copy user to heap to take address?
 		// c.User is domain.User struct.
 		u := c.User
 		userMap[c.User.ID] = &u
@@ -380,13 +376,9 @@ func (s *analyticsServiceImpl) GetRisingStars(ctx context.Context, limit int) ([
 	}
 
 	// Sort by Views (TotalWeight) descending
-	for i := 0; i < len(results)-1; i++ {
-		for j := 0; j < len(results)-i-1; j++ {
-			if results[j].TotalWeight < results[j+1].TotalWeight {
-				results[j], results[j+1] = results[j+1], results[j]
-			}
-		}
-	}
+	slices.SortFunc(results, func(a, b domain.CreatorActivityStat) int {
+		return cmp.Compare(b.TotalWeight, a.TotalWeight)
+	})
 
 	if len(results) > limit {
 		results = results[:limit]
@@ -402,11 +394,10 @@ func (s *analyticsServiceImpl) GetFreshUpdates(ctx context.Context, limit int) (
 	if err != nil {
 		return nil, fmt.Errorf("failed to get recent chapters: %w", err)
 	}
-	
+
 	// Convert to summary
-	var summaries []domain.NovelChapterSummary
-	for _, c := range chapters {
-		summary := domain.NovelChapterSummary{
+	summaries := lo.Map(chapters, func(c *domain.NovelChapter, _ int) domain.NovelChapterSummary {
+		return domain.NovelChapterSummary{
 			ID:            c.ID,
 			NovelID:       c.NovelID,
 			VolumeID:      c.VolumeID,
@@ -423,9 +414,8 @@ func (s *analyticsServiceImpl) GetFreshUpdates(ctx context.Context, limit int) (
 			CreatedAt:     c.CreatedAt,
 			UpdatedAt:     c.UpdatedAt,
 		}
-		summaries = append(summaries, summary)
-	}
-	
+	})
+
 	return summaries, nil
 }
 
@@ -593,7 +583,7 @@ func (s *analyticsServiceImpl) GetTopGenresWithRankComparison(ctx context.Contex
 		// Hydrate stats into genre object
 		genre.TotalViews = int64(stat.TotalViews)
 		genre.ActiveReaders = int64(stat.UniqueUsers)
-		
+
 		results = append(results, GenreRankResponse{
 			Genre: genre,
 			Stats: stat,
@@ -616,7 +606,7 @@ func (s *analyticsServiceImpl) GetTopCreatorsWithRankComparison(ctx context.Cont
 			s.logger.Warn("Failed to hydrate creator for rank", zap.String("id", stat.EntityID.String()), zap.Error(err))
 			continue
 		}
-		
+
 		results = append(results, CreatorRankResponse{
 			User:  user,
 			Stats: stat,
@@ -664,7 +654,7 @@ func (s *analyticsServiceImpl) GetTopMediaWithRankComparison(ctx context.Context
 	s.logger.Info("GetRankWithComparison result", zap.Int("count", len(stats)), zap.String("period", period), zap.String("mediaType", mediaType))
 
 	results := make([]MediaRankResponse, 0, len(stats))
-	
+
 	// Hydrate based on type
 	// Currently only Novel hydration is supported
 	if mediaType == "novel" {
@@ -695,7 +685,7 @@ func (s *analyticsServiceImpl) GetTopMediaWithRankComparison(ctx context.Context
 			if novel.CoverImageURL != nil {
 				resp.Cover = *novel.CoverImageURL
 			}
-			
+
 			results = append(results, resp)
 		}
 	} else {
@@ -715,5 +705,3 @@ func (s *analyticsServiceImpl) GetTopMediaWithRankComparison(ctx context.Context
 
 	return results, nil
 }
-
-

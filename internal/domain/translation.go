@@ -2,7 +2,6 @@ package domain
 
 import (
 	"context"
-	"encoding/json"
 	"time"
 
 	"github.com/gofrs/uuid/v5"
@@ -40,10 +39,10 @@ type ChapterTranslation struct {
 
 	// Title và content bằng ngôn ngữ đích
 	Title   string
-	Content json.RawMessage
+	Content string
 
 	// Translator notes
-	TranslatorNotes json.RawMessage
+	TranslatorNotes *string
 
 	// Organization (nhóm dịch, nullable nếu cá nhân dịch)
 	OrganizationID *uuid.UUID
@@ -58,8 +57,8 @@ type ChapterTranslation struct {
 	// Quality metrics
 	WordCount      int
 	CharacterCount int
-	QualityScore   float64
-	ReviewerRating float64
+	QualityScore   *float64
+	ReviewerRating *float64
 
 	// Thống kê
 	ViewCount         int64
@@ -157,16 +156,16 @@ type TranslationContribution struct {
 
 	// Content
 	Title            *string
-	Content          json.RawMessage
+	Content          string
 	ContributorNotes *string
 
 	// Status and review
 	Status TranslationStatus
 
 	// Reviewer information
-	ReviewedBy   *uuid.UUID
-	ReviewedAt   *time.Time
-	ReviewNotes  *string
+	ReviewedBy  *uuid.UUID
+	ReviewedAt  *time.Time
+	ReviewNotes *string
 
 	// If approved, link to official translation
 	OfficialTranslationID *uuid.UUID
@@ -251,11 +250,11 @@ type TranslationHistory struct {
 
 	// Snapshot of content at this version
 	Title   string
-	Content json.RawMessage
+	Content string
 
 	// Who made the change
-	ChangedBy          *uuid.UUID
-	ChangeDescription  *string
+	ChangedBy         *uuid.UUID
+	ChangeDescription *string
 
 	// Metrics at this version
 	WordCount int

@@ -37,9 +37,9 @@ const (
 	I18nWalletHistorySuccess = "payment.wallet.history_success"
 
 	// Wallet Errors
-	I18nWalletNotFound       = "payment.wallet.not_found"
-	I18nWalletGetFailed      = "payment.wallet.get_failed"
-	I18nInsufficientBalance  = "payment.wallet.insufficient_balance"
+	I18nWalletNotFound      = "payment.wallet.not_found"
+	I18nWalletGetFailed     = "payment.wallet.get_failed"
+	I18nInsufficientBalance = "payment.wallet.insufficient_balance"
 )
 
 // i18n message keys for payment module - Package
@@ -48,29 +48,29 @@ const (
 	I18nPackageListSuccess = "payment.package.list_success"
 
 	// Package Errors
-	I18nPackageNotFound    = "payment.package.not_found"
-	I18nPackageListFailed  = "payment.package.list_failed"
-	I18nPackageInactive    = "payment.package.inactive"
+	I18nPackageNotFound   = "payment.package.not_found"
+	I18nPackageListFailed = "payment.package.list_failed"
+	I18nPackageInactive   = "payment.package.inactive"
 )
 
 // i18n message keys for payment module - Topup
 const (
 	// Topup Success
-	I18nTopupCreateSuccess  = "payment.topup.create_success"
-	I18nTopupGetSuccess     = "payment.topup.get_success"
-	I18nTopupListSuccess    = "payment.topup.list_success"
-	I18nTopupCancelSuccess  = "payment.topup.cancel_success"
-	I18nTopupCompleteSuccess = "payment.topup.complete_success"
+	I18nTopupCreateSuccess       = "payment.topup.create_success"
+	I18nTopupGetSuccess          = "payment.topup.get_success"
+	I18nTopupListSuccess         = "payment.topup.list_success"
+	I18nTopupCancelSuccess       = "payment.topup.cancel_success"
+	I18nTopupCompleteSuccess     = "payment.topup.complete_success"
 	I18nTopupSuccessNotification = "payment.topup.notification.success"
 
 	// Topup Errors
-	I18nTopupNotFound       = "payment.topup.not_found"
-	I18nTopupCreateFailed   = "payment.topup.create_failed"
-	I18nTopupAlreadyPending = "payment.topup.already_pending"
-	I18nTopupExpired        = "payment.topup.expired"
+	I18nTopupNotFound         = "payment.topup.not_found"
+	I18nTopupCreateFailed     = "payment.topup.create_failed"
+	I18nTopupAlreadyPending   = "payment.topup.already_pending"
+	I18nTopupExpired          = "payment.topup.expired"
 	I18nTopupAlreadyCompleted = "payment.topup.already_completed"
-	I18nTopupInvalidWebhook = "payment.topup.invalid_webhook"
-	I18nTopupAmountMismatch = "payment.topup.amount_mismatch"
+	I18nTopupInvalidWebhook   = "payment.topup.invalid_webhook"
+	I18nTopupAmountMismatch   = "payment.topup.amount_mismatch"
 )
 
 // i18n message keys for payment module - Transaction

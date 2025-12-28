@@ -3,11 +3,12 @@ package storage
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"system/internal/domain"
+	pkgerrors "system/pkg/errors"
 	"time"
 
 	"github.com/gofrs/uuid/v5"
-	"github.com/jackc/pgx/v5"
 	"github.com/ory/fosite"
 	"go.uber.org/zap"
 )
@@ -37,7 +38,7 @@ func (s *SQLStore) GetClient(ctx context.Context, id string) (fosite.Client, err
 
 	domainClient, err := s.clientRepo.GetClientByID(ctx, clientID)
 	if err != nil {
-		if err == pgx.ErrNoRows {
+		if errors.Is(err, pkgerrors.ErrResourceNotFound) {
 			zap.L().Warn("oauth2 sql store: client not found", zap.String("client_id", id))
 			return nil, fosite.ErrNotFound.WithWrap(err).WithDebug("Client not found in database")
 		}
@@ -101,7 +102,7 @@ func (s *SQLStore) GetRefreshTokenSession(ctx context.Context, signature string,
 	// Lấy cả session_data và client_id từ DB
 	data, clientID, err := s.sessionRepo.GetSessionWithClientBySignature(ctx, signature)
 	if err != nil {
-		if err == pgx.ErrNoRows {
+		if errors.Is(err, pkgerrors.ErrResourceNotFound) {
 			return nil, fosite.ErrNotFound.WithWrap(err)
 		}
 		return nil, fosite.ErrServerError.WithWrap(err)
@@ -125,7 +126,7 @@ func (s *SQLStore) GetRefreshTokenSession(ctx context.Context, signature string,
 
 	domainClient, err := s.clientRepo.GetClientByID(ctx, clientUUID)
 	if err != nil {
-		if err == pgx.ErrNoRows {
+		if errors.Is(err, pkgerrors.ErrResourceNotFound) {
 			zap.L().Warn("sql store: client not found for refresh token session",
 				zap.String("signature", signature),
 				zap.String("client_id", clientID),
@@ -154,7 +155,6 @@ func (s *SQLStore) GetRefreshTokenSession(ctx context.Context, signature string,
 	requester.Client = fositeClient
 	return requester, nil
 }
-
 
 func (s *SQLStore) DeleteRefreshTokenSession(ctx context.Context, signature string) error {
 	return s.sessionRepo.DeleteSessionBySignature(ctx, signature)

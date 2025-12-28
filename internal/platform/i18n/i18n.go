@@ -18,6 +18,9 @@ import (
 	genre_locale "system/internal/modules/genre/locale"
 	media_locale "system/internal/modules/media/locale"
 	media_progress_locale "system/internal/modules/media_progress/locale"
+	novel_locale "system/internal/modules/novel/locale"
+	novel_chapter_locale "system/internal/modules/novel_chapter/locale"
+	novel_volume_locale "system/internal/modules/novel_volume/locale"
 	oauth2_locale "system/internal/modules/oauth2/locale"
 	organization_locale "system/internal/modules/organization/locale"
 	payment_locale "system/internal/modules/payment/locale"
@@ -151,6 +154,24 @@ func InitI18n(log *zap.Logger) error {
 	}
 	log.Info("Successfully loaded media_progress module i18n")
 
+	if err := novel_locale.RegisterI18n(bundle); err != nil {
+		log.Error("Failed to register novel i18n", zap.Error(err))
+		return err
+	}
+	log.Info("Successfully loaded novel module i18n")
+
+	if err := novel_chapter_locale.RegisterI18n(bundle); err != nil {
+		log.Error("Failed to register novel_chapter i18n", zap.Error(err))
+		return err
+	}
+	log.Info("Successfully loaded novel_chapter module i18n")
+
+	if err := novel_volume_locale.RegisterI18n(bundle); err != nil {
+		log.Error("Failed to register novel_volume i18n", zap.Error(err))
+		return err
+	}
+	log.Info("Successfully loaded novel_volume module i18n")
+
 	return nil
 }
 
@@ -185,7 +206,7 @@ func GinI18n(i *I18n) gin.HandlerFunc {
 		if lang == "" {
 			lang = c.GetHeader("Accept-Language")
 		}
-		
+
 		localizer := i.GetLocalizerFromAcceptLanguage(lang)
 		c.Set(LocalizerContextKey, &Localizer{localizer})
 		c.Next()

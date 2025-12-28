@@ -40,34 +40,37 @@ import (
 
 	"github.com/gofrs/uuid/v5"
 	"github.com/gosimple/slug"
-	"github.com/jackc/pgx/v5"
 
 	"system/internal/domain"
+	ent "system/internal/ent/generated"
 	pkgerrors "system/pkg/errors"
 )
 
 // chapterServiceImpl implements ChapterService interface
 type chapterServiceImpl struct {
-	chapterRepo domain.NovelChapterRepository
-	volumeRepo  domain.NovelVolumeRepository
-	historyRepo       ChapterHistoryRepository
-	creatorRepo       domain.CreatorRepository
-	viewTrackingRepo  domain.ViewTrackingRepository
-	userRepo          domain.UserRepository
+	chapterRepo      domain.NovelChapterRepository
+	volumeRepo       domain.NovelVolumeRepository
+	novelRepo        domain.NovelRepository
+	historyRepo      ChapterHistoryRepository
+	creatorRepo      domain.CreatorRepository
+	viewTrackingRepo domain.ViewTrackingRepository
+	userRepo         domain.UserRepository
 }
 
 // NewService creates a new instance of ChapterService
 func NewService(
 	chapterRepo domain.NovelChapterRepository,
 	volumeRepo domain.NovelVolumeRepository,
+	novelRepo domain.NovelRepository,
 	historyRepo ChapterHistoryRepository,
 	creatorRepo domain.CreatorRepository,
 	viewTrackingRepo domain.ViewTrackingRepository,
 	userRepo domain.UserRepository,
-) *chapterServiceImpl {
+) ChapterService {
 	return &chapterServiceImpl{
 		chapterRepo:      chapterRepo,
 		volumeRepo:       volumeRepo,
+		novelRepo:        novelRepo,
 		historyRepo:      historyRepo,
 		creatorRepo:      creatorRepo,
 		viewTrackingRepo: viewTrackingRepo,
@@ -205,6 +208,11 @@ func (s *chapterServiceImpl) CreateChapter(
 		// Log error but don't fail the creation
 		// TODO: Add proper logging
 		_ = err
+	}
+
+	// Update novel statistics if chapter is published
+	if status == "published" && s.novelRepo != nil {
+		_ = s.novelRepo.UpdateContentStatistics(ctx, novelID)
 	}
 
 	// Update user's last content updated at
@@ -403,7 +411,7 @@ func (s *chapterServiceImpl) DeleteChapter(ctx context.Context, id uuid.UUID) er
 	// Check if chapter exists
 	chapter, err := s.chapterRepo.GetByID(ctx, id)
 	if err != nil {
-		if err == pgx.ErrNoRows {
+		if ent.IsNotFound(err) {
 			return pkgerrors.NotFound(I18nNotFound, "chapter not found")
 		}
 		return err
@@ -422,6 +430,11 @@ func (s *chapterServiceImpl) DeleteChapter(ctx context.Context, id uuid.UUID) er
 		}
 	}
 
+	// Update novel statistics after deletion
+	if s.novelRepo != nil {
+		_ = s.novelRepo.UpdateContentStatistics(ctx, chapter.NovelID)
+	}
+
 	return nil
 }
 
@@ -429,7 +442,7 @@ func (s *chapterServiceImpl) DeleteChapter(ctx context.Context, id uuid.UUID) er
 func (s *chapterServiceImpl) GetChapterByID(ctx context.Context, id uuid.UUID) (*domain.NovelChapter, error) {
 	chapter, err := s.chapterRepo.GetByID(ctx, id)
 	if err != nil {
-		if err == pgx.ErrNoRows {
+		if ent.IsNotFound(err) {
 			return nil, pkgerrors.NotFound(I18nNotFound, "chapter not found")
 		}
 		return nil, err
@@ -452,7 +465,7 @@ func (s *chapterServiceImpl) PublishChapter(ctx context.Context, id uuid.UUID, c
 	// Check if chapter exists
 	chapter, err := s.chapterRepo.GetByID(ctx, id)
 	if err != nil {
-		if err == pgx.ErrNoRows {
+		if ent.IsNotFound(err) {
 			return pkgerrors.NotFound(I18nNotFound, "chapter not found")
 		}
 		return err
@@ -501,6 +514,11 @@ func (s *chapterServiceImpl) PublishChapter(ctx context.Context, id uuid.UUID, c
 		}
 	}
 
+	// Update novel statistics after publish
+	if s.novelRepo != nil {
+		_ = s.novelRepo.UpdateContentStatistics(ctx, chapter.NovelID)
+	}
+
 	return nil
 }
 
@@ -509,7 +527,7 @@ func (s *chapterServiceImpl) ScheduleChapter(ctx context.Context, id uuid.UUID, 
 	// Check if chapter exists
 	_, err := s.chapterRepo.GetByID(ctx, id)
 	if err != nil {
-		if err == pgx.ErrNoRows {
+		if ent.IsNotFound(err) {
 			return pkgerrors.NotFound(I18nNotFound, "chapter not found")
 		}
 		return err
@@ -528,7 +546,7 @@ func (s *chapterServiceImpl) UpdateStatistics(ctx context.Context, id uuid.UUID,
 	// Check if chapter exists
 	_, err := s.chapterRepo.GetByID(ctx, id)
 	if err != nil {
-		if err == pgx.ErrNoRows {
+		if ent.IsNotFound(err) {
 			return pkgerrors.NotFound(I18nNotFound, "chapter not found")
 		}
 		return err
@@ -536,8 +554,6 @@ func (s *chapterServiceImpl) UpdateStatistics(ctx context.Context, id uuid.UUID,
 
 	return s.chapterRepo.UpdateStatistics(ctx, id, stats)
 }
-
-
 
 // Helper function to count words in text
 func countWords(text string) int {

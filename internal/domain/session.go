@@ -7,15 +7,15 @@ import (
 
 // UserSession đại diện cho một session của user sau khi đăng nhập
 type UserSession struct {
-	SessionID string    `json:"session_id"`
-	UserID    string    `json:"user_id"`
-	IP        string    `json:"ip"`
-	UserAgent string    `json:"user_agent"`
-	ClientOS  string    `json:"client_os"`
-	Browser   string    `json:"browser"`
-	Device    string    `json:"device"`
-	ExpiresAt time.Time `json:"expires_at"`
-	CreatedAt time.Time `json:"created_at"`
+	SessionID  string    `json:"session_id"`
+	UserID     string    `json:"user_id"`
+	IP         string    `json:"ip"`
+	UserAgent  string    `json:"user_agent"`
+	ClientOS   string    `json:"client_os"`
+	Browser    string    `json:"browser"`
+	Device     string    `json:"device"`
+	ExpiresAt  time.Time `json:"expires_at"`
+	CreatedAt  time.Time `json:"created_at"`
 	LastActive time.Time `json:"last_active"`
 }
 

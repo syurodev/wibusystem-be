@@ -8,7 +8,7 @@
 -- Description: Lưu trữ thông tin về OAuth 2.0 clients đã đăng ký
 -- =====================================================
 CREATE TABLE oauth2_clients (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
     client_name VARCHAR(255) NOT NULL,
 
     -- Secret (hashed)

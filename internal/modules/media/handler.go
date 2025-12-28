@@ -93,5 +93,3 @@ func (h *Handler) GetTop(c *gin.Context) {
 
 	response.Success(c, http.StatusOK, I18nMediaGetTopSuccess, resp, nil)
 }
-
-

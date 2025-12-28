@@ -46,7 +46,7 @@
 -- =============================================================================
 CREATE TABLE catalog.media_progress (
     -- Primary Key
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
     
     -- User reference
     user_id UUID NOT NULL REFERENCES identify.users(id) ON DELETE CASCADE,
@@ -108,7 +108,7 @@ COMMENT ON COLUMN catalog.media_progress.completed_units IS
 -- =============================================================================
 CREATE TABLE catalog.unit_progress (
     -- Primary Key
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
     
     -- User reference
     user_id UUID NOT NULL REFERENCES identify.users(id) ON DELETE CASCADE,

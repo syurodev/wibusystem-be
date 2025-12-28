@@ -25,7 +25,7 @@ func (h *WalletHandler) RegisterWalletRoutes(apiV1 *gin.RouterGroup, authMiddlew
 	// Wallet routes (requires auth)
 	wallet := apiV1.Group("/wallet")
 	wallet.Use(authMiddleware)
-	wallet.GET("", h.GetWallet)                    // GET /api/v1/wallet
+	wallet.GET("", h.GetWallet)                     // GET /api/v1/wallet
 	wallet.GET("/transactions", h.ListTransactions) // GET /api/v1/wallet/transactions
 
 	// Payment routes
@@ -37,10 +37,10 @@ func (h *WalletHandler) RegisterWalletRoutes(apiV1 *gin.RouterGroup, authMiddlew
 	// Protected: Topup operations
 	topup := payment.Group("/topup")
 	topup.Use(authMiddleware)
-	topup.POST("", h.CreateTopup)              // POST /api/v1/payment/topup
-	topup.GET("", h.ListTopups)                // GET /api/v1/payment/topup
-	topup.GET("/:id", h.GetTopup)              // GET /api/v1/payment/topup/:id
-	topup.POST("/:id/cancel", h.CancelTopup)   // POST /api/v1/payment/topup/:id/cancel
+	topup.POST("", h.CreateTopup)            // POST /api/v1/payment/topup
+	topup.GET("", h.ListTopups)              // GET /api/v1/payment/topup
+	topup.GET("/:id", h.GetTopup)            // GET /api/v1/payment/topup/:id
+	topup.POST("/:id/cancel", h.CancelTopup) // POST /api/v1/payment/topup/:id/cancel
 }
 
 // RegisterWebhookRoutes registers public webhook routes

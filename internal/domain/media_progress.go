@@ -201,7 +201,7 @@ type ProgressMedia struct {
 // Được load từ JOIN với chapters/episodes table
 type ProgressUnit struct {
 	ID     uuid.UUID
-	Number int    // chapter_number hoặc episode_number
+	Number int // chapter_number hoặc episode_number
 	Title  string
 	Slug   string
 }

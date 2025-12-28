@@ -74,7 +74,7 @@ func (h *AdminHandler) CreateClient(c *gin.Context) {
 		IsPublic:          req.IsPublic,
 		IsInternal:        req.IsInternal,
 		TokenEndpointAuth: req.TokenEndpointAuth,
-		OrganizationID:          organizationID,
+		OrganizationID:    organizationID,
 		ClientURI:         req.ClientURI,
 		LogoURL:           req.LogoURL,
 	}
@@ -330,7 +330,7 @@ func (h *AdminHandler) buildClientResponse(client *domain.OAuth2Client, clientSe
 		IsPublic:          client.IsPublic,
 		IsInternal:        client.IsInternal,
 		TokenEndpointAuth: client.TokenEndpointAuth,
-		OrganizationID:          organizationID,
+		OrganizationID:    organizationID,
 		ClientURI:         client.ClientURI,
 		LogoURL:           client.LogoURL,
 		Active:            client.Active,

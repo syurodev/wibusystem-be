@@ -92,7 +92,7 @@ func (w *RankSnapshotWorker) run() {
 
 func (w *RankSnapshotWorker) checkSchedule(t time.Time) {
 	// Sử dụng UTC hoặc Local time tùy policy, ở đây dùng Local server time
-	
+
 	// 1. Weekly Snapshots (Sunday night / Monday morning)
 	// Chạy vào Chủ nhật (Weekday = 0)
 	if t.Weekday() == time.Sunday {
@@ -130,22 +130,28 @@ func (w *RankSnapshotWorker) checkSchedule(t time.Time) {
 		// Để an toàn và tránh trùng giờ cao điểm của tuần, có thể chạy khung giờ khác hoặc xử lý song song.
 		// Với 2:00 AM, nó trùng với Novel Weekly nếu mùng 1 rơi vào Chủ Nhật.
 		// Tốt nhất dời Monthly sang khung giờ 04:00 - 05:00
-		
+
 		hour := t.Hour()
 		minute := t.Minute()
 
 		if hour == 4 {
 			switch minute {
-			case 0: w.triggerSnapshot(t, "month", "genre", 0)
-			case 15: w.triggerSnapshot(t, "month", "org", 500)
-			case 30: w.triggerSnapshot(t, "month", "creator", 1000)
-			case 45: w.triggerSnapshot(t, "month", "novel", 500)
+			case 0:
+				w.triggerSnapshot(t, "month", "genre", 0)
+			case 15:
+				w.triggerSnapshot(t, "month", "org", 500)
+			case 30:
+				w.triggerSnapshot(t, "month", "creator", 1000)
+			case 45:
+				w.triggerSnapshot(t, "month", "novel", 500)
 			}
 		}
 		if hour == 5 {
 			switch minute {
-			case 0: w.triggerSnapshot(t, "month", "manga", 500)
-			case 15: w.triggerSnapshot(t, "month", "anime", 500)
+			case 0:
+				w.triggerSnapshot(t, "month", "manga", 500)
+			case 15:
+				w.triggerSnapshot(t, "month", "anime", 500)
 			}
 		}
 	}
@@ -155,19 +161,25 @@ func (w *RankSnapshotWorker) checkSchedule(t time.Time) {
 		// Chạy lúc 06:00 AM
 		hour := t.Hour()
 		minute := t.Minute()
-		
+
 		if hour == 6 {
 			switch minute {
-			case 0: w.triggerSnapshot(t, "year", "genre", 0)
-			case 15: w.triggerSnapshot(t, "year", "org", 500)
-			case 30: w.triggerSnapshot(t, "year", "creator", 1000)
-			case 45: w.triggerSnapshot(t, "year", "novel", 500)
+			case 0:
+				w.triggerSnapshot(t, "year", "genre", 0)
+			case 15:
+				w.triggerSnapshot(t, "year", "org", 500)
+			case 30:
+				w.triggerSnapshot(t, "year", "creator", 1000)
+			case 45:
+				w.triggerSnapshot(t, "year", "novel", 500)
 			}
 		}
 		if hour == 7 {
 			switch minute {
-			case 0: w.triggerSnapshot(t, "year", "manga", 500)
-			case 15: w.triggerSnapshot(t, "year", "anime", 500)
+			case 0:
+				w.triggerSnapshot(t, "year", "manga", 500)
+			case 15:
+				w.triggerSnapshot(t, "year", "anime", 500)
 			}
 		}
 	}
@@ -193,7 +205,7 @@ func (w *RankSnapshotWorker) triggerSnapshot(t time.Time, period string, entityT
 		// Logic Week trong repository: currentSnapshotDate = Start of current week (Monday).
 		// Vậy ta truyền t (thời điểm chạy) vào, repository sẽ tự tính start date của tuần chứa t.
 		// OK.
-		
+
 		err := w.analyticsRepo.CreateRankSnapshot(ctx, t, period, entityType, limit)
 		if err != nil {
 			w.logger.Error("Failed to create rank snapshot",

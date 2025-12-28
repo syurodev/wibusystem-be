@@ -30,7 +30,7 @@ CREATE TYPE catalog.chapter_status AS ENUM (
 -- NOVELS TABLE (Top Level)
 -- =====================================================
 CREATE TABLE catalog.novels (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
 
     -- Basic info
     title VARCHAR(500) NOT NULL,
@@ -108,7 +108,7 @@ COMMENT ON COLUMN catalog.novels.synopsis IS 'Synopsis in ORIGINAL language only
 -- VOLUMES TABLE (Middle Level)
 -- =====================================================
 CREATE TABLE catalog.volumes (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
     novel_id UUID NOT NULL REFERENCES catalog.novels(id) ON DELETE CASCADE,
 
     -- Basic info
@@ -157,7 +157,7 @@ COMMENT ON COLUMN catalog.volumes.chapter_count IS 'Auto-updated by application 
 -- CHAPTERS TABLE (Bottom Level)
 -- =====================================================
 CREATE TABLE catalog.chapters (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
     novel_id UUID NOT NULL REFERENCES catalog.novels(id) ON DELETE CASCADE,
     volume_id UUID REFERENCES catalog.volumes(id) ON DELETE SET NULL,
 

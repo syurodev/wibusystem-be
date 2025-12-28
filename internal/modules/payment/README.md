@@ -31,7 +31,7 @@ Configurations được lưu trong database, có thể thay đổi runtime qua A
 
 ```sql
 CREATE TABLE payment.configurations (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
     key VARCHAR(100) UNIQUE NOT NULL,
     value TEXT NOT NULL,
     value_type VARCHAR(20) NOT NULL DEFAULT 'string',  -- string, number, boolean, json

@@ -33,31 +33,24 @@ import (
 
 	"github.com/gofrs/uuid/v5"
 	"github.com/gosimple/slug"
-	"github.com/jackc/pgx/v5"
 
 	"system/internal/domain"
+	ent "system/internal/ent/generated"
 	pkgerrors "system/pkg/errors"
 )
 
 // volumeServiceImpl implements VolumeService interface
 type volumeServiceImpl struct {
-	volumeRepo domain.NovelVolumeRepository
+	volumeRepo  domain.NovelVolumeRepository
+	novelRepo   domain.NovelRepository
 	historyRepo VolumeHistoryRepository
 }
 
-// VolumeHistoryRepository interface for logging volume history
-// TODO: Move to domain package once fully implemented
-type VolumeHistoryRepository interface {
-	LogUpdate(ctx context.Context, volumeID, novelID uuid.UUID, oldVolume, newVolume *domain.NovelVolume, changedBy uuid.UUID, requestContext map[string]any) error
-	LogPublish(ctx context.Context, volumeID, novelID uuid.UUID, changedBy uuid.UUID, requestContext map[string]any) error
-	LogUnpublish(ctx context.Context, volumeID, novelID uuid.UUID, changedBy uuid.UUID, requestContext map[string]any) error
-	GetLatestVersion(ctx context.Context, volumeID uuid.UUID) (int, error)
-}
-
 // NewVolumeService creates a new instance of VolumeService
-func NewService(volumeRepo domain.NovelVolumeRepository, historyRepo VolumeHistoryRepository) *volumeServiceImpl {
+func NewService(volumeRepo domain.NovelVolumeRepository, novelRepo domain.NovelRepository, historyRepo VolumeHistoryRepository) VolumeService {
 	return &volumeServiceImpl{
-		volumeRepo: volumeRepo,
+		volumeRepo:  volumeRepo,
+		novelRepo:   novelRepo,
 		historyRepo: historyRepo,
 	}
 }
@@ -102,20 +95,25 @@ func (s *volumeServiceImpl) CreateVolume(ctx context.Context, novelID uuid.UUID,
 	}
 
 	volume := &domain.NovelVolume{
-		ID:           id,
-		NovelID:      novelID,
-		VolumeNumber: nextVolumeNumber,
-		Title:        title,
-		Slug:         volumeSlug,
-		Description:  description,
+		ID:            id,
+		NovelID:       novelID,
+		VolumeNumber:  nextVolumeNumber,
+		Title:         title,
+		Slug:          volumeSlug,
+		Description:   description,
 		CoverImageURL: coverImageURL,
-		DisplayOrder: displayOrder,
-		IsPublished:  isPublished,
-		CreatedBy: createdBy,
+		DisplayOrder:  displayOrder,
+		IsPublished:   isPublished,
+		CreatedBy:     createdBy,
 	}
 
 	if err := s.volumeRepo.Create(ctx, volume); err != nil {
 		return nil, err
+	}
+
+	// Update novel statistics if volume is published
+	if isPublished && s.novelRepo != nil {
+		_ = s.novelRepo.UpdateContentStatistics(ctx, novelID)
 	}
 
 	// Retrieve the created volume to get timestamps
@@ -136,7 +134,7 @@ func (s *volumeServiceImpl) UpdateVolume(ctx context.Context, id uuid.UUID, volu
 	// Get existing volume
 	oldVolume, err := s.volumeRepo.GetByID(ctx, id)
 	if err != nil {
-		if err == pgx.ErrNoRows {
+		if ent.IsNotFound(err) {
 			return nil, pkgerrors.NotFound(I18nNotFound, "volume not found")
 		}
 		return nil, err
@@ -145,7 +143,7 @@ func (s *volumeServiceImpl) UpdateVolume(ctx context.Context, id uuid.UUID, volu
 	// Check if volume number changed and if the new number is already in use
 	if volumeNumber != oldVolume.VolumeNumber {
 		existing, err := s.volumeRepo.GetByNovelIDAndNumber(ctx, oldVolume.NovelID, volumeNumber)
-		if err != nil && err != pgx.ErrNoRows {
+		if err != nil && !ent.IsNotFound(err) {
 			return nil, err
 		}
 		if existing != nil && existing.ID != id {
@@ -158,21 +156,21 @@ func (s *volumeServiceImpl) UpdateVolume(ctx context.Context, id uuid.UUID, volu
 
 	// Update fields
 	newVolume := &domain.NovelVolume{
-		ID:           oldVolume.ID,
-		NovelID:      oldVolume.NovelID,
-		VolumeNumber: volumeNumber,
-		Title:        title,
-		Slug:         newSlug,
-		Description:  description,
+		ID:            oldVolume.ID,
+		NovelID:       oldVolume.NovelID,
+		VolumeNumber:  volumeNumber,
+		Title:         title,
+		Slug:          newSlug,
+		Description:   description,
 		CoverImageURL: coverImageURL,
-		DisplayOrder: displayOrder,
-		IsPublished:  isPublished,
-		ChapterCount: oldVolume.ChapterCount,
-		WordCount:    oldVolume.WordCount,
-		PublishedAt:  oldVolume.PublishedAt,
-		CreatedAt:    oldVolume.CreatedAt,
-		UpdatedAt:    oldVolume.UpdatedAt,
-		DeletedAt:    oldVolume.DeletedAt,
+		DisplayOrder:  displayOrder,
+		IsPublished:   isPublished,
+		ChapterCount:  oldVolume.ChapterCount,
+		WordCount:     oldVolume.WordCount,
+		PublishedAt:   oldVolume.PublishedAt,
+		CreatedAt:     oldVolume.CreatedAt,
+		UpdatedAt:     oldVolume.UpdatedAt,
+		DeletedAt:     oldVolume.DeletedAt,
 	}
 
 	// Update volume in database
@@ -197,9 +195,9 @@ func (s *volumeServiceImpl) UpdateVolume(ctx context.Context, id uuid.UUID, volu
 // DeleteVolume deletes a volume (soft delete)
 func (s *volumeServiceImpl) DeleteVolume(ctx context.Context, id uuid.UUID) error {
 	// Check if volume exists
-	_, err := s.volumeRepo.GetByID(ctx, id)
+	volume, err := s.volumeRepo.GetByID(ctx, id)
 	if err != nil {
-		if err == pgx.ErrNoRows {
+		if ent.IsNotFound(err) {
 			return pkgerrors.NotFound(I18nNotFound, "volume not found")
 		}
 		return err
@@ -208,14 +206,23 @@ func (s *volumeServiceImpl) DeleteVolume(ctx context.Context, id uuid.UUID) erro
 	// TODO: Check if volume has chapters and prevent deletion if needed
 	// For now, we allow deletion regardless
 
-	return s.volumeRepo.Delete(ctx, id)
+	if err := s.volumeRepo.Delete(ctx, id); err != nil {
+		return err
+	}
+
+	// Update novel statistics after deletion
+	if s.novelRepo != nil {
+		_ = s.novelRepo.UpdateContentStatistics(ctx, volume.NovelID)
+	}
+
+	return nil
 }
 
 // GetVolumeByID retrieves a volume by ID
 func (s *volumeServiceImpl) GetVolumeByID(ctx context.Context, id uuid.UUID) (*domain.NovelVolume, error) {
 	volume, err := s.volumeRepo.GetByID(ctx, id)
 	if err != nil {
-		if err == pgx.ErrNoRows {
+		if ent.IsNotFound(err) {
 			return nil, pkgerrors.NotFound(I18nNotFound, "volume not found")
 		}
 		return nil, err
@@ -233,7 +240,7 @@ func (s *volumeServiceImpl) UpdateDisplayOrder(ctx context.Context, id uuid.UUID
 	// Check if volume exists
 	_, err := s.volumeRepo.GetByID(ctx, id)
 	if err != nil {
-		if err == pgx.ErrNoRows {
+		if ent.IsNotFound(err) {
 			return pkgerrors.NotFound(I18nNotFound, "volume not found")
 		}
 		return err
@@ -247,7 +254,7 @@ func (s *volumeServiceImpl) PublishVolume(ctx context.Context, id uuid.UUID, cha
 	// Check if volume exists
 	volume, err := s.volumeRepo.GetByID(ctx, id)
 	if err != nil {
-		if err == pgx.ErrNoRows {
+		if ent.IsNotFound(err) {
 			return pkgerrors.NotFound(I18nNotFound, "volume not found")
 		}
 		return err
@@ -266,6 +273,11 @@ func (s *volumeServiceImpl) PublishVolume(ctx context.Context, id uuid.UUID, cha
 		}
 	}
 
+	// Update novel statistics after publish
+	if s.novelRepo != nil {
+		_ = s.novelRepo.UpdateContentStatistics(ctx, volume.NovelID)
+	}
+
 	return nil
 }
 
@@ -274,7 +286,7 @@ func (s *volumeServiceImpl) UnpublishVolume(ctx context.Context, id uuid.UUID, c
 	// Check if volume exists
 	volume, err := s.volumeRepo.GetByID(ctx, id)
 	if err != nil {
-		if err == pgx.ErrNoRows {
+		if ent.IsNotFound(err) {
 			return pkgerrors.NotFound(I18nNotFound, "volume not found")
 		}
 		return err
@@ -291,6 +303,11 @@ func (s *volumeServiceImpl) UnpublishVolume(ctx context.Context, id uuid.UUID, c
 			// Log error but don't fail the unpublish
 			_ = err
 		}
+	}
+
+	// Update novel statistics after unpublish
+	if s.novelRepo != nil {
+		_ = s.novelRepo.UpdateContentStatistics(ctx, volume.NovelID)
 	}
 
 	return nil
@@ -332,13 +349,13 @@ func generateVolumeChangeSummary(changedFields []string) string {
 	}
 
 	fieldDescriptions := map[string]string{
-		"volume_number":  "volume number",
-		"title":          "title",
-		"slug":           "slug",
-		"description":    "description",
+		"volume_number":   "volume number",
+		"title":           "title",
+		"slug":            "slug",
+		"description":     "description",
 		"cover_image_url": "cover image",
-		"display_order":  "display order",
-		"is_published":   "publication status",
+		"display_order":   "display order",
+		"is_published":    "publication status",
 	}
 
 	var descriptions []string

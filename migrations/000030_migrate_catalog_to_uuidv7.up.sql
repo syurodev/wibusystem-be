@@ -1,5 +1,5 @@
 -- Migration: Convert remaining tables to use UUID v7
--- Description: Convert `identify.organizations` and `catalog` schema tables from gen_random_uuid() to uuidv7()
+-- Description: Convert `identify.organizations` and `catalog` schema tables from uuidv7() to uuidv7()
 -- Author: System
 -- Created: 2025-12-06
 -- Depends on: 000025_migrate_to_uuidv7

@@ -48,7 +48,7 @@ type NovelService interface {
 
 	// ListNovels lấy danh sách novels với pagination, search và sort
 	ListNovels(ctx context.Context, page, limit int, ownerID *uuid.UUID, keySearch string, genreIDs []uuid.UUID, statusStrs []string, originalLanguage, sortBy, sortOrder string) ([]*domain.Novel, int, error)
-	
+
 	// GetNovelsByIDs lấy danh sách novels theo list IDs
 	GetNovelsByIDs(ctx context.Context, ids []uuid.UUID) ([]*domain.Novel, error)
 

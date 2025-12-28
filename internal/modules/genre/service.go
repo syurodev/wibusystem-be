@@ -34,23 +34,23 @@ package genre
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"strings"
 	"time"
 
 	"github.com/gofrs/uuid/v5"
 	"github.com/gosimple/slug"
-	"github.com/jackc/pgx/v5"
+	"github.com/samber/lo"
 
 	"system/internal/domain"
+	ent "system/internal/ent/generated"
 	pkgerrors "system/pkg/errors"
 )
 
 // Error message templates
 const (
-	errMsgGetGenre      = "failed to get genre: %w"
-	errMsgCheckGenre    = "failed to check existing genre: %w"
+	errMsgGetGenre       = "failed to get genre: %w"
+	errMsgCheckGenre     = "failed to check existing genre: %w"
 	errMsgValidateParent = "failed to validate parent genre: %w"
 )
 
@@ -60,18 +60,16 @@ type genreServiceImpl struct {
 }
 
 // NewGenreService tạo instance mới của GenreService
-func NewService(genreRepo domain.GenreRepository) *genreServiceImpl {
+func NewService(genreRepo domain.GenreRepository) GenreService {
 	return &genreServiceImpl{
 		genreRepo: genreRepo,
 	}
 }
 
-
-
 // validateSlugUnique checks if slug is unique, excluding given ID
 func (s *genreServiceImpl) validateSlugUnique(ctx context.Context, newSlug string, excludeID uuid.UUID) error {
 	existing, err := s.genreRepo.GetBySlug(ctx, newSlug)
-	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+	if err != nil && !ent.IsNotFound(err) {
 		return fmt.Errorf(errMsgCheckGenre, err)
 	}
 	if existing != nil && existing.ID != excludeID {
@@ -90,7 +88,7 @@ func (s *genreServiceImpl) validateParentID(ctx context.Context, parentID *uuid.
 	}
 	_, err := s.genreRepo.GetByID(ctx, *parentID)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if ent.IsNotFound(err) {
 			return pkgerrors.NotFound(I18nParentNotFound, "parent genre not found")
 		}
 		return fmt.Errorf(errMsgValidateParent, err)
@@ -116,7 +114,7 @@ func (s *genreServiceImpl) CreateGenre(ctx context.Context, name, description st
 
 	// Check if slug already exists
 	existing, err := s.genreRepo.GetBySlug(ctx, genreSlug)
-	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+	if err != nil && !ent.IsNotFound(err) {
 		return nil, fmt.Errorf("failed to check existing genre: %w", err)
 	}
 	if existing != nil {
@@ -198,7 +196,7 @@ func (s *genreServiceImpl) DeleteGenre(ctx context.Context, id uuid.UUID, userID
 	// Get existing genre
 	genre, err := s.genreRepo.GetByID(ctx, id)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if ent.IsNotFound(err) {
 			return pkgerrors.NotFound(I18nNotFound, "genre not found")
 		}
 		return fmt.Errorf(errMsgGetGenre, err)
@@ -229,7 +227,7 @@ func (s *genreServiceImpl) DeleteGenre(ctx context.Context, id uuid.UUID, userID
 func (s *genreServiceImpl) GetGenreByID(ctx context.Context, id uuid.UUID) (*domain.Genre, error) {
 	genre, err := s.genreRepo.GetByID(ctx, id)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if ent.IsNotFound(err) {
 			return nil, pkgerrors.NotFound(I18nNotFound, "genre not found")
 		}
 		return nil, fmt.Errorf(errMsgGetGenre, err)
@@ -241,7 +239,7 @@ func (s *genreServiceImpl) GetGenreByID(ctx context.Context, id uuid.UUID) (*dom
 func (s *genreServiceImpl) GetGenreBySlug(ctx context.Context, slug string) (*domain.Genre, error) {
 	genre, err := s.genreRepo.GetBySlug(ctx, slug)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if ent.IsNotFound(err) {
 			return nil, pkgerrors.NotFound(I18nNotFound, "genre not found")
 		}
 		return nil, fmt.Errorf(errMsgGetGenre, err)
@@ -285,14 +283,12 @@ func (s *genreServiceImpl) ListGenres(ctx context.Context, page, limit int, sear
 	}
 
 	// Calculate trend for each genre
-	genresWithTrend := make([]*GenreWithTrend, len(genres))
-	for i, genre := range genres {
-		trend := s.calculateTrend(genre)
-		genresWithTrend[i] = &GenreWithTrend{
+	genresWithTrend := lo.Map(genres, func(genre *domain.Genre, _ int) *GenreWithTrend {
+		return &GenreWithTrend{
 			Genre: genre,
-			Trend: trend,
+			Trend: s.calculateTrend(genre),
 		}
-	}
+	})
 
 	return genresWithTrend, totalCount, nil
 }
@@ -375,7 +371,7 @@ func (s *genreServiceImpl) MergeGenres(ctx context.Context, targetID uuid.UUID, 
 	// Check target exists
 	target, err := s.genreRepo.GetByID(ctx, targetID)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if ent.IsNotFound(err) {
 			return pkgerrors.NotFound(I18nNotFound, "target genre not found")
 		}
 		return fmt.Errorf("failed to get target genre: %w", err)
@@ -425,10 +421,9 @@ func (s *genreServiceImpl) AddNovelGenres(ctx context.Context, novelID uuid.UUID
 		return fmt.Errorf("failed to add novel genres: %w", err)
 	}
 
-	increments := make(map[uuid.UUID]int)
-	for _, gid := range genreIDs {
-		increments[gid] = 1
-	}
+	increments := lo.SliceToMap(genreIDs, func(gid uuid.UUID) (uuid.UUID, int) {
+		return gid, 1
+	})
 	if err := s.genreRepo.BatchIncrementNovelCount(ctx, increments); err != nil {
 		return fmt.Errorf("failed to increment genre counts: %w", err)
 	}
@@ -446,10 +441,9 @@ func (s *genreServiceImpl) RemoveNovelGenres(ctx context.Context, novelID uuid.U
 
 	// Decrement counts
 	if len(genres) > 0 {
-		increments := make(map[uuid.UUID]int)
-		for _, g := range genres {
-			increments[g.ID] = -1
-		}
+		increments := lo.SliceToMap(genres, func(g *domain.Genre) (uuid.UUID, int) {
+			return g.ID, -1
+		})
 		if err := s.genreRepo.BatchIncrementNovelCount(ctx, increments); err != nil {
 			return fmt.Errorf("failed to decrement genre counts: %w", err)
 		}

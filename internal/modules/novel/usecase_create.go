@@ -86,7 +86,7 @@ func (uc *createNovelUseCase) Execute(ctx context.Context, input CreateNovelInpu
 		return nil, pkgerrors.Internal(I18nCreateFailed, "failed to generate ID")
 	}
 
-	// Build novel entity
+	// Build a novel entity
 	novel := &domain.Novel{
 		ID:               id,
 		Title:            input.Title,

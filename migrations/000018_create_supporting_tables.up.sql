@@ -30,7 +30,7 @@ CREATE TYPE catalog.translator_role AS ENUM (
 -- GENRES TABLE
 -- =====================================================
 CREATE TABLE catalog.genres (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
 
     -- Basic info
     name VARCHAR(100) NOT NULL,
@@ -75,7 +75,7 @@ COMMENT ON COLUMN catalog.genres.parent_id IS 'Optional parent genre for hierarc
 -- NOVEL_GENRES JUNCTION TABLE
 -- =====================================================
 CREATE TABLE catalog.novel_genres (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
     novel_id UUID NOT NULL REFERENCES catalog.novels(id) ON DELETE CASCADE,
     genre_id UUID NOT NULL REFERENCES catalog.genres(id) ON DELETE CASCADE,
 
@@ -100,7 +100,7 @@ COMMENT ON TABLE catalog.novel_genres IS 'Junction table linking novels to genre
 -- AUTHORS TABLE
 -- =====================================================
 CREATE TABLE catalog.authors (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
 
     -- Basic info
     name VARCHAR(200) NOT NULL,
@@ -143,7 +143,7 @@ COMMENT ON COLUMN catalog.authors.user_id IS 'Optional link to user account if a
 -- NOVEL_AUTHORS JUNCTION TABLE
 -- =====================================================
 CREATE TABLE catalog.novel_authors (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
     novel_id UUID NOT NULL REFERENCES catalog.novels(id) ON DELETE CASCADE,
     author_id UUID NOT NULL REFERENCES catalog.authors(id) ON DELETE CASCADE,
 
@@ -172,7 +172,7 @@ COMMENT ON TABLE catalog.novel_authors IS 'Junction table linking novels to auth
 -- ARTISTS TABLE
 -- =====================================================
 CREATE TABLE catalog.artists (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
 
     -- Basic info
     name VARCHAR(200) NOT NULL,
@@ -214,7 +214,7 @@ COMMENT ON TABLE catalog.artists IS 'Artist information (cover artists, illustra
 -- NOVEL_ARTISTS JUNCTION TABLE
 -- =====================================================
 CREATE TABLE catalog.novel_artists (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
     novel_id UUID NOT NULL REFERENCES catalog.novels(id) ON DELETE CASCADE,
     artist_id UUID NOT NULL REFERENCES catalog.artists(id) ON DELETE CASCADE,
 
@@ -243,7 +243,7 @@ COMMENT ON TABLE catalog.novel_artists IS 'Junction table linking novels to arti
 -- TRANSLATORS TABLE
 -- =====================================================
 CREATE TABLE catalog.translators (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
 
     -- Basic info
     name VARCHAR(200) NOT NULL,
@@ -294,7 +294,7 @@ COMMENT ON COLUMN catalog.translators.target_languages IS 'Array of languages th
 -- NOVEL_TRANSLATORS JUNCTION TABLE
 -- =====================================================
 CREATE TABLE catalog.novel_translators (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
     novel_id UUID NOT NULL REFERENCES catalog.novels(id) ON DELETE CASCADE,
     translator_id UUID NOT NULL REFERENCES catalog.translators(id) ON DELETE CASCADE,
     language VARCHAR(10) NOT NULL, -- Target language

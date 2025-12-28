@@ -190,7 +190,7 @@ type ViewEvent struct {
 // ViewBuffer represents buffered view counts awaiting sync to PostgreSQL.
 // This struct is used to store aggregated counts from Redis before bulk updating PostgreSQL.
 type ViewBuffer struct {
-	EntityType string    // "novel" or "chapter"
+	EntityType string // "novel" or "chapter"
 	EntityID   uuid.UUID
 	Count      int64
 }
@@ -496,4 +496,3 @@ type OrgViewStat struct {
 	TotalViews  uint64
 	UniqueUsers uint64
 }
-

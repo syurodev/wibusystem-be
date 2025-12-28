@@ -61,8 +61,8 @@ type GetChapterInput struct {
 
 // ListChaptersByNovelInput represents input for listing chapters by novel
 type ListChaptersByNovelInput struct {
-	NovelID       uuid.UUID
-	Filter        domain.NovelChapterFilter
+	NovelID uuid.UUID
+	Filter  domain.NovelChapterFilter
 }
 
 // ListChaptersByVolumeInput represents input for listing chapters by volume

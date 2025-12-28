@@ -6,9 +6,9 @@ import (
 	"strconv"
 
 	"github.com/gofrs/uuid/v5"
-	"github.com/jackc/pgx/v5"
 
 	"system/internal/domain"
+	ent "system/internal/ent/generated"
 	pkgerrors "system/pkg/errors"
 )
 
@@ -43,7 +43,7 @@ func (uc *configUseCase) GetAll(ctx context.Context) ([]*domain.PaymentConfigura
 func (uc *configUseCase) GetByKey(ctx context.Context, key string) (*domain.PaymentConfiguration, error) {
 	config, err := uc.repo.GetByKey(ctx, key)
 	if err != nil {
-		if err == pgx.ErrNoRows {
+		if ent.IsNotFound(err) {
 			return nil, pkgerrors.NotFound(I18nConfigNotFound, "configuration not found")
 		}
 		return nil, err
@@ -79,7 +79,7 @@ func (uc *configUseCase) Update(ctx context.Context, key string, value string, u
 	// Check if config exists
 	existing, err := uc.repo.GetByKey(ctx, key)
 	if err != nil {
-		if err == pgx.ErrNoRows {
+		if ent.IsNotFound(err) {
 			return nil, pkgerrors.NotFound(I18nConfigNotFound, "configuration not found")
 		}
 		return nil, err
@@ -106,7 +106,7 @@ func (uc *configUseCase) Create(ctx context.Context, config *domain.PaymentConfi
 	if err == nil {
 		return pkgerrors.Conflict(I18nConfigAlreadyExists, "configuration key already exists")
 	}
-	if err != pgx.ErrNoRows {
+	if !ent.IsNotFound(err) {
 		return err
 	}
 
@@ -121,7 +121,7 @@ func (uc *configUseCase) Create(ctx context.Context, config *domain.PaymentConfi
 // Delete deletes a configuration
 func (uc *configUseCase) Delete(ctx context.Context, key string) error {
 	err := uc.repo.Delete(ctx, key)
-	if err == pgx.ErrNoRows {
+	if ent.IsNotFound(err) {
 		return pkgerrors.NotFound(I18nConfigNotFound, "configuration not found")
 	}
 	return err
@@ -142,7 +142,7 @@ func (uc *configUseCase) UpsertMany(ctx context.Context, configs []*domain.Payme
 func (uc *configUseCase) GetString(ctx context.Context, key string) (string, error) {
 	config, err := uc.repo.GetByKey(ctx, key)
 	if err != nil {
-		if err == pgx.ErrNoRows {
+		if ent.IsNotFound(err) {
 			return "", pkgerrors.NotFound(I18nConfigNotFound, "configuration not found")
 		}
 		return "", err

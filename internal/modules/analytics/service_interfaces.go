@@ -13,7 +13,7 @@ import (
 type AnalyticsService interface {
 	// GetTopTrending retrieves top trending media from all types
 	GetTopTrending(ctx context.Context, mediaType string, timeRange string, limit int) ([]map[string]any, error)
-	
+
 	// GetCreatorViewStats retrieves view statistics for multiple creators
 	// GetCreatorViewStats retrieves view statistics for multiple creators
 	GetCreatorViewStats(ctx context.Context, ownerIDs []uuid.UUID, timeRange string) (map[uuid.UUID]domain.CreatorViewStats, error)
@@ -78,14 +78,13 @@ type OrgRankResponse struct {
 // Since we don't have a common Media struct yet (or it's complex), we'll return generic map or specific structs
 // For now, let's use a simplified struct holding the Entity details
 type MediaRankResponse struct {
-	ID          uuid.UUID
-	Title       string
-	Cover       string
-	Slug        string
-	Type        string // novel, manga, anime
-	Stats       domain.RankStat
-	Authors     []*domain.Author
-	Artist      []*domain.Artist
-	Novel       *domain.Novel // Full novel data for hydration
+	ID      uuid.UUID
+	Title   string
+	Cover   string
+	Slug    string
+	Type    string // novel, manga, anime
+	Stats   domain.RankStat
+	Authors []*domain.Author
+	Artist  []*domain.Artist
+	Novel   *domain.Novel // Full novel data for hydration
 }
-

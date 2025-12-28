@@ -8,8 +8,9 @@ import (
 // Returns empty string if URL is invalid.
 //
 // Example:
-//   ExtractOrigin("http://localhost:3000/api/auth/callback") → "http://localhost:3000"
-//   ExtractOrigin("https://example.com:8443/path") → "https://example.com:8443"
+//
+//	ExtractOrigin("http://localhost:3000/api/auth/callback") → "http://localhost:3000"
+//	ExtractOrigin("https://example.com:8443/path") → "https://example.com:8443"
 func ExtractOrigin(rawURL string) string {
 	if rawURL == "" {
 		return ""

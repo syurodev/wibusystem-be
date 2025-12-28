@@ -61,6 +61,7 @@ type DatabaseConfig struct {
 	CatalogSchema   string
 	CommunitySchema string
 	PaymentSchema   string
+	AutoMigrate     bool
 }
 
 // RedisConfig chứa cấu hình kết nối Redis.
@@ -173,6 +174,7 @@ func LoadConfig(envPath string) (*Config, error) {
 	cfg.DB.CatalogSchema = getEnv("DB_CATALOG_SCHEMA", "catalog")
 	cfg.DB.CommunitySchema = getEnv("DB_COMMUNITY_SCHEMA", "community")
 	cfg.DB.PaymentSchema = getEnv("DB_PAYMENT_SCHEMA", "payment")
+	cfg.DB.AutoMigrate = getEnvAsBool("DB_AUTO_MIGRATE", true)
 
 	// REDIS CONFIG
 	cfg.Redis.Host = getEnv("REDIS_HOST", "localhost")

@@ -57,10 +57,10 @@ import (
 
 // service implements the Service interface
 type service struct {
-	repo       domain.MediaProgressRepository
-	novelRepo  domain.NovelRepository
+	repo        domain.MediaProgressRepository
+	novelRepo   domain.NovelRepository
 	chapterRepo domain.NovelChapterRepository
-	logger     *zap.Logger
+	logger      *zap.Logger
 }
 
 // NewService creates a new media progress service.

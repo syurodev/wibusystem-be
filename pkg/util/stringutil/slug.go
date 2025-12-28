@@ -30,4 +30,3 @@ func GenerateUniqueSlugWithLength(input string, suffixLength int) (string, error
 	// Combine base slug with random suffix
 	return fmt.Sprintf("%s-%s", baseSlug, suffix), nil
 }
-

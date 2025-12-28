@@ -57,7 +57,7 @@ func (h *Hub) Run() {
 		case client := <-h.register:
 			h.mu.Lock()
 			h.clients[client] = true
-			
+
 			// Add to user map
 			if client.userID != uuid.Nil {
 				if _, ok := h.userClients[client.userID]; !ok {
@@ -66,7 +66,7 @@ func (h *Hub) Run() {
 				h.userClients[client.userID][client] = true
 			}
 			h.mu.Unlock()
-			
+
 			h.logger.Debug("Client connected", zap.String("user_id", client.userID.String()))
 
 		case client := <-h.unregister:
@@ -74,7 +74,7 @@ func (h *Hub) Run() {
 			if _, ok := h.clients[client]; ok {
 				delete(h.clients, client)
 				close(client.send)
-				
+
 				// Remove from user map
 				if client.userID != uuid.Nil {
 					if userMap, ok := h.userClients[client.userID]; ok {

@@ -8,7 +8,7 @@
 -- Description: Lưu trữ tokens để reset password
 -- =====================================================
 CREATE TABLE identify.password_reset_tokens (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
     user_id UUID NOT NULL REFERENCES identify.users(id) ON DELETE CASCADE,
     token VARCHAR(255) NOT NULL UNIQUE,
     expires_at TIMESTAMPTZ NOT NULL,

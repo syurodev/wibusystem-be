@@ -104,8 +104,8 @@ type OrganizationPendingInvite struct {
 	CreatedAt      time.Time
 
 	// Relations (optional)
-	User        *User
-	Inviter     *User
+	User         *User
+	Inviter      *User
 	Organization *Organization
 }
 
@@ -240,4 +240,3 @@ type OrganizationStatisticsUpdate struct {
 	ActiveProjects        *int
 	CompletedTranslations *int
 }
-

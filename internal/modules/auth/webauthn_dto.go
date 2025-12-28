@@ -14,23 +14,23 @@ type RegistrationBeginRequest struct {
 // RegistrationBeginResponse là DTO cho response của registration begin
 // Chứa PublicKeyCredentialCreationOptions theo WebAuthn spec
 type RegistrationBeginResponse struct {
-	Challenge              string                       `json:"challenge"`
-	RP                     RelyingParty                 `json:"rp"`
-	User                   UserInfo                     `json:"user"`
-	PubKeyCredParams       []PubKeyCredParam            `json:"pubKeyCredParams"`
-	Timeout                int                          `json:"timeout,omitempty"`
-	ExcludeCredentials     []CredentialDescriptor       `json:"excludeCredentials,omitempty"`
+	Challenge              string                         `json:"challenge"`
+	RP                     RelyingParty                   `json:"rp"`
+	User                   UserInfo                       `json:"user"`
+	PubKeyCredParams       []PubKeyCredParam              `json:"pubKeyCredParams"`
+	Timeout                int                            `json:"timeout,omitempty"`
+	ExcludeCredentials     []CredentialDescriptor         `json:"excludeCredentials,omitempty"`
 	AuthenticatorSelection AuthenticatorSelectionCriteria `json:"authenticatorSelection,omitempty"`
-	Attestation            string                       `json:"attestation,omitempty"`
+	Attestation            string                         `json:"attestation,omitempty"`
 }
 
 // RegistrationFinishRequest là DTO cho việc hoàn thành registration flow
 type RegistrationFinishRequest struct {
-	ID       string                            `json:"id" binding:"required"`
-	RawID    string                            `json:"rawId" binding:"required"`
-	Type     string                            `json:"type" binding:"required"`
-	Response AuthenticatorAttestationResponse `json:"response" binding:"required"`
-	CredentialName *string                     `json:"credential_name,omitempty" binding:"omitempty,max=255"`
+	ID             string                           `json:"id" binding:"required"`
+	RawID          string                           `json:"rawId" binding:"required"`
+	Type           string                           `json:"type" binding:"required"`
+	Response       AuthenticatorAttestationResponse `json:"response" binding:"required"`
+	CredentialName *string                          `json:"credential_name,omitempty" binding:"omitempty,max=255"`
 }
 
 // RegistrationFinishResponse là DTO cho response sau khi hoàn thành registration
@@ -60,9 +60,9 @@ type AuthenticationBeginResponse struct {
 
 // AuthenticationFinishRequest là DTO cho việc hoàn thành authentication flow
 type AuthenticationFinishRequest struct {
-	ID       string                          `json:"id" binding:"required"`
-	RawID    string                          `json:"rawId" binding:"required"`
-	Type     string                          `json:"type" binding:"required"`
+	ID       string                         `json:"id" binding:"required"`
+	RawID    string                         `json:"rawId" binding:"required"`
+	Type     string                         `json:"type" binding:"required"`
 	Response AuthenticatorAssertionResponse `json:"response" binding:"required"`
 }
 
@@ -137,8 +137,8 @@ type CredentialDescriptor struct {
 type AuthenticatorSelectionCriteria struct {
 	AuthenticatorAttachment string `json:"authenticatorAttachment,omitempty"` // platform, cross-platform
 	RequireResidentKey      bool   `json:"requireResidentKey,omitempty"`
-	ResidentKey             string `json:"residentKey,omitempty"`             // discouraged, preferred, required
-	UserVerification        string `json:"userVerification,omitempty"`        // required, preferred, discouraged
+	ResidentKey             string `json:"residentKey,omitempty"`      // discouraged, preferred, required
+	UserVerification        string `json:"userVerification,omitempty"` // required, preferred, discouraged
 }
 
 // AuthenticatorAttestationResponse represents the response from authenticator during registration

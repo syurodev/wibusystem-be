@@ -16,10 +16,10 @@ import (
 )
 
 const (
-	authRequestKeyPrefix      = "auth_request:%s"           // Stores original query string
-	authUserIDKeyPrefix       = "auth_request_user:%s"
-	authRequestParamsPrefix   = "auth_request_params:%s"    // Stores original OAuth2 params
-	authPasskeyPromptPrefix   = "auth_passkey_prompt:%s"    // Stores passkey prompt flag
+	authRequestKeyPrefix    = "auth_request:%s" // Stores original query string
+	authUserIDKeyPrefix     = "auth_request_user:%s"
+	authRequestParamsPrefix = "auth_request_params:%s" // Stores original OAuth2 params
+	authPasskeyPromptPrefix = "auth_passkey_prompt:%s" // Stores passkey prompt flag
 )
 
 // storedAuthorizeRequest là dạng đã được "strip" client để có thể lưu/khôi phục.

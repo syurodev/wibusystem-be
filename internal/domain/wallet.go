@@ -10,14 +10,14 @@ import (
 
 // UserWallet represents a user's coin wallet
 type UserWallet struct {
-	ID                    uuid.UUID
-	UserID                uuid.UUID
-	CoinBalance           decimal.Decimal
-	TotalDeposited        decimal.Decimal
-	TotalSpent            decimal.Decimal
+	ID                     uuid.UUID
+	UserID                 uuid.UUID
+	CoinBalance            decimal.Decimal
+	TotalDeposited         decimal.Decimal
+	TotalSpent             decimal.Decimal
 	TotalSubscriptionSpent decimal.Decimal
-	CreatedAt             time.Time
-	UpdatedAt             time.Time
+	CreatedAt              time.Time
+	UpdatedAt              time.Time
 }
 
 // CoinPackage represents a coin top-up package
@@ -69,24 +69,24 @@ func (s TopupStatus) IsValid() bool {
 
 // TopupOrder represents a coin top-up order
 type TopupOrder struct {
-	ID                  uuid.UUID
-	UserID              uuid.UUID
-	PackageID           uuid.UUID
-	OrderCode           string
-	CoinAmount          decimal.Decimal // Total coins (base + bonus)
-	BaseCoinAmount      decimal.Decimal // Base coins from package
-	BonusCoinAmount     decimal.Decimal // Bonus coins
-	VNDAmount           decimal.Decimal
-	Status              TopupStatus
-	SepayTransactionID  *string
-	SepayContent        *string
-	BankName            *string
-	BankAccount         *string
-	AccountName         *string
-	CompletedAt         *time.Time
-	ExpiredAt           time.Time
-	CreatedAt           time.Time
-	UpdatedAt           time.Time
+	ID                 uuid.UUID
+	UserID             uuid.UUID
+	PackageID          uuid.UUID
+	OrderCode          string
+	CoinAmount         decimal.Decimal // Total coins (base + bonus)
+	BaseCoinAmount     decimal.Decimal // Base coins from package
+	BonusCoinAmount    decimal.Decimal // Bonus coins
+	VNDAmount          decimal.Decimal
+	Status             TopupStatus
+	SepayTransactionID *string
+	SepayContent       *string
+	BankName           *string
+	BankAccount        *string
+	AccountName        *string
+	CompletedAt        *time.Time
+	ExpiredAt          time.Time
+	CreatedAt          time.Time
+	UpdatedAt          time.Time
 
 	// Loaded via JOIN
 	Package *CoinPackage `db:"-"`

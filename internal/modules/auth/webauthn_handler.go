@@ -43,8 +43,8 @@ func (h *Handler) PasskeyRegisterBegin(c *gin.Context) {
 	if referer != "" {
 		// Import helper at top of file
 		clientOrigin = webauthnutil.ExtractOrigin(referer)
-		zap.L().Info("Extracted client origin from Referer", 
-			zap.String("referer", referer), 
+		zap.L().Info("Extracted client origin from Referer",
+			zap.String("referer", referer),
 			zap.String("origin", clientOrigin))
 	}
 
@@ -86,7 +86,7 @@ func (h *Handler) PasskeyRegisterFinish(c *gin.Context) {
 	}
 
 	// Debug: log attestation format
-	zap.L().Info("Parsed credential creation response", 
+	zap.L().Info("Parsed credential creation response",
 		zap.String("attestation_format", parsedResponse.Response.AttestationObject.Format))
 
 	// Extract origin from Referer (same as BeginRegistration)
@@ -94,8 +94,8 @@ func (h *Handler) PasskeyRegisterFinish(c *gin.Context) {
 	var clientOrigin string
 	if referer != "" {
 		clientOrigin = webauthnutil.ExtractOrigin(referer)
-		zap.L().Info("Extracted client origin from Referer for finish", 
-			zap.String("referer", referer), 
+		zap.L().Info("Extracted client origin from Referer for finish",
+			zap.String("referer", referer),
 			zap.String("origin", clientOrigin))
 	}
 

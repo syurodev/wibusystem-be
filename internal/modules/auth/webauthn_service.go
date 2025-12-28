@@ -98,7 +98,7 @@ func (s *webauthnService) generateWebAuthnConfig(clientOrigin string) *webauthn.
 		RPDisplayName: s.config.RPName,
 		RPID:          s.config.RPID,
 		RPOrigins:     origins,
-		Debug: 		   true,
+		Debug:         true,
 		// CRITICAL FIX: Always allow "none" attestation for TouchID/FaceID/Windows Hello
 		AttestationPreference: protocol.PreferNoAttestation,
 		Timeouts: webauthn.TimeoutsConfig{
@@ -116,10 +116,10 @@ func (s *webauthnService) generateWebAuthnConfig(clientOrigin string) *webauthn.
 	}
 
 	fmt.Printf("\n====== DEBUG WEBAUTHN CONFIG ======\n")
-    fmt.Printf("RPID: '%s'\n", wconfig.RPID)
-    fmt.Printf("Origins: %v\n", wconfig.RPOrigins)
-    fmt.Printf("AttestationPreference: '%s'\n", wconfig.AttestationPreference)
-    fmt.Printf("===================================\n\n")
+	fmt.Printf("RPID: '%s'\n", wconfig.RPID)
+	fmt.Printf("Origins: %v\n", wconfig.RPOrigins)
+	fmt.Printf("AttestationPreference: '%s'\n", wconfig.AttestationPreference)
+	fmt.Printf("===================================\n\n")
 
 	// 3. Return the unified config
 	return wconfig
@@ -436,7 +436,7 @@ type webauthnUser struct {
 	credentials []webauthn.Credential
 }
 
-func (u *webauthnUser) WebAuthnID() []byte { return u.user.ID.Bytes() }
+func (u *webauthnUser) WebAuthnID() []byte   { return u.user.ID.Bytes() }
 func (u *webauthnUser) WebAuthnName() string { return u.user.Email }
 func (u *webauthnUser) WebAuthnDisplayName() string {
 	if u.user.FullName != nil {

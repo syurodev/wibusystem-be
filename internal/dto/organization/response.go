@@ -14,7 +14,7 @@ type OrganizationResponse struct {
 	MemberCount           int              `json:"member_count"`
 	CompletedTranslations int              `json:"completed_translations"`
 	CreatedAt             string           `json:"created_at"`
-	
+
 	// Rank Comparison (Optional)
 	CurrentRank  *int `json:"current_rank,omitempty"`
 	PreviousRank *int `json:"previous_rank,omitempty"`
@@ -24,12 +24,12 @@ type OrganizationResponse struct {
 // OrganizationDetailResponse - Response chi tiết
 type OrganizationDetailResponse struct {
 	OrganizationResponse
-	Settings       *OrganizationSettingsResponse `json:"settings,omitempty"`       // Chỉ owner/admin thấy
-	MyRole         *string                       `json:"my_role,omitempty"`        // Role của current user
-	CanInvite      bool                          `json:"can_invite"`               // User có thể invite không
+	Settings       *OrganizationSettingsResponse `json:"settings,omitempty"`        // Chỉ owner/admin thấy
+	MyRole         *string                       `json:"my_role,omitempty"`         // Role của current user
+	CanInvite      bool                          `json:"can_invite"`                // User có thể invite không
 	PendingInvites int                           `json:"pending_invites,omitempty"` // Số invite chờ duyệt (owner/admin)
-	ReportCount    int                           `json:"report_count,omitempty"`   // Chỉ moderator thấy
-	HasReported    bool                          `json:"has_reported"`             // User đã report chưa
+	ReportCount    int                           `json:"report_count,omitempty"`    // Chỉ moderator thấy
+	HasReported    bool                          `json:"has_reported"`              // User đã report chưa
 }
 
 // OrganizationSettingsResponse - Settings của org

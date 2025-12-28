@@ -47,7 +47,7 @@ type artistServiceImpl struct {
 }
 
 // NewArtistService tạo một instance mới của ArtistService
-func NewService(artistRepo domain.ArtistRepository) *artistServiceImpl {
+func NewService(artistRepo domain.ArtistRepository) ArtistService {
 	return &artistServiceImpl{
 		artistRepo: artistRepo,
 	}
@@ -113,7 +113,7 @@ func (s *artistServiceImpl) CreateArtist(ctx context.Context, name, biography st
 	if err := s.artistRepo.Create(ctx, artist); err != nil {
 		// Check for duplicate key error (slug constraint)
 		if strings.Contains(err.Error(), "artists_slug_key") ||
-		   strings.Contains(err.Error(), "duplicate key") {
+			strings.Contains(err.Error(), "duplicate key") {
 			return nil, pkgerrors.Conflict(I18nSlugAlreadyExists, "slug already exists")
 		}
 		return nil, err

@@ -26,7 +26,7 @@ CREATE TYPE catalog.contribution_status AS ENUM (
 -- NOVEL SYNOPSIS TRANSLATIONS TABLE
 -- =====================================================
 CREATE TABLE catalog.novel_synopsis_translations (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
     novel_id UUID NOT NULL REFERENCES catalog.novels(id) ON DELETE CASCADE,
     language VARCHAR(10) NOT NULL, -- ISO 639-1: en, vi, zh, ja, ko, etc.
 
@@ -88,7 +88,7 @@ COMMENT ON COLUMN catalog.novel_synopsis_translations.reviewer_rating IS 'Qualit
 -- SYNOPSIS TRANSLATION CONTRIBUTIONS TABLE
 -- =====================================================
 CREATE TABLE catalog.synopsis_translation_contributions (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
     synopsis_translation_id UUID NOT NULL REFERENCES catalog.novel_synopsis_translations(id) ON DELETE CASCADE,
     contributor_id UUID NOT NULL REFERENCES identify.users(id) ON DELETE CASCADE,
 

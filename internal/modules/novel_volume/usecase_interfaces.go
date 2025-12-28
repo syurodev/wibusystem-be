@@ -21,14 +21,14 @@ type CreateVolumeInput struct {
 
 // UpdateVolumeInput represents input for updating a volume
 type UpdateVolumeInput struct {
-	ID            uuid.UUID
-	VolumeNumber  int
-	Title         string
-	Description   *string
-	CoverImageURL *string
-	DisplayOrder  int
-	IsPublished   bool
-	ChangedBy     uuid.UUID
+	ID             uuid.UUID
+	VolumeNumber   int
+	Title          string
+	Description    *string
+	CoverImageURL  *string
+	DisplayOrder   int
+	IsPublished    bool
+	ChangedBy      uuid.UUID
 	RequestContext map[string]any
 }
 

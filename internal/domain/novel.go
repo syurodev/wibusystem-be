@@ -71,11 +71,11 @@ type Novel struct {
 	ID    uuid.UUID
 	Title string
 	Slug  string // SEO-friendly URL
-	
+
 	// Owner information
 	OwnerID   uuid.UUID
 	OwnerType string // "user" or "group"
-	
+
 	// Owner details (loaded from JOIN with users/tenants table)
 	OwnerDisplayName *string `db:"owner_display_name"` // From users.full_name or tenants.name
 	OwnerUsername    *string `db:"owner_username"`     // From users.email (username) or tenants.slug
@@ -88,7 +88,7 @@ type Novel struct {
 	CoverImageURL *string
 	ThumbnailURL  *string
 
-	Status NovelStatus
+	Status    NovelStatus
 	IsOneshot bool
 
 	// Original information
@@ -157,12 +157,16 @@ type NovelRepository interface {
 	// BatchIncrementViewCount tăng view count cho nhiều novels cùng lúc
 	// Sử dụng bulk UPDATE với VALUES để tối ưu performance
 	BatchIncrementViewCount(ctx context.Context, increments map[uuid.UUID]int64) error
-	
+
 	// Relation getters for Analytics
 	GetAuthors(ctx context.Context, novelID uuid.UUID) ([]uuid.UUID, error)
 	GetGenres(ctx context.Context, novelID uuid.UUID) ([]uuid.UUID, error)
 	GetArtists(ctx context.Context, novelID uuid.UUID) ([]uuid.UUID, error)
 	GetOrganizationAssignments(ctx context.Context, novelID uuid.UUID) ([]uuid.UUID, error)
+
+	// UpdateContentStatistics recalculates and updates content statistics
+	// (total_volumes, total_chapters, total_words) based on published content
+	UpdateContentStatistics(ctx context.Context, novelID uuid.UUID) error
 }
 
 // NovelFilter định nghĩa các filter cho việc query novel

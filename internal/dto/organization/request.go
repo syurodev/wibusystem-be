@@ -15,10 +15,10 @@ type CreateOrganizationRequest struct {
 
 // UpdateOrganizationRequest - Cập nhật thông tin org
 type UpdateOrganizationRequest struct {
-	Name         *string          `json:"name" binding:"omitempty,min=2,max=255"`
-	Description  json.RawMessage  `json:"description"`
-	AvatarURL    *string          `json:"avatar_url"`
-	IsRecruiting *bool            `json:"is_recruiting"`
+	Name         *string         `json:"name" binding:"omitempty,min=2,max=255"`
+	Description  json.RawMessage `json:"description"`
+	AvatarURL    *string         `json:"avatar_url"`
+	IsRecruiting *bool           `json:"is_recruiting"`
 }
 
 // InviteMemberRequest - Invite member vào org (role mặc định = member)

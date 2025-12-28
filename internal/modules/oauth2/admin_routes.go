@@ -15,4 +15,3 @@ func RegisterAdminRoutes(router *gin.RouterGroup, handler *AdminHandler) {
 		oauth2Admin.POST("/clients/:id/regenerate-secret", handler.RegenerateSecret)
 	}
 }
-

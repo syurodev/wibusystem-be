@@ -25,12 +25,12 @@ type UserService interface {
 	ChangePassword(ctx context.Context, userID uuid.UUID, currentPassword, newPassword string) error
 	GetSessions(ctx context.Context, userIDStr string) ([]*domain.UserSession, error)
 	DeleteSession(ctx context.Context, userIDStr, sessionID string) error
-	
+
 	// Methods for OAuth2Service integration
 	UpdateLastLogin(ctx context.Context, userID uuid.UUID) error
 	CreateSession(ctx context.Context, session *domain.UserSession, ttl time.Duration) error
 	GetSession(ctx context.Context, sessionID string) (*domain.UserSession, error)
-	
+
 	GetGlobalPermissions(ctx context.Context, userID uuid.UUID) ([]string, error)
 	GetOrganizationPermissions(ctx context.Context, userID, organizationID uuid.UUID) ([]string, error)
 	GetGlobalRoles(ctx context.Context, userID uuid.UUID) ([]string, error)

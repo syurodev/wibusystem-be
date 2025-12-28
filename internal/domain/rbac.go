@@ -104,14 +104,14 @@ const (
 	PermContentReadNovel     Permission = "content:read_novel"
 
 	// Master Data: Character
-	PermCharacterView               Permission = "character:view"
-	PermCharacterContribute         Permission = "character:contribute"
+	PermCharacterView                 Permission = "character:view"
+	PermCharacterContribute           Permission = "character:contribute"
 	PermCharacterContributeUpdateSelf Permission = "character:contribute_update_self"
-	PermCharacterCreate             Permission = "character:create"
-	PermCharacterApprove            Permission = "character:approve"
-	PermCharacterReject             Permission = "character:reject"
-	PermCharacterUpdate             Permission = "character:update"
-	PermCharacterDelete             Permission = "character:delete"
+	PermCharacterCreate               Permission = "character:create"
+	PermCharacterApprove              Permission = "character:approve"
+	PermCharacterReject               Permission = "character:reject"
+	PermCharacterUpdate               Permission = "character:update"
+	PermCharacterDelete               Permission = "character:delete"
 
 	// Master Data: Creator
 	PermCreatorView   Permission = "creator:view"
@@ -152,24 +152,24 @@ func (p Permission) String() string {
 
 const (
 	// Organization Management (renamed from tenant:*)
-	PermOrgManageMember   Permission = "organization:manage_member"
-	PermOrgAssignRole     Permission = "organization:assign_role"
-	PermOrgUpdateInfo     Permission = "organization:update_info"
-	PermOrgViewStats      Permission = "organization:view_stats"
-	PermOrgBillingManage  Permission = "organization:billing_manage"
+	PermOrgManageMember  Permission = "organization:manage_member"
+	PermOrgAssignRole    Permission = "organization:assign_role"
+	PermOrgUpdateInfo    Permission = "organization:update_info"
+	PermOrgViewStats     Permission = "organization:view_stats"
+	PermOrgBillingManage Permission = "organization:billing_manage"
 
 	// Organization Member Management (NEW)
-	PermOrgInviteMember   Permission = "organization:invite_member"
-	PermOrgApproveInvite  Permission = "organization:approve_invite"
-	PermOrgKickMember     Permission = "organization:kick_member"
+	PermOrgInviteMember  Permission = "organization:invite_member"
+	PermOrgApproveInvite Permission = "organization:approve_invite"
+	PermOrgKickMember    Permission = "organization:kick_member"
 
 	// Organization Settings Management (NEW)
 	PermOrgUpdateSettings Permission = "organization:update_settings"
 
 	// Organization Report Management (NEW)
-	PermOrgRespondReport  Permission = "organization:respond_report"
-	PermOrgViewReports    Permission = "organization:view_reports"
-	PermOrgReport         Permission = "organization:report" // global scope - for reporting orgs
+	PermOrgRespondReport Permission = "organization:respond_report"
+	PermOrgViewReports   Permission = "organization:view_reports"
+	PermOrgReport        Permission = "organization:report" // global scope - for reporting orgs
 
 	// Content Management (Anime)
 	PermContentCreateAnime Permission = "content:create_anime"

@@ -45,10 +45,9 @@ func RequireSessionAuth(oauth2Service SessionValidator, logger *zap.Logger) gin.
 
 		// 3. Set userID vào context
 		c.Set("user_id", userID)
-		
+
 		logger.Info("Session Auth Middleware: User authenticated", zap.String("user_id", userID))
 
 		c.Next()
 	}
 }
-

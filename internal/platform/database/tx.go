@@ -4,61 +4,64 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/jackc/pgx/v5/pgxpool"
+	ent "system/internal/ent/generated"
 )
 
 // TxKey is the key for the transaction in the context
 type TxKey struct{}
-
-// DBTX is an interface that satisfies both *pgxpool.Pool and pgx.Tx
-type DBTX interface {
-	Exec(context.Context, string, ...any) (pgconn.CommandTag, error)
-	Query(context.Context, string, ...any) (pgx.Rows, error)
-	QueryRow(context.Context, string, ...any) pgx.Row
-}
-
-// GetDB returns the transaction from the context if present, otherwise the pool
-func GetDB(ctx context.Context, pool DBTX) DBTX {
-	if tx, ok := ctx.Value(TxKey{}).(pgx.Tx); ok {
-		return tx
-	}
-	return pool
-}
 
 // TransactionManager handles database transactions
 type TransactionManager interface {
 	RunInTx(ctx context.Context, fn func(ctx context.Context) error) error
 }
 
-type txManager struct {
-	pool *pgxpool.Pool
+type entTransactionManager struct {
+	client *ent.Client
 }
 
-func NewTransactionManager(pool *pgxpool.Pool) TransactionManager {
-	return &txManager{pool: pool}
+// NewTransactionManager creates a new Ent transaction manager
+func NewTransactionManager(client *ent.Client) TransactionManager {
+	return &entTransactionManager{client: client}
 }
 
-func (m *txManager) RunInTx(ctx context.Context, fn func(ctx context.Context) error) error {
-	tx, err := m.pool.Begin(ctx)
+// RunInTx executes the function within an Ent transaction
+func (m *entTransactionManager) RunInTx(ctx context.Context, fn func(ctx context.Context) error) error {
+	// Start transaction
+	tx, err := m.client.Tx(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
 
 	defer func() {
-		if p := recover(); p != nil {
-			_ = tx.Rollback(ctx)
-			panic(p)
-		} else if err != nil {
-			_ = tx.Rollback(ctx)
-		} else {
-			err = tx.Commit(ctx)
+		if v := recover(); v != nil {
+			_ = tx.Rollback()
+			panic(v)
 		}
 	}()
 
-	// Inject transaction into context
-	ctxWithTx := context.WithValue(ctx, TxKey{}, tx)
-	err = fn(ctxWithTx)
-	return err
+	// Inject transactional client into context
+	// tx.Client() returns a client that executes all queries within the transaction
+	ctxWithTx := context.WithValue(ctx, TxKey{}, tx.Client())
+
+	if err := fn(ctxWithTx); err != nil {
+		if rerr := tx.Rollback(); rerr != nil {
+			return fmt.Errorf("rolling back transaction: %w (original error: %v)", rerr, err)
+		}
+		return err
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("committing transaction: %w", err)
+	}
+
+	return nil
+}
+
+// GetClientFromContext retrieves the Ent client from context (if in transaction)
+// or returns the fallback client
+func GetClientFromContext(ctx context.Context, fallback *ent.Client) *ent.Client {
+	if client, ok := ctx.Value(TxKey{}).(*ent.Client); ok {
+		return client
+	}
+	return fallback
 }

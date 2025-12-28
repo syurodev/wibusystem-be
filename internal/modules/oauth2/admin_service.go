@@ -19,7 +19,7 @@ type oauth2AdminServiceImpl struct {
 }
 
 // NewOAuth2AdminService tạo instance mới của OAuth2AdminService.
-func NewAdminService(clientRepo domain.OAuth2ClientRepository) *oauth2AdminServiceImpl {
+func NewAdminService(clientRepo domain.OAuth2ClientRepository) OAuth2AdminService {
 	return &oauth2AdminServiceImpl{
 		clientRepo: clientRepo,
 	}
@@ -123,7 +123,7 @@ func (s *oauth2AdminServiceImpl) CreateClient(ctx context.Context, req AdminCrea
 		IsPublic:          req.IsPublic,
 		IsInternal:        req.IsInternal,
 		TokenEndpointAuth: req.TokenEndpointAuth,
-		OrganizationID:          req.OrganizationID,
+		OrganizationID:    req.OrganizationID,
 		ClientURI:         req.ClientURI,
 		LogoURL:           req.LogoURL,
 		Active:            true,

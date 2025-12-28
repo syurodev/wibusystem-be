@@ -20,7 +20,7 @@ END $$;
 -- NOVEL ORGANIZATION ASSIGNMENTS TABLE
 -- =====================================================
 CREATE TABLE catalog.novel_organization_assignments (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
     novel_id UUID NOT NULL REFERENCES catalog.novels(id) ON DELETE CASCADE,
     organization_id UUID NOT NULL REFERENCES identify.organizations(id) ON DELETE CASCADE,
     language VARCHAR(10) NOT NULL, -- ISO 639-1: en, vi, zh, ja, ko, etc.

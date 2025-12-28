@@ -78,7 +78,7 @@ func mapMediaRankToResponse(rank *analytics_module.MediaRankResponse) *res.Media
 		if resp != nil {
 			// Override views with analytics data (more accurate for the period)
 			resp.Views = int64(rank.Stats.TotalViews)
-			
+
 			// Add rank info
 			currentRank := rank.Stats.CurrentRank
 			resp.CurrentRank = &currentRank

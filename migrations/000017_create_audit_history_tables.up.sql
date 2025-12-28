@@ -24,7 +24,7 @@ CREATE TYPE catalog.audit_action AS ENUM (
 -- NOVEL HISTORY TABLE
 -- =====================================================
 CREATE TABLE catalog.novel_history (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
     novel_id UUID NOT NULL REFERENCES catalog.novels(id) ON DELETE CASCADE,
 
     -- Version tracking
@@ -81,7 +81,7 @@ COMMENT ON COLUMN catalog.novel_history.request_id IS 'Request ID for tracing';
 -- VOLUME HISTORY TABLE
 -- =====================================================
 CREATE TABLE catalog.volume_history (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
     volume_id UUID NOT NULL REFERENCES catalog.volumes(id) ON DELETE CASCADE,
     novel_id UUID NOT NULL REFERENCES catalog.novels(id) ON DELETE CASCADE,
 
@@ -135,7 +135,7 @@ COMMENT ON COLUMN catalog.volume_history.changed_fields IS 'JSONB array of field
 -- CHAPTER HISTORY TABLE
 -- =====================================================
 CREATE TABLE catalog.chapter_history (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
     chapter_id UUID NOT NULL REFERENCES catalog.chapters(id) ON DELETE CASCADE,
     volume_id UUID REFERENCES catalog.volumes(id) ON DELETE SET NULL,
     novel_id UUID NOT NULL REFERENCES catalog.novels(id) ON DELETE CASCADE,

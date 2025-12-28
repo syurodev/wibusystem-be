@@ -39,13 +39,25 @@ help: ## Hiển thị help message
 # =====================================================
 # Development Commands
 # =====================================================
+.PHONY: generate
+generate: ## Run go generate (Ent, etc.)
+	@echo "$(BLUE)Running go generate...$(NC)"
+	@go generate ./...
+	@echo "$(GREEN)✓ Code generation completed$(NC)"
+
+.PHONY: wire
+wire: generate ## Generate Wire dependency injection code
+	@echo "$(BLUE)Generating Wire code...$(NC)"
+	@go run github.com/google/wire/cmd/wire@latest ./cmd/server > /dev/null 2>&1 || true
+	@echo "$(GREEN)✓ Wire code generated$(NC)"
+
 .PHONY: run
-run: ## Chạy application
+run: wire ## Chạy application (auto-generate Wire)
 	@echo "$(BLUE)Starting application...$(NC)"
-	go run $(MAIN_PATH)/main.go
+	go run $(MAIN_PATH)
 
 .PHONY: build
-build: ## Build application binary
+build: wire ## Build application binary (auto-generate Wire)
 	@echo "$(BLUE)Building $(BINARY_NAME)...$(NC)"
 	@mkdir -p $(BINARY_DIR)
 	go build -o $(BINARY_DIR)/$(BINARY_NAME) $(MAIN_PATH)

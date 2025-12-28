@@ -26,11 +26,11 @@ type OwnershipTransfer struct {
 	Novel   *Novel // Optional: loaded by JOIN
 
 	// From owner
-	FromOwnerType string    // "user" or "organization"
+	FromOwnerType string // "user" or "organization"
 	FromOwnerID   uuid.UUID
 
 	// To owner
-	ToOwnerType string    // "user" or "organization"
+	ToOwnerType string // "user" or "organization"
 	ToOwnerID   uuid.UUID
 
 	Status TransferStatus

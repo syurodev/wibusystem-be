@@ -43,10 +43,9 @@ func (h *Handler) RegisterRoutes(router *gin.RouterGroup, requireAuth gin.Handle
 	// These must be registered AFTER specific routes like /me if they use wildcards at the same level
 	// But since /me is in protected group and public is in router group, we need to be careful about middleware order
 	// However, if we mount protected group on router, the order matters for the underlying engine
-	
-	router.GET("", h.ListOrganizations)              // GET /api/v1/organizations
-	router.GET("/top", h.GetTopOrgsByViews)          // GET /api/v1/organizations/top
-	router.GET(identifierPath, h.GetOrganization)    // GET /api/v1/organizations/:identifier
+
+	router.GET("", h.ListOrganizations)                  // GET /api/v1/organizations
+	router.GET("/top", h.GetTopOrgsByViews)              // GET /api/v1/organizations/top
+	router.GET(identifierPath, h.GetOrganization)        // GET /api/v1/organizations/:identifier
 	router.GET(identifierPath+"/members", h.ListMembers) // GET /api/v1/organizations/:identifier/members
 }
-

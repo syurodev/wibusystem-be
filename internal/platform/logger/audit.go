@@ -13,34 +13,34 @@ type AuditEventType string
 
 const (
 	// Authentication Events
-	EventLoginAttempt       AuditEventType = "auth.login.attempt"
-	EventLoginSuccess       AuditEventType = "auth.login.success"
-	EventLoginFailure       AuditEventType = "auth.login.failure"
-	EventLogout             AuditEventType = "auth.logout"
-	EventPasswordChange     AuditEventType = "auth.password.change"
-	EventPasswordResetReq   AuditEventType = "auth.password.reset.request"
-	EventPasswordReset      AuditEventType = "auth.password.reset"
-	EventEmailVerification  AuditEventType = "auth.email.verification"
-	EventAccountCreated     AuditEventType = "auth.account.created"
-	EventAccountDeleted     AuditEventType = "auth.account.deleted"
-	EventAccountLocked      AuditEventType = "auth.account.locked"
-	EventAccountUnlocked    AuditEventType = "auth.account.unlocked"
+	EventLoginAttempt      AuditEventType = "auth.login.attempt"
+	EventLoginSuccess      AuditEventType = "auth.login.success"
+	EventLoginFailure      AuditEventType = "auth.login.failure"
+	EventLogout            AuditEventType = "auth.logout"
+	EventPasswordChange    AuditEventType = "auth.password.change"
+	EventPasswordResetReq  AuditEventType = "auth.password.reset.request"
+	EventPasswordReset     AuditEventType = "auth.password.reset"
+	EventEmailVerification AuditEventType = "auth.email.verification"
+	EventAccountCreated    AuditEventType = "auth.account.created"
+	EventAccountDeleted    AuditEventType = "auth.account.deleted"
+	EventAccountLocked     AuditEventType = "auth.account.locked"
+	EventAccountUnlocked   AuditEventType = "auth.account.unlocked"
 
 	// OAuth2 Events
-	EventOAuth2Authorize          AuditEventType = "oauth2.authorize"
-	EventOAuth2TokenIssued        AuditEventType = "oauth2.token.issued"
-	EventOAuth2TokenRefreshed     AuditEventType = "oauth2.token.refreshed"
-	EventOAuth2TokenRevoked       AuditEventType = "oauth2.token.revoked"
-	EventOAuth2TokenIntrospected  AuditEventType = "oauth2.token.introspected"
-	EventOAuth2ConsentGranted     AuditEventType = "oauth2.consent.granted"
-	EventOAuth2ConsentRevoked     AuditEventType = "oauth2.consent.revoked"
-	EventOAuth2ConsentDenied      AuditEventType = "oauth2.consent.denied"
+	EventOAuth2Authorize         AuditEventType = "oauth2.authorize"
+	EventOAuth2TokenIssued       AuditEventType = "oauth2.token.issued"
+	EventOAuth2TokenRefreshed    AuditEventType = "oauth2.token.refreshed"
+	EventOAuth2TokenRevoked      AuditEventType = "oauth2.token.revoked"
+	EventOAuth2TokenIntrospected AuditEventType = "oauth2.token.introspected"
+	EventOAuth2ConsentGranted    AuditEventType = "oauth2.consent.granted"
+	EventOAuth2ConsentRevoked    AuditEventType = "oauth2.consent.revoked"
+	EventOAuth2ConsentDenied     AuditEventType = "oauth2.consent.denied"
 
 	// OAuth2 Client Management Events
-	EventOAuth2ClientCreated      AuditEventType = "oauth2.client.created"
-	EventOAuth2ClientUpdated      AuditEventType = "oauth2.client.updated"
-	EventOAuth2ClientDeleted      AuditEventType = "oauth2.client.deleted"
-	EventOAuth2ClientSecretRegen  AuditEventType = "oauth2.client.secret.regenerated"
+	EventOAuth2ClientCreated     AuditEventType = "oauth2.client.created"
+	EventOAuth2ClientUpdated     AuditEventType = "oauth2.client.updated"
+	EventOAuth2ClientDeleted     AuditEventType = "oauth2.client.deleted"
+	EventOAuth2ClientSecretRegen AuditEventType = "oauth2.client.secret.regenerated"
 
 	// Session Events
 	EventSessionCreated     AuditEventType = "session.created"
@@ -48,15 +48,15 @@ const (
 	EventSessionInvalidated AuditEventType = "session.invalidated"
 
 	// Security Events
-	EventUnauthorizedAccess   AuditEventType = "security.unauthorized.access"
-	EventSuspiciousActivity   AuditEventType = "security.suspicious.activity"
-	EventRateLimitExceeded    AuditEventType = "security.rate_limit.exceeded"
-	EventInvalidToken         AuditEventType = "security.invalid.token"
-	EventCSRFDetected         AuditEventType = "security.csrf.detected"
+	EventUnauthorizedAccess AuditEventType = "security.unauthorized.access"
+	EventSuspiciousActivity AuditEventType = "security.suspicious.activity"
+	EventRateLimitExceeded  AuditEventType = "security.rate_limit.exceeded"
+	EventInvalidToken       AuditEventType = "security.invalid.token"
+	EventCSRFDetected       AuditEventType = "security.csrf.detected"
 
 	// Admin Events
-	EventAdminAction          AuditEventType = "admin.action"
-	EventConfigurationChange  AuditEventType = "admin.config.change"
+	EventAdminAction         AuditEventType = "admin.action"
+	EventConfigurationChange AuditEventType = "admin.config.change"
 )
 
 // AuditEventStatus định nghĩa kết quả của audit event
@@ -72,37 +72,37 @@ const (
 // AuditEvent chứa thông tin về một audit event
 type AuditEvent struct {
 	// Core fields
-	EventType   AuditEventType   `json:"event_type"`
-	Status      AuditEventStatus `json:"status"`
-	Timestamp   time.Time        `json:"timestamp"`
+	EventType AuditEventType   `json:"event_type"`
+	Status    AuditEventStatus `json:"status"`
+	Timestamp time.Time        `json:"timestamp"`
 
 	// Actor information (who performed the action)
-	UserID      *uuid.UUID `json:"user_id,omitempty"`
-	Username    string     `json:"username,omitempty"`
-	ClientID    *uuid.UUID `json:"client_id,omitempty"`
+	UserID   *uuid.UUID `json:"user_id,omitempty"`
+	Username string     `json:"username,omitempty"`
+	ClientID *uuid.UUID `json:"client_id,omitempty"`
 
 	// Request context
-	IPAddress   string     `json:"ip_address,omitempty"`
-	UserAgent   string     `json:"user_agent,omitempty"`
-	RequestID   string     `json:"request_id,omitempty"`
+	IPAddress string `json:"ip_address,omitempty"`
+	UserAgent string `json:"user_agent,omitempty"`
+	RequestID string `json:"request_id,omitempty"`
 
 	// Target information (what was affected)
-	TargetType  string     `json:"target_type,omitempty"`  // user, client, token, session
-	TargetID    string     `json:"target_id,omitempty"`
+	TargetType string `json:"target_type,omitempty"` // user, client, token, session
+	TargetID   string `json:"target_id,omitempty"`
 
 	// OAuth2 specific
-	GrantType   string     `json:"grant_type,omitempty"`
-	Scopes      []string   `json:"scopes,omitempty"`
-	TokenType   string     `json:"token_type,omitempty"`   // access_token, refresh_token, id_token
+	GrantType string   `json:"grant_type,omitempty"`
+	Scopes    []string `json:"scopes,omitempty"`
+	TokenType string   `json:"token_type,omitempty"` // access_token, refresh_token, id_token
 
 	// Additional metadata
-	Message     string     `json:"message,omitempty"`
-	ErrorCode   string     `json:"error_code,omitempty"`
-	ErrorDetail string     `json:"error_detail,omitempty"`
+	Message     string         `json:"message,omitempty"`
+	ErrorCode   string         `json:"error_code,omitempty"`
+	ErrorDetail string         `json:"error_detail,omitempty"`
 	Metadata    map[string]any `json:"metadata,omitempty"`
 
 	// Performance metrics
-	Duration    int64      `json:"duration_ms,omitempty"`  // milliseconds
+	Duration int64 `json:"duration_ms,omitempty"` // milliseconds
 }
 
 // AuditLogger provides methods for logging audit events

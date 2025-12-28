@@ -54,14 +54,14 @@ type VolumeInfoResponse struct {
 
 // VolumeInfoResponseWithChapters - volume info với chapters (dùng trong novel full response)
 type VolumeInfoResponseWithChapters struct {
-	ID            string                             `json:"id"`
-	VolumeNumber  int                                `json:"volume_number"`
-	Title         string                             `json:"title"`
-	Slug          string                             `json:"slug"`
-	CoverImageURL *string                            `json:"cover_image_url,omitempty"`
-	DisplayOrder  int                                `json:"display_order"`
-	IsPublished   bool                               `json:"is_published"`
-	PublishedAt   *string                            `json:"published_at,omitempty"`
+	ID            string                              `json:"id"`
+	VolumeNumber  int                                 `json:"volume_number"`
+	Title         string                              `json:"title"`
+	Slug          string                              `json:"slug"`
+	CoverImageURL *string                             `json:"cover_image_url,omitempty"`
+	DisplayOrder  int                                 `json:"display_order"`
+	IsPublished   bool                                `json:"is_published"`
+	PublishedAt   *string                             `json:"published_at,omitempty"`
 	Chapters      []chapterres.ChapterSummaryResponse `json:"chapters"`
 }
 
@@ -71,4 +71,3 @@ type ListVolumesResponse struct {
 	NovelTitle string           `json:"novel_title"`
 	Volumes    []VolumeResponse `json:"volumes"`
 }
-
