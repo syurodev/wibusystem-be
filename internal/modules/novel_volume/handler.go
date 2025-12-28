@@ -113,6 +113,7 @@ func (h *Handler) UpdateVolume(c *gin.Context) {
 
 	var req volumedto.UpdateVolumeRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
+		println("DEBUG VALIDATION ERROR:", err.Error())
 		response.Error(c, http.StatusBadRequest, "VALIDATION_FAILED", "validation.failed", err.Error())
 		return
 	}

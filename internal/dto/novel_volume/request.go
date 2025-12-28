@@ -15,7 +15,7 @@ type UpdateVolumeRequest struct {
 	VolumeNumber  int     `json:"volume_number" binding:"required,min=1"`
 	Title         string  `json:"title" binding:"required,min=1,max=500"`
 	Description   *string `json:"description,omitempty" binding:"omitempty,max=5000"`
-	CoverImageURL *string `json:"cover_image_url,omitempty" binding:"omitempty,url"`
+	CoverImageURL *string `json:"cover_image_url,omitempty" binding:"omitempty"`
 	DisplayOrder  int     `json:"display_order" binding:"min=0"`
 	IsPublished   bool    `json:"is_published"`
 }
