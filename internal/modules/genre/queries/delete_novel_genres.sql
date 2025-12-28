@@ -1,1 +1,0 @@
-DELETE FROM catalog.novel_genres WHERE novel_id = $1
