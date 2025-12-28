@@ -543,6 +543,30 @@ func (f OAuth2ClientMutationRuleFunc) EvalMutation(ctx context.Context, m genera
 	return Denyf("generated/privacy: unexpected mutation type %T, expect *generated.OAuth2ClientMutation", m)
 }
 
+// The OAuth2JTIBlacklistQueryRuleFunc type is an adapter to allow the use of ordinary
+// functions as a query rule.
+type OAuth2JTIBlacklistQueryRuleFunc func(context.Context, *generated.OAuth2JTIBlacklistQuery) error
+
+// EvalQuery return f(ctx, q).
+func (f OAuth2JTIBlacklistQueryRuleFunc) EvalQuery(ctx context.Context, q generated.Query) error {
+	if q, ok := q.(*generated.OAuth2JTIBlacklistQuery); ok {
+		return f(ctx, q)
+	}
+	return Denyf("generated/privacy: unexpected query type %T, expect *generated.OAuth2JTIBlacklistQuery", q)
+}
+
+// The OAuth2JTIBlacklistMutationRuleFunc type is an adapter to allow the use of ordinary
+// functions as a mutation rule.
+type OAuth2JTIBlacklistMutationRuleFunc func(context.Context, *generated.OAuth2JTIBlacklistMutation) error
+
+// EvalMutation calls f(ctx, m).
+func (f OAuth2JTIBlacklistMutationRuleFunc) EvalMutation(ctx context.Context, m generated.Mutation) error {
+	if m, ok := m.(*generated.OAuth2JTIBlacklistMutation); ok {
+		return f(ctx, m)
+	}
+	return Denyf("generated/privacy: unexpected mutation type %T, expect *generated.OAuth2JTIBlacklistMutation", m)
+}
+
 // The OAuth2SessionQueryRuleFunc type is an adapter to allow the use of ordinary
 // functions as a query rule.
 type OAuth2SessionQueryRuleFunc func(context.Context, *generated.OAuth2SessionQuery) error
@@ -1166,6 +1190,8 @@ func queryFilter(q generated.Query) (Filter, error) {
 		return q.Filter(), nil
 	case *generated.OAuth2ClientQuery:
 		return q.Filter(), nil
+	case *generated.OAuth2JTIBlacklistQuery:
+		return q.Filter(), nil
 	case *generated.OAuth2SessionQuery:
 		return q.Filter(), nil
 	case *generated.OrgMemberQuery:
@@ -1254,6 +1280,8 @@ func mutationFilter(m generated.Mutation) (Filter, error) {
 	case *generated.NovelVolumeHistoryMutation:
 		return m.Filter(), nil
 	case *generated.OAuth2ClientMutation:
+		return m.Filter(), nil
+	case *generated.OAuth2JTIBlacklistMutation:
 		return m.Filter(), nil
 	case *generated.OAuth2SessionMutation:
 		return m.Filter(), nil

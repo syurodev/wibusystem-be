@@ -25,6 +25,7 @@ type SchemaConfig struct {
 	NovelVolume             string // NovelVolume table.
 	NovelVolumeHistory      string // NovelVolumeHistory table.
 	OAuth2Client            string // OAuth2Client table.
+	OAuth2JTIBlacklist      string // OAuth2JTIBlacklist table.
 	OAuth2Session           string // OAuth2Session table.
 	OrgMember               string // OrgMember table.
 	OrgPendingInvite        string // OrgPendingInvite table.

@@ -29,6 +29,7 @@ import (
 	"system/internal/ent/generated/novelvolume"
 	"system/internal/ent/generated/novelvolumehistory"
 	"system/internal/ent/generated/oauth2client"
+	"system/internal/ent/generated/oauth2jtiblacklist"
 	"system/internal/ent/generated/oauth2session"
 	"system/internal/ent/generated/organization"
 	"system/internal/ent/generated/orgmember"
@@ -103,6 +104,8 @@ type Client struct {
 	NovelVolumeHistory *NovelVolumeHistoryClient
 	// OAuth2Client is the client for interacting with the OAuth2Client builders.
 	OAuth2Client *OAuth2ClientClient
+	// OAuth2JTIBlacklist is the client for interacting with the OAuth2JTIBlacklist builders.
+	OAuth2JTIBlacklist *OAuth2JTIBlacklistClient
 	// OAuth2Session is the client for interacting with the OAuth2Session builders.
 	OAuth2Session *OAuth2SessionClient
 	// OrgMember is the client for interacting with the OrgMember builders.
@@ -178,6 +181,7 @@ func (c *Client) init() {
 	c.NovelVolume = NewNovelVolumeClient(c.config)
 	c.NovelVolumeHistory = NewNovelVolumeHistoryClient(c.config)
 	c.OAuth2Client = NewOAuth2ClientClient(c.config)
+	c.OAuth2JTIBlacklist = NewOAuth2JTIBlacklistClient(c.config)
 	c.OAuth2Session = NewOAuth2SessionClient(c.config)
 	c.OrgMember = NewOrgMemberClient(c.config)
 	c.OrgPendingInvite = NewOrgPendingInviteClient(c.config)
@@ -314,6 +318,7 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		NovelVolume:             NewNovelVolumeClient(cfg),
 		NovelVolumeHistory:      NewNovelVolumeHistoryClient(cfg),
 		OAuth2Client:            NewOAuth2ClientClient(cfg),
+		OAuth2JTIBlacklist:      NewOAuth2JTIBlacklistClient(cfg),
 		OAuth2Session:           NewOAuth2SessionClient(cfg),
 		OrgMember:               NewOrgMemberClient(cfg),
 		OrgPendingInvite:        NewOrgPendingInviteClient(cfg),
@@ -374,6 +379,7 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		NovelVolume:             NewNovelVolumeClient(cfg),
 		NovelVolumeHistory:      NewNovelVolumeHistoryClient(cfg),
 		OAuth2Client:            NewOAuth2ClientClient(cfg),
+		OAuth2JTIBlacklist:      NewOAuth2JTIBlacklistClient(cfg),
 		OAuth2Session:           NewOAuth2SessionClient(cfg),
 		OrgMember:               NewOrgMemberClient(cfg),
 		OrgPendingInvite:        NewOrgPendingInviteClient(cfg),
@@ -430,9 +436,9 @@ func (c *Client) Use(hooks ...Hook) {
 		c.MediaProgress, c.Novel, c.NovelArtist, c.NovelAuthor, c.NovelChapter,
 		c.NovelChapterHistory, c.NovelChapterTranslation, c.NovelEmbedding,
 		c.NovelGenre, c.NovelVolume, c.NovelVolumeHistory, c.OAuth2Client,
-		c.OAuth2Session, c.OrgMember, c.OrgPendingInvite, c.OrgReport, c.Organization,
-		c.PasswordReset, c.PaymentConfiguration, c.Permission, c.Role,
-		c.RolePermission, c.Session, c.TopupOrder, c.Transaction,
+		c.OAuth2JTIBlacklist, c.OAuth2Session, c.OrgMember, c.OrgPendingInvite,
+		c.OrgReport, c.Organization, c.PasswordReset, c.PaymentConfiguration,
+		c.Permission, c.Role, c.RolePermission, c.Session, c.TopupOrder, c.Transaction,
 		c.TranslationContribution, c.UnitProgress, c.User, c.UserGlobalRole,
 		c.UserOrganizationRole, c.UserRole, c.UserStatistics, c.UserWallet,
 		c.WebAuthnCredential, c.WebAuthnSession,
@@ -449,9 +455,9 @@ func (c *Client) Intercept(interceptors ...Interceptor) {
 		c.MediaProgress, c.Novel, c.NovelArtist, c.NovelAuthor, c.NovelChapter,
 		c.NovelChapterHistory, c.NovelChapterTranslation, c.NovelEmbedding,
 		c.NovelGenre, c.NovelVolume, c.NovelVolumeHistory, c.OAuth2Client,
-		c.OAuth2Session, c.OrgMember, c.OrgPendingInvite, c.OrgReport, c.Organization,
-		c.PasswordReset, c.PaymentConfiguration, c.Permission, c.Role,
-		c.RolePermission, c.Session, c.TopupOrder, c.Transaction,
+		c.OAuth2JTIBlacklist, c.OAuth2Session, c.OrgMember, c.OrgPendingInvite,
+		c.OrgReport, c.Organization, c.PasswordReset, c.PaymentConfiguration,
+		c.Permission, c.Role, c.RolePermission, c.Session, c.TopupOrder, c.Transaction,
 		c.TranslationContribution, c.UnitProgress, c.User, c.UserGlobalRole,
 		c.UserOrganizationRole, c.UserRole, c.UserStatistics, c.UserWallet,
 		c.WebAuthnCredential, c.WebAuthnSession,
@@ -499,6 +505,8 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.NovelVolumeHistory.mutate(ctx, m)
 	case *OAuth2ClientMutation:
 		return c.OAuth2Client.mutate(ctx, m)
+	case *OAuth2JTIBlacklistMutation:
+		return c.OAuth2JTIBlacklist.mutate(ctx, m)
 	case *OAuth2SessionMutation:
 		return c.OAuth2Session.mutate(ctx, m)
 	case *OrgMemberMutation:
@@ -3188,6 +3196,139 @@ func (c *OAuth2ClientClient) mutate(ctx context.Context, m *OAuth2ClientMutation
 		return (&OAuth2ClientDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
 		return nil, fmt.Errorf("generated: unknown OAuth2Client mutation op: %q", m.Op())
+	}
+}
+
+// OAuth2JTIBlacklistClient is a client for the OAuth2JTIBlacklist schema.
+type OAuth2JTIBlacklistClient struct {
+	config
+}
+
+// NewOAuth2JTIBlacklistClient returns a client for the OAuth2JTIBlacklist from the given config.
+func NewOAuth2JTIBlacklistClient(c config) *OAuth2JTIBlacklistClient {
+	return &OAuth2JTIBlacklistClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `oauth2jtiblacklist.Hooks(f(g(h())))`.
+func (c *OAuth2JTIBlacklistClient) Use(hooks ...Hook) {
+	c.hooks.OAuth2JTIBlacklist = append(c.hooks.OAuth2JTIBlacklist, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `oauth2jtiblacklist.Intercept(f(g(h())))`.
+func (c *OAuth2JTIBlacklistClient) Intercept(interceptors ...Interceptor) {
+	c.inters.OAuth2JTIBlacklist = append(c.inters.OAuth2JTIBlacklist, interceptors...)
+}
+
+// Create returns a builder for creating a OAuth2JTIBlacklist entity.
+func (c *OAuth2JTIBlacklistClient) Create() *OAuth2JTIBlacklistCreate {
+	mutation := newOAuth2JTIBlacklistMutation(c.config, OpCreate)
+	return &OAuth2JTIBlacklistCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of OAuth2JTIBlacklist entities.
+func (c *OAuth2JTIBlacklistClient) CreateBulk(builders ...*OAuth2JTIBlacklistCreate) *OAuth2JTIBlacklistCreateBulk {
+	return &OAuth2JTIBlacklistCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *OAuth2JTIBlacklistClient) MapCreateBulk(slice any, setFunc func(*OAuth2JTIBlacklistCreate, int)) *OAuth2JTIBlacklistCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &OAuth2JTIBlacklistCreateBulk{err: fmt.Errorf("calling to OAuth2JTIBlacklistClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*OAuth2JTIBlacklistCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &OAuth2JTIBlacklistCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for OAuth2JTIBlacklist.
+func (c *OAuth2JTIBlacklistClient) Update() *OAuth2JTIBlacklistUpdate {
+	mutation := newOAuth2JTIBlacklistMutation(c.config, OpUpdate)
+	return &OAuth2JTIBlacklistUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *OAuth2JTIBlacklistClient) UpdateOne(_m *OAuth2JTIBlacklist) *OAuth2JTIBlacklistUpdateOne {
+	mutation := newOAuth2JTIBlacklistMutation(c.config, OpUpdateOne, withOAuth2JTIBlacklist(_m))
+	return &OAuth2JTIBlacklistUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *OAuth2JTIBlacklistClient) UpdateOneID(id int) *OAuth2JTIBlacklistUpdateOne {
+	mutation := newOAuth2JTIBlacklistMutation(c.config, OpUpdateOne, withOAuth2JTIBlacklistID(id))
+	return &OAuth2JTIBlacklistUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for OAuth2JTIBlacklist.
+func (c *OAuth2JTIBlacklistClient) Delete() *OAuth2JTIBlacklistDelete {
+	mutation := newOAuth2JTIBlacklistMutation(c.config, OpDelete)
+	return &OAuth2JTIBlacklistDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *OAuth2JTIBlacklistClient) DeleteOne(_m *OAuth2JTIBlacklist) *OAuth2JTIBlacklistDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *OAuth2JTIBlacklistClient) DeleteOneID(id int) *OAuth2JTIBlacklistDeleteOne {
+	builder := c.Delete().Where(oauth2jtiblacklist.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &OAuth2JTIBlacklistDeleteOne{builder}
+}
+
+// Query returns a query builder for OAuth2JTIBlacklist.
+func (c *OAuth2JTIBlacklistClient) Query() *OAuth2JTIBlacklistQuery {
+	return &OAuth2JTIBlacklistQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeOAuth2JTIBlacklist},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a OAuth2JTIBlacklist entity by its id.
+func (c *OAuth2JTIBlacklistClient) Get(ctx context.Context, id int) (*OAuth2JTIBlacklist, error) {
+	return c.Query().Where(oauth2jtiblacklist.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *OAuth2JTIBlacklistClient) GetX(ctx context.Context, id int) *OAuth2JTIBlacklist {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// Hooks returns the client hooks.
+func (c *OAuth2JTIBlacklistClient) Hooks() []Hook {
+	return c.hooks.OAuth2JTIBlacklist
+}
+
+// Interceptors returns the client interceptors.
+func (c *OAuth2JTIBlacklistClient) Interceptors() []Interceptor {
+	return c.inters.OAuth2JTIBlacklist
+}
+
+func (c *OAuth2JTIBlacklistClient) mutate(ctx context.Context, m *OAuth2JTIBlacklistMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&OAuth2JTIBlacklistCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&OAuth2JTIBlacklistUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&OAuth2JTIBlacklistUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&OAuth2JTIBlacklistDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("generated: unknown OAuth2JTIBlacklist mutation op: %q", m.Op())
 	}
 }
 
@@ -6389,21 +6530,22 @@ type (
 		Artist, Author, CoinPackage, Consent, EmailVerification, Genre, MediaProgress,
 		Novel, NovelArtist, NovelAuthor, NovelChapter, NovelChapterHistory,
 		NovelChapterTranslation, NovelEmbedding, NovelGenre, NovelVolume,
-		NovelVolumeHistory, OAuth2Client, OAuth2Session, OrgMember, OrgPendingInvite,
-		OrgReport, Organization, PasswordReset, PaymentConfiguration, Permission, Role,
-		RolePermission, Session, TopupOrder, Transaction, TranslationContribution,
-		UnitProgress, User, UserGlobalRole, UserOrganizationRole, UserRole,
-		UserStatistics, UserWallet, WebAuthnCredential, WebAuthnSession []ent.Hook
+		NovelVolumeHistory, OAuth2Client, OAuth2JTIBlacklist, OAuth2Session, OrgMember,
+		OrgPendingInvite, OrgReport, Organization, PasswordReset, PaymentConfiguration,
+		Permission, Role, RolePermission, Session, TopupOrder, Transaction,
+		TranslationContribution, UnitProgress, User, UserGlobalRole,
+		UserOrganizationRole, UserRole, UserStatistics, UserWallet, WebAuthnCredential,
+		WebAuthnSession []ent.Hook
 	}
 	inters struct {
 		Artist, Author, CoinPackage, Consent, EmailVerification, Genre, MediaProgress,
 		Novel, NovelArtist, NovelAuthor, NovelChapter, NovelChapterHistory,
 		NovelChapterTranslation, NovelEmbedding, NovelGenre, NovelVolume,
-		NovelVolumeHistory, OAuth2Client, OAuth2Session, OrgMember, OrgPendingInvite,
-		OrgReport, Organization, PasswordReset, PaymentConfiguration, Permission, Role,
-		RolePermission, Session, TopupOrder, Transaction, TranslationContribution,
-		UnitProgress, User, UserGlobalRole, UserOrganizationRole, UserRole,
-		UserStatistics, UserWallet, WebAuthnCredential,
+		NovelVolumeHistory, OAuth2Client, OAuth2JTIBlacklist, OAuth2Session, OrgMember,
+		OrgPendingInvite, OrgReport, Organization, PasswordReset, PaymentConfiguration,
+		Permission, Role, RolePermission, Session, TopupOrder, Transaction,
+		TranslationContribution, UnitProgress, User, UserGlobalRole,
+		UserOrganizationRole, UserRole, UserStatistics, UserWallet, WebAuthnCredential,
 		WebAuthnSession []ent.Interceptor
 	}
 )
@@ -6429,6 +6571,7 @@ var (
 		NovelVolume:             tableSchemas[0],
 		NovelVolumeHistory:      tableSchemas[0],
 		OAuth2Client:            tableSchemas[2],
+		OAuth2JTIBlacklist:      tableSchemas[2],
 		OAuth2Session:           tableSchemas[2],
 		OrgMember:               tableSchemas[2],
 		OrgPendingInvite:        tableSchemas[2],

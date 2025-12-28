@@ -46,7 +46,7 @@ import (
 )
 
 import (
-	_ "github.com/lib/pq"
+	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
 // Injectors from wire.go:
@@ -58,16 +58,16 @@ func InitializeApplication(ctx context.Context, cfg *configs.Config, logger *zap
 	if err != nil {
 		return nil, err
 	}
-	db, err := ProvideDBFromEnt(cfg)
-	if err != nil {
-		return nil, err
-	}
-	oAuth2ClientRepository := oauth2.NewOAuth2ClientEntRepository(client, db)
+	oAuth2ClientRepository := oauth2.NewOAuth2ClientEntRepository(client)
 	oAuth2SessionRepository := oauth2.NewOAuth2SessionEntRepository(client)
 	sqlStore := storage.NewSQLStore(oAuth2ClientRepository, oAuth2SessionRepository)
 	redisStore := storage.NewRedisStore(rdb, oAuth2ClientRepository, logger)
 	hybridStore := storage.NewHybridStore(sqlStore, redisStore)
 	oAuth2Provider := oauth2_2.NewOAuth2Provider(hybridStore, oAuthConfig)
+	db, err := ProvideDBFromEnt(cfg)
+	if err != nil {
+		return nil, err
+	}
 	userRepository := user.NewUserEntRepository(client, db)
 	sessionRepository := user.NewSessionRepository(rdb)
 	userService := user.NewService(userRepository, sessionRepository)
@@ -353,7 +353,7 @@ func ProvideDBFromEnt(cfg *configs.Config) (*sql.DB, error) {
 		cfg.DB.Name,
 		cfg.DB.SSLMode,
 	)
-	return sql.Open("postgres", dsn)
+	return sql.Open("pgx", dsn)
 }
 
 var InfraSet = wire.NewSet(

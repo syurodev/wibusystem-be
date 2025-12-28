@@ -601,6 +601,26 @@ var (
 		Columns:    Oauth2ClientsColumns,
 		PrimaryKey: []*schema.Column{Oauth2ClientsColumns[0]},
 	}
+	// Oauth2JtiBlacklistColumns holds the columns for the "oauth2_jti_blacklist" table.
+	Oauth2JtiBlacklistColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "signature", Type: field.TypeString, Unique: true},
+		{Name: "expires_at", Type: field.TypeTime},
+		{Name: "created_at", Type: field.TypeTime},
+	}
+	// Oauth2JtiBlacklistTable holds the schema information for the "oauth2_jti_blacklist" table.
+	Oauth2JtiBlacklistTable = &schema.Table{
+		Name:       "oauth2_jti_blacklist",
+		Columns:    Oauth2JtiBlacklistColumns,
+		PrimaryKey: []*schema.Column{Oauth2JtiBlacklistColumns[0]},
+		Indexes: []*schema.Index{
+			{
+				Name:    "oauth2jtiblacklist_expires_at",
+				Unique:  false,
+				Columns: []*schema.Column{Oauth2JtiBlacklistColumns[2]},
+			},
+		},
+	}
 	// Oauth2SessionsColumns holds the columns for the "oauth2_sessions" table.
 	Oauth2SessionsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeUUID},
@@ -1231,6 +1251,7 @@ var (
 		NovelVolumesTable,
 		NovelVolumeHistoriesTable,
 		Oauth2ClientsTable,
+		Oauth2JtiBlacklistTable,
 		Oauth2SessionsTable,
 		OrganizationMembersTable,
 		OrganizationPendingInvitesTable,
@@ -1321,6 +1342,9 @@ func init() {
 	}
 	Oauth2ClientsTable.Annotation = &entsql.Annotation{
 		Table: "oauth2_clients",
+	}
+	Oauth2JtiBlacklistTable.Annotation = &entsql.Annotation{
+		Table: "oauth2_jti_blacklist",
 	}
 	Oauth2SessionsTable.Annotation = &entsql.Annotation{
 		Table: "oauth2_sessions",

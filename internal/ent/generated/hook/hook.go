@@ -224,6 +224,18 @@ func (f OAuth2ClientFunc) Mutate(ctx context.Context, m generated.Mutation) (gen
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *generated.OAuth2ClientMutation", m)
 }
 
+// The OAuth2JTIBlacklistFunc type is an adapter to allow the use of ordinary
+// function as OAuth2JTIBlacklist mutator.
+type OAuth2JTIBlacklistFunc func(context.Context, *generated.OAuth2JTIBlacklistMutation) (generated.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f OAuth2JTIBlacklistFunc) Mutate(ctx context.Context, m generated.Mutation) (generated.Value, error) {
+	if mv, ok := m.(*generated.OAuth2JTIBlacklistMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *generated.OAuth2JTIBlacklistMutation", m)
+}
+
 // The OAuth2SessionFunc type is an adapter to allow the use of ordinary
 // function as OAuth2Session mutator.
 type OAuth2SessionFunc func(context.Context, *generated.OAuth2SessionMutation) (generated.Value, error)

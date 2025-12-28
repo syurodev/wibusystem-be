@@ -15,12 +15,12 @@ require (
 	github.com/jackc/pgx/v5 v5.7.6
 	github.com/joho/godotenv v1.5.1
 	github.com/knights-analytics/hugot v0.5.10
-	github.com/lib/pq v1.10.9
 	github.com/nicksnyder/go-i18n/v2 v2.6.0
 	github.com/ory/fosite v0.49.0
 	github.com/pgvector/pgvector-go v0.3.0
 	github.com/redis/go-redis/v9 v9.16.0
 	github.com/resend/resend-go/v2 v2.28.0
+	github.com/samber/lo v1.52.0
 	github.com/shopspring/decimal v1.4.0
 	go.uber.org/zap v1.27.0
 	golang.org/x/crypto v0.45.0
@@ -117,7 +117,6 @@ require (
 	github.com/quic-go/qpack v0.5.1 // indirect
 	github.com/quic-go/quic-go v0.55.0 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
-	github.com/samber/lo v1.52.0 // indirect
 	github.com/schollz/progressbar/v2 v2.15.0 // indirect
 	github.com/seatgeek/logrus-gelf-formatter v0.0.0-20210414080842-5b05eb8ff761 // indirect
 	github.com/segmentio/asm v1.2.1 // indirect

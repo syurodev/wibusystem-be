@@ -25,6 +25,7 @@ import (
 	"system/internal/ent/generated/novelvolume"
 	"system/internal/ent/generated/novelvolumehistory"
 	"system/internal/ent/generated/oauth2client"
+	"system/internal/ent/generated/oauth2jtiblacklist"
 	"system/internal/ent/generated/oauth2session"
 	"system/internal/ent/generated/organization"
 	"system/internal/ent/generated/orgmember"
@@ -593,6 +594,33 @@ func (f TraverseOAuth2Client) Traverse(ctx context.Context, q generated.Query) e
 		return f(ctx, q)
 	}
 	return fmt.Errorf("unexpected query type %T. expect *generated.OAuth2ClientQuery", q)
+}
+
+// The OAuth2JTIBlacklistFunc type is an adapter to allow the use of ordinary function as a Querier.
+type OAuth2JTIBlacklistFunc func(context.Context, *generated.OAuth2JTIBlacklistQuery) (generated.Value, error)
+
+// Query calls f(ctx, q).
+func (f OAuth2JTIBlacklistFunc) Query(ctx context.Context, q generated.Query) (generated.Value, error) {
+	if q, ok := q.(*generated.OAuth2JTIBlacklistQuery); ok {
+		return f(ctx, q)
+	}
+	return nil, fmt.Errorf("unexpected query type %T. expect *generated.OAuth2JTIBlacklistQuery", q)
+}
+
+// The TraverseOAuth2JTIBlacklist type is an adapter to allow the use of ordinary function as Traverser.
+type TraverseOAuth2JTIBlacklist func(context.Context, *generated.OAuth2JTIBlacklistQuery) error
+
+// Intercept is a dummy implementation of Intercept that returns the next Querier in the pipeline.
+func (f TraverseOAuth2JTIBlacklist) Intercept(next generated.Querier) generated.Querier {
+	return next
+}
+
+// Traverse calls f(ctx, q).
+func (f TraverseOAuth2JTIBlacklist) Traverse(ctx context.Context, q generated.Query) error {
+	if q, ok := q.(*generated.OAuth2JTIBlacklistQuery); ok {
+		return f(ctx, q)
+	}
+	return fmt.Errorf("unexpected query type %T. expect *generated.OAuth2JTIBlacklistQuery", q)
 }
 
 // The OAuth2SessionFunc type is an adapter to allow the use of ordinary function as a Querier.
@@ -1255,6 +1283,8 @@ func NewQuery(q generated.Query) (Query, error) {
 		return &query[*generated.NovelVolumeHistoryQuery, predicate.NovelVolumeHistory, novelvolumehistory.OrderOption]{typ: generated.TypeNovelVolumeHistory, tq: q}, nil
 	case *generated.OAuth2ClientQuery:
 		return &query[*generated.OAuth2ClientQuery, predicate.OAuth2Client, oauth2client.OrderOption]{typ: generated.TypeOAuth2Client, tq: q}, nil
+	case *generated.OAuth2JTIBlacklistQuery:
+		return &query[*generated.OAuth2JTIBlacklistQuery, predicate.OAuth2JTIBlacklist, oauth2jtiblacklist.OrderOption]{typ: generated.TypeOAuth2JTIBlacklist, tq: q}, nil
 	case *generated.OAuth2SessionQuery:
 		return &query[*generated.OAuth2SessionQuery, predicate.OAuth2Session, oauth2session.OrderOption]{typ: generated.TypeOAuth2Session, tq: q}, nil
 	case *generated.OrgMemberQuery:

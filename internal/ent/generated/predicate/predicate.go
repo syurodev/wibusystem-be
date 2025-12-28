@@ -60,6 +60,9 @@ type NovelVolumeHistory func(*sql.Selector)
 // OAuth2Client is the predicate function for oauth2client builders.
 type OAuth2Client func(*sql.Selector)
 
+// OAuth2JTIBlacklist is the predicate function for oauth2jtiblacklist builders.
+type OAuth2JTIBlacklist func(*sql.Selector)
+
 // OAuth2Session is the predicate function for oauth2session builders.
 type OAuth2Session func(*sql.Selector)
 

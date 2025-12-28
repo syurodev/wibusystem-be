@@ -43,8 +43,8 @@ import (
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 
-	// Register postgres driver for sql.Open("postgres", ...)
-	_ "github.com/lib/pq"
+	// Register pgx postgres driver for sql.Open
+	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
 // ===== Infrastructure Providers =====
@@ -99,7 +99,7 @@ func ProvideDBFromEnt(cfg *configs.Config) (*sql.DB, error) {
 		cfg.DB.Name,
 		cfg.DB.SSLMode,
 	)
-	return sql.Open("postgres", dsn)
+	return sql.Open("pgx", dsn)
 }
 
 var InfraSet = wire.NewSet(

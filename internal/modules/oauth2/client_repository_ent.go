@@ -6,7 +6,6 @@ package oauth2
 
 import (
 	"context"
-	"database/sql"
 	"system/internal/platform/database"
 	"time"
 
@@ -16,18 +15,18 @@ import (
 	"system/internal/domain"
 	ent "system/internal/ent/generated"
 	"system/internal/ent/generated/oauth2client"
+	"system/internal/ent/generated/oauth2jtiblacklist"
 	pkgerrors "system/pkg/errors"
 )
 
 // oauth2ClientEntRepository triển khai OAuth2ClientRepository sử dụng Ent
 type oauth2ClientEntRepository struct {
 	client *ent.Client
-	db     *sql.DB
 }
 
 // NewOAuth2ClientEntRepository tạo instance mới
-func NewOAuth2ClientEntRepository(client *ent.Client, db *sql.DB) domain.OAuth2ClientRepository {
-	return &oauth2ClientEntRepository{client: client, db: db}
+func NewOAuth2ClientEntRepository(client *ent.Client) domain.OAuth2ClientRepository {
+	return &oauth2ClientEntRepository{client: client}
 }
 
 // GetClientByID lấy thông tin client từ database (active only)
@@ -49,11 +48,9 @@ func (r *oauth2ClientEntRepository) GetClientByID(ctx context.Context, id uuid.U
 
 // ClientAssertionJWTValid checks if a JTI has been used
 func (r *oauth2ClientEntRepository) ClientAssertionJWTValid(ctx context.Context, jti string) error {
-	var exists bool
-	err := r.db.QueryRowContext(ctx,
-		"SELECT EXISTS(SELECT 1 FROM identify.oauth2_jti_blacklist WHERE signature=$1)",
-		jti,
-	).Scan(&exists)
+	exists, err := database.GetClientFromContext(ctx, r.client).OAuth2JTIBlacklist.Query().
+		Where(oauth2jtiblacklist.SignatureEQ(jti)).
+		Exist(ctx)
 	if err != nil {
 		return err
 	}
@@ -65,10 +62,10 @@ func (r *oauth2ClientEntRepository) ClientAssertionJWTValid(ctx context.Context,
 
 // SetClientAssertionJWT saves a JTI to blacklist
 func (r *oauth2ClientEntRepository) SetClientAssertionJWT(ctx context.Context, jti string, exp time.Time) error {
-	_, err := r.db.ExecContext(ctx,
-		"INSERT INTO identify.oauth2_jti_blacklist (signature, expires_at) VALUES ($1, $2)",
-		jti, exp,
-	)
+	_, err := database.GetClientFromContext(ctx, r.client).OAuth2JTIBlacklist.Create().
+		SetSignature(jti).
+		SetExpiresAt(exp).
+		Save(ctx)
 	return err
 }
 

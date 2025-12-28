@@ -48,6 +48,8 @@ type Tx struct {
 	NovelVolumeHistory *NovelVolumeHistoryClient
 	// OAuth2Client is the client for interacting with the OAuth2Client builders.
 	OAuth2Client *OAuth2ClientClient
+	// OAuth2JTIBlacklist is the client for interacting with the OAuth2JTIBlacklist builders.
+	OAuth2JTIBlacklist *OAuth2JTIBlacklistClient
 	// OAuth2Session is the client for interacting with the OAuth2Session builders.
 	OAuth2Session *OAuth2SessionClient
 	// OrgMember is the client for interacting with the OrgMember builders.
@@ -243,6 +245,7 @@ func (tx *Tx) init() {
 	tx.NovelVolume = NewNovelVolumeClient(tx.config)
 	tx.NovelVolumeHistory = NewNovelVolumeHistoryClient(tx.config)
 	tx.OAuth2Client = NewOAuth2ClientClient(tx.config)
+	tx.OAuth2JTIBlacklist = NewOAuth2JTIBlacklistClient(tx.config)
 	tx.OAuth2Session = NewOAuth2SessionClient(tx.config)
 	tx.OrgMember = NewOrgMemberClient(tx.config)
 	tx.OrgPendingInvite = NewOrgPendingInviteClient(tx.config)

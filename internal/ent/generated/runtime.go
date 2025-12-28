@@ -21,6 +21,7 @@ import (
 	"system/internal/ent/generated/novelvolume"
 	"system/internal/ent/generated/novelvolumehistory"
 	"system/internal/ent/generated/oauth2client"
+	"system/internal/ent/generated/oauth2jtiblacklist"
 	"system/internal/ent/generated/oauth2session"
 	"system/internal/ent/generated/organization"
 	"system/internal/ent/generated/orgmember"
@@ -669,6 +670,16 @@ func init() {
 	oauth2clientDescID := oauth2clientFields[0].Descriptor()
 	// oauth2client.DefaultID holds the default value on creation for the id field.
 	oauth2client.DefaultID = oauth2clientDescID.Default.(func() uuid.UUID)
+	oauth2jtiblacklistFields := schema.OAuth2JTIBlacklist{}.Fields()
+	_ = oauth2jtiblacklistFields
+	// oauth2jtiblacklistDescSignature is the schema descriptor for signature field.
+	oauth2jtiblacklistDescSignature := oauth2jtiblacklistFields[0].Descriptor()
+	// oauth2jtiblacklist.SignatureValidator is a validator for the "signature" field. It is called by the builders before save.
+	oauth2jtiblacklist.SignatureValidator = oauth2jtiblacklistDescSignature.Validators[0].(func(string) error)
+	// oauth2jtiblacklistDescCreatedAt is the schema descriptor for created_at field.
+	oauth2jtiblacklistDescCreatedAt := oauth2jtiblacklistFields[2].Descriptor()
+	// oauth2jtiblacklist.DefaultCreatedAt holds the default value on creation for the created_at field.
+	oauth2jtiblacklist.DefaultCreatedAt = oauth2jtiblacklistDescCreatedAt.Default.(func() time.Time)
 	oauth2sessionFields := schema.OAuth2Session{}.Fields()
 	_ = oauth2sessionFields
 	// oauth2sessionDescSignature is the schema descriptor for signature field.

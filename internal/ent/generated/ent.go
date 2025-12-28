@@ -26,6 +26,7 @@ import (
 	"system/internal/ent/generated/novelvolume"
 	"system/internal/ent/generated/novelvolumehistory"
 	"system/internal/ent/generated/oauth2client"
+	"system/internal/ent/generated/oauth2jtiblacklist"
 	"system/internal/ent/generated/oauth2session"
 	"system/internal/ent/generated/organization"
 	"system/internal/ent/generated/orgmember"
@@ -131,6 +132,7 @@ func checkColumn(t, c string) error {
 			novelvolume.Table:             novelvolume.ValidColumn,
 			novelvolumehistory.Table:      novelvolumehistory.ValidColumn,
 			oauth2client.Table:            oauth2client.ValidColumn,
+			oauth2jtiblacklist.Table:      oauth2jtiblacklist.ValidColumn,
 			oauth2session.Table:           oauth2session.ValidColumn,
 			orgmember.Table:               orgmember.ValidColumn,
 			orgpendinginvite.Table:        orgpendinginvite.ValidColumn,
