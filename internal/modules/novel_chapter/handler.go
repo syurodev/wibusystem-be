@@ -273,6 +273,36 @@ func (h *Handler) GetChapter(c *gin.Context) {
 	response.Success(c, http.StatusOK, I18nGetSuccess, resp, nil)
 }
 
+// GetChapterFull retrieves full chapter details by slug
+// @Summary Get full chapter details with novel, volume, and owner info
+// @Tags Chapters
+// @Produce json
+// @Param identifier path string true "Chapter Slug"
+// @Success 200 {object} response.StandardResponse{data=ChapterFullResponse}
+// @Failure 404 {object} response.StandardResponse
+// @Failure 500 {object} response.StandardResponse
+// @Router /api/v1/novels/chapters/{identifier}/full [get]
+func (h *Handler) GetChapterFull(c *gin.Context) {
+	slug := c.Param("identifier")
+	if slug == "" {
+		response.Error(c, http.StatusBadRequest, "INVALID_SLUG", "chapter.invalid_slug", nil)
+		return
+	}
+
+	data, err := h.chapterService.GetChapterFullBySlug(c.Request.Context(), slug)
+	if err != nil {
+		if appErr, ok := pkgerrors.AsAppError(err); ok {
+			response.Error(c, appErr.StatusCode, appErr.ErrCode, appErr.I18nKey, nil)
+			return
+		}
+		response.Error(c, http.StatusInternalServerError, "GET_FAILED", I18nGetFailed, nil)
+		return
+	}
+
+	resp := mapToChapterFullResponse(data)
+	response.Success(c, http.StatusOK, I18nGetFullSuccess, resp, nil)
+}
+
 // ListChaptersByNovel retrieves chapters for a novel
 // @Summary List chapters by novel ID
 // @Tags Chapters
@@ -656,4 +686,55 @@ func extractRequestContext(c *gin.Context) map[string]any {
 		"ip_address": c.ClientIP(),
 		"user_agent": c.GetHeader("User-Agent"),
 	}
+}
+
+// Helper function to map ChapterFullData to response
+func mapToChapterFullResponse(data *ChapterFullData) chapterdto.ChapterFullResponse {
+	chapter := data.Chapter
+
+	resp := chapterdto.ChapterFullResponse{
+		ID:             chapter.ID.String(),
+		NovelID:        chapter.NovelID.String(),
+		NovelName:      data.NovelName,
+		ChapterNumber:  chapter.ChapterNumber,
+		Title:          chapter.Title,
+		Slug:           chapter.Slug,
+		Content:        chapter.Content,
+		WordCount:      chapter.WordCount,
+		CharacterCount: chapter.CharacterCount,
+		IsFree:         chapter.IsFree,
+		Status:         string(chapter.Status),
+		ViewCount:      chapter.ViewCount,
+		LikeCount:      chapter.LikeCount,
+		CommentCount:   chapter.CommentCount,
+		AuthorNotes:    chapter.AuthorNotes,
+	}
+
+	if chapter.VolumeID != nil {
+		volumeID := chapter.VolumeID.String()
+		resp.VolumeID = &volumeID
+	}
+
+	if data.VolumeName != nil {
+		resp.VolumeName = data.VolumeName
+	}
+
+	if chapter.PublishedAt != nil {
+		publishedAt := chapter.PublishedAt.Format(timeutil.ISO8601Layout)
+		resp.PublishedAt = &publishedAt
+	}
+
+	createdBy := chapter.CreatedBy.String()
+	resp.CreatedBy = &createdBy
+
+	if data.Owner != nil {
+		resp.Owner = &chapterdto.OwnerInfo{
+			ID:          data.Owner.ID,
+			DisplayName: data.Owner.DisplayName,
+			Username:    data.Owner.Username,
+			AvatarURL:   data.Owner.AvatarURL,
+		}
+	}
+
+	return resp
 }

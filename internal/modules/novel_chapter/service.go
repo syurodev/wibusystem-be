@@ -708,3 +708,54 @@ func (s *chapterServiceImpl) GetRecentChapters(ctx context.Context, limit int) (
 
 	return summaries, nil
 }
+
+// GetChapterFullBySlug retrieves chapter with novel, volume, and owner info
+func (s *chapterServiceImpl) GetChapterFullBySlug(ctx context.Context, slug string) (*ChapterFullData, error) {
+	// 1. Get chapter by slug
+	chapter, err := s.chapterRepo.GetBySlug(ctx, slug)
+	if err != nil {
+		if ent.IsNotFound(err) {
+			return nil, pkgerrors.NotFound(I18nNotFound, "chapter not found")
+		}
+		return nil, err
+	}
+
+	result := &ChapterFullData{
+		Chapter: chapter,
+	}
+
+	// 2. Get novel info
+	novel, err := s.novelRepo.GetByID(ctx, chapter.NovelID)
+	if err == nil && novel != nil {
+		result.NovelName = novel.Title
+	}
+
+	// 3. Get volume info if exists
+	if chapter.VolumeID != nil {
+		volume, err := s.volumeRepo.GetByID(ctx, *chapter.VolumeID)
+		if err == nil && volume != nil {
+			result.VolumeName = &volume.Title
+		}
+	}
+
+	// 4. Get owner (user who created the chapter)
+	user, err := s.userRepo.GetByID(ctx, chapter.CreatedBy)
+	if err == nil && user != nil {
+		result.Owner = &OwnerData{
+			ID:          user.ID.String(),
+			DisplayName: getString(user.DisplayName),
+			Username:    getString(user.Username),
+			AvatarURL:   user.AvatarURL,
+		}
+	}
+
+	return result, nil
+}
+
+// Helper function to get string value from pointer
+func getString(s *string) string {
+	if s == nil {
+		return ""
+	}
+	return *s
+}

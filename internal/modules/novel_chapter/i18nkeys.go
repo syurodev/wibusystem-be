@@ -16,6 +16,7 @@ const (
 	I18nUpdatedSuccess    = "chapter.updated_success"
 	I18nDeletedSuccess    = "chapter.deleted_success"
 	I18nGetSuccess        = "chapter.get_success"
+	I18nGetFullSuccess    = "chapter.get_full_success"
 	I18nListSuccess       = "chapter.list_success"
 	I18nReorderSuccess    = "chapter.reorder_success"
 	I18nBulkCreateSuccess = "chapter.bulk_create_success"

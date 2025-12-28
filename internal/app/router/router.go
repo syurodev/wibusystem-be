@@ -217,20 +217,13 @@ func registerNovelRoutes(apiV1 *gin.RouterGroup, deps *Dependencies, authMiddlew
 	protectedVolume.POST("/:identifier/publish", h.Volume.PublishVolume)
 	protectedVolume.POST("/:identifier/unpublish", h.Volume.UnpublishVolume)
 
-	volumeGroup.GET("/:identifier/chapters", h.Chapter.ListChaptersByVolume)
-	volumeGroup.POST("/:identifier/chapters", authMiddleware, h.Chapter.CreateChapter)
+	// Volume chapters routes
+	volumeChaptersGroup := volumeGroup.Group("/:identifier/chapters")
+	h.Chapter.RegisterVolumeChaptersRoutes(volumeChaptersGroup, authMiddleware)
 
 	// Chapter routes (Namespace: /novels/chapters)
 	chapterGroup := apiV1.Group("/novels/chapters")
-	chapterGroup.GET("/:identifier", h.Chapter.GetChapter)
-	chapterGroup.POST("/:identifier/view", h.Chapter.IncrementViewCount)
-
-	protectedChapter := chapterGroup.Group("", authMiddleware)
-	protectedChapter.PUT("/:identifier", h.Chapter.UpdateChapter)
-	protectedChapter.DELETE("/:identifier", h.Chapter.DeleteChapter)
-	protectedChapter.POST("/:identifier/publish", h.Chapter.PublishChapter)
-	protectedChapter.POST("/:identifier/schedule", h.Chapter.ScheduleChapter)
-	protectedChapter.PUT("/:identifier/statistics", h.Chapter.UpdateStatistics)
+	h.Chapter.RegisterRoutes(chapterGroup, authMiddleware)
 }
 
 // registerAuthAPIRoutes đăng ký auth API routes

@@ -1,6 +1,17 @@
 package media
 
-import "encoding/json"
+import (
+	"encoding/json"
+
+	"system/internal/dto/shared"
+)
+
+// Re-export shared types for backward compatibility
+type (
+	OwnerInfo   = shared.OwnerInfo
+	GenreInfo   = shared.GenreInfo
+	CreatorInfo = shared.CreatorInfo
+)
 
 // MediaSeriesResponse matches the frontend MediaSeriesSchema
 // This is a unified response for Novel, Manga, and Anime lists.
@@ -40,27 +51,6 @@ type MediaSeriesResponse struct {
 	CurrentRank  *int `json:"current_rank,omitempty"`
 	PreviousRank *int `json:"previous_rank,omitempty"`
 	RankChange   *int `json:"rank_change,omitempty"`
-}
-
-type GenreInfo struct {
-	ID   string `json:"id"`
-	Name string `json:"name"`
-	Slug string `json:"slug"`
-}
-
-// CreatorInfo là DTO cho author/artist trong media response
-type CreatorInfo struct {
-	ID   string `json:"id"`
-	Name string `json:"name"`
-	Slug string `json:"slug"`
-}
-
-type OwnerInfo struct {
-	ID          string  `json:"id"`
-	DisplayName string  `json:"display_name"`
-	Username    string  `json:"username"`
-	AvatarURL   *string `json:"avatar_url,omitempty"`
-	Slug        *string `json:"slug,omitempty"`
 }
 
 type LatestChapterInfo struct {

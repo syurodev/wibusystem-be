@@ -3,6 +3,7 @@
   "chapter.updated_success": "Chương đã được cập nhật thành công.",
   "chapter.deleted_success": "Chương đã được xóa thành công.",
   "chapter.get_success": "Lấy thông tin chương thành công.",
+  "chapter.get_full_success": "Lấy chi tiết chương thành công.",
   "chapter.list_success": "Lấy danh sách chương thành công.",
   "chapter.reorder_success": "Sắp xếp lại chương thành công.",
   "chapter.bulk_create_success": "Tạo nhiều chương thành công.",

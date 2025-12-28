@@ -79,6 +79,26 @@ type ChapterService interface {
 
 	// GetRecentChapters retrieves recently published chapters
 	GetRecentChapters(ctx context.Context, limit int) ([]*domain.NovelChapterSummary, error)
+
+	// GetChapterFullBySlug retrieves chapter with novel, volume, and owner info
+	GetChapterFullBySlug(ctx context.Context, slug string) (*ChapterFullData, error)
+}
+
+// ChapterFullData contains chapter with related data for full response
+type ChapterFullData struct {
+	Chapter    *domain.NovelChapter
+	NovelName  string
+	VolumeName *string
+	Owner      *OwnerData
+}
+
+// OwnerData contains owner user information
+type OwnerData struct {
+	ID          string
+	DisplayName string
+	Username    string
+	AvatarURL   *string
+	Slug        *string
 }
 
 // ViewTracker interface defines view tracking operations

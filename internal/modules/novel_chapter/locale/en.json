@@ -3,6 +3,7 @@
   "chapter.updated_success": "Chapter updated successfully.",
   "chapter.deleted_success": "Chapter deleted successfully.",
   "chapter.get_success": "Chapter retrieved successfully.",
+  "chapter.get_full_success": "Chapter details retrieved successfully.",
   "chapter.list_success": "Chapters list retrieved successfully.",
   "chapter.reorder_success": "Chapters reordered successfully.",
   "chapter.bulk_create_success": "Chapters created successfully.",

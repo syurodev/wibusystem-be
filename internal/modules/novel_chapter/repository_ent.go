@@ -84,6 +84,17 @@ func (r *entChapterRepository) GetByNovelIDAndNumber(ctx context.Context, novelI
 	return entChapterToDomain(c), nil
 }
 
+// GetBySlug lấy chapter theo slug
+func (r *entChapterRepository) GetBySlug(ctx context.Context, slug string) (*domain.NovelChapter, error) {
+	c, err := database.GetClientFromContext(ctx, r.client).NovelChapter.Query().
+		Where(novelchapter.Slug(slug), novelchapter.DeletedAtIsNil()).
+		Only(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return entChapterToDomain(c), nil
+}
+
 // GetByNovelID lấy danh sách chapter theo novel ID
 func (r *entChapterRepository) GetByNovelID(ctx context.Context, novelID uuid.UUID, filter domain.NovelChapterFilter) ([]*domain.NovelChapter, error) {
 	query := database.GetClientFromContext(ctx, r.client).NovelChapter.Query().

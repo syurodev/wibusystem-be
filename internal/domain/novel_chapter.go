@@ -91,6 +91,9 @@ type NovelChapterRepository interface {
 	// GetByNovelIDAndNumber lấy chapter theo novel ID và chapter number
 	GetByNovelIDAndNumber(ctx context.Context, novelID uuid.UUID, chapterNumber int) (*NovelChapter, error)
 
+	// GetBySlug lấy chapter theo slug
+	GetBySlug(ctx context.Context, slug string) (*NovelChapter, error)
+
 	// GetByNovelID lấy danh sách chapter theo novel ID
 	GetByNovelID(ctx context.Context, novelID uuid.UUID, filter NovelChapterFilter) ([]*NovelChapter, error)
 

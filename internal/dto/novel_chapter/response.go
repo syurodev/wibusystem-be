@@ -78,3 +78,37 @@ type MinimalChapterInfo struct {
 	Title       string `json:"title"`
 	PublishedAt string `json:"published_at"`
 }
+
+// ChapterFullResponse - response cho endpoint /:identifier/full
+// Bao gồm thông tin novel, volume, và owner
+type ChapterFullResponse struct {
+	ID             string          `json:"id"`
+	NovelID        string          `json:"novel_id"`
+	NovelName      string          `json:"novel_name"`
+	VolumeID       *string         `json:"volume_id,omitempty"`
+	VolumeName     *string         `json:"volume_name,omitempty"`
+	ChapterNumber  int             `json:"chapter_number"`
+	Title          string          `json:"title"`
+	Slug           string          `json:"slug"`
+	Content        json.RawMessage `json:"content"`
+	WordCount      int             `json:"word_count"`
+	CharacterCount int             `json:"character_count"`
+	IsFree         bool            `json:"is_free"`
+	Status         string          `json:"status"`
+	ViewCount      int64           `json:"view_count"`
+	LikeCount      int             `json:"like_count"`
+	CommentCount   int             `json:"comment_count"`
+	AuthorNotes    json.RawMessage `json:"author_notes,omitempty"`
+	PublishedAt    *string         `json:"published_at,omitempty"`
+	CreatedBy      *string         `json:"created_by,omitempty"`
+	Owner          *OwnerInfo      `json:"owner,omitempty"`
+}
+
+// OwnerInfo - alias to shared.OwnerInfo for backward compatibility
+type OwnerInfo = struct {
+	ID          string  `json:"id"`
+	DisplayName string  `json:"display_name"`
+	Username    string  `json:"username"`
+	AvatarURL   *string `json:"avatar_url,omitempty"`
+	Slug        *string `json:"slug,omitempty"`
+}
