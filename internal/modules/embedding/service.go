@@ -74,6 +74,7 @@ func (s *Service) QueueNovelForEmbedding(ctx context.Context, novelID uuid.UUID)
 }
 
 // PopPendingNovelIDs pops novel IDs from the Redis queue.
+// DEPRECATED: Use PeekPendingNovelIDs + AcknowledgePendingNovelIDs for safer processing.
 func (s *Service) PopPendingNovelIDs(ctx context.Context, count int) ([]uuid.UUID, error) {
 	var ids []uuid.UUID
 	for i := 0; i < count; i++ {
@@ -93,6 +94,41 @@ func (s *Service) PopPendingNovelIDs(ctx context.Context, count int) ([]uuid.UUI
 		ids = append(ids, id)
 	}
 	return ids, nil
+}
+
+// PeekPendingNovelIDs reads novel IDs from the queue WITHOUT removing them.
+// Use with AcknowledgePendingNovelIDs after successful processing.
+func (s *Service) PeekPendingNovelIDs(ctx context.Context, count int) ([]uuid.UUID, error) {
+	// LRANGE reads from tail (since we LPUSH to add items)
+	// Queue works as: LPUSH (add) -> [...] <- RPOP (consume)
+	// So we need to read from end: LRANGE key -count -1
+	results, err := s.redis.LRange(ctx, s.config.RedisQueueKey, int64(-count), -1).Result()
+	if err != nil && err != redis.Nil {
+		return nil, err
+	}
+
+	var ids []uuid.UUID
+	for _, result := range results {
+		id, err := uuid.FromString(result)
+		if err != nil {
+			s.logger.Warn("Invalid UUID in embedding queue", zap.String("value", result))
+			continue
+		}
+		ids = append(ids, id)
+	}
+	return ids, nil
+}
+
+// AcknowledgePendingNovelIDs removes N novel IDs from the queue after successful processing.
+// Call this after successfully processing IDs returned by PeekPendingNovelIDs.
+func (s *Service) AcknowledgePendingNovelIDs(ctx context.Context, count int) error {
+	if count <= 0 {
+		return nil
+	}
+	// LTRIM keeps elements from 0 to (len-count-1), removing last 'count' elements
+	// Since we peeked from tail, we trim from tail
+	_, err := s.redis.LTrim(ctx, s.config.RedisQueueKey, 0, int64(-count-1)).Result()
+	return err
 }
 
 // GenerateAndStoreEmbedding generates and stores an embedding for a novel.

@@ -86,7 +86,10 @@ func main() {
 	}
 	appLogger.Info("Application initialized successfully via Wire DI.")
 
-	// 11. Start HTTP Server
+	// 9. Start Background Workers
+	app.WorkerManager.Start(context.Background())
+
+	// 10. Start HTTP Server
 	go func() {
 		if err := app.HTTPServer.ListenAndServe(); err != nil && err.Error() != "http: Server closed" {
 			appLogger.Fatal("Failed to start HTTP server", zap.Error(err))
@@ -94,7 +97,7 @@ func main() {
 	}()
 	appLogger.Info("HTTP Server started", zap.String("port", cfg.Server.Port))
 
-	// 12. Setup graceful shutdown
+	// 11. Setup graceful shutdown
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 
@@ -108,6 +111,11 @@ func main() {
 	// Graceful shutdown
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer shutdownCancel()
+
+	// Stop workers first (they may need to flush data)
+	if err := app.WorkerManager.Stop(shutdownCtx); err != nil {
+		appLogger.Error("Error stopping workers", zap.Error(err))
+	}
 
 	if err := app.HTTPServer.Shutdown(shutdownCtx); err != nil {
 		appLogger.Error("Server forced to shutdown", zap.Error(err))

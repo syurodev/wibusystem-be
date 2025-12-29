@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"system/configs"
 	"system/internal/app/router"
+	"system/internal/app/worker"
 	ent "system/internal/ent/generated"
 	analytics_module "system/internal/modules/analytics"
 	artist_module "system/internal/modules/artist"
@@ -391,18 +392,19 @@ var StructSet = wire.NewSet(
 
 // Application holds all initialized components
 type Application struct {
-	Config     *configs.Config
-	Logger     *zap.Logger
-	Router     *gin.Engine
-	HTTPServer *http.Server
-	Redis      *database.RedisClient
-	ClickHouse *database.ClickHouseClient
-	I18n       *i18n.I18n
-	Repos      *router.Repositories
-	Services   *router.Services
-	Handlers   *router.Handlers
-	OAuth2     fosite.OAuth2Provider
-	EntClient  *ent.Client // Ent ORM client
+	Config        *configs.Config
+	Logger        *zap.Logger
+	Router        *gin.Engine
+	HTTPServer    *http.Server
+	Redis         *database.RedisClient
+	ClickHouse    *database.ClickHouseClient
+	I18n          *i18n.I18n
+	Repos         *router.Repositories
+	Services      *router.Services
+	Handlers      *router.Handlers
+	OAuth2        fosite.OAuth2Provider
+	EntClient     *ent.Client          // Ent ORM client
+	WorkerManager *worker.WorkerManager // Background workers manager
 }
 
 // ProvideHTTPServer creates the HTTP server
@@ -436,6 +438,7 @@ var MasterSet = wire.NewSet(
 	StructSet,
 	ProvideRouter,
 	ProvideHTTPServer,
+	worker.NewWorkerManager,
 	wire.Struct(new(Application), "*"),
 )
 

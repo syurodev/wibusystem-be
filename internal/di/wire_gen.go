@@ -18,6 +18,7 @@ import (
 	"net/http"
 	"system/configs"
 	"system/internal/app/router"
+	"system/internal/app/worker"
 	"system/internal/ent/generated"
 	"system/internal/modules/analytics"
 	"system/internal/modules/artist"
@@ -284,19 +285,21 @@ func InitializeApplication(ctx context.Context, cfg *configs.Config, logger *zap
 		Transaction:        transactionRepository,
 		MediaProgress:      mediaProgressRepository,
 	}
+	workerManager := worker.NewWorkerManager(viewTrackingService, viewTrackingConfig, embeddingService, novelService, embeddingConfig, viewAnalyticsRepository, topupUseCase, logger)
 	application := &Application{
-		Config:     cfg,
-		Logger:     logger,
-		Router:     engine,
-		HTTPServer: server,
-		Redis:      rdb,
-		ClickHouse: ch,
-		I18n:       i18nInstance,
-		Repos:      repositories,
-		Services:   services,
-		Handlers:   handlers,
-		OAuth2:     oAuth2Provider,
-		EntClient:  client,
+		Config:        cfg,
+		Logger:        logger,
+		Router:        engine,
+		HTTPServer:    server,
+		Redis:         rdb,
+		ClickHouse:    ch,
+		I18n:          i18nInstance,
+		Repos:         repositories,
+		Services:      services,
+		Handlers:      handlers,
+		OAuth2:        oAuth2Provider,
+		EntClient:     client,
+		WorkerManager: workerManager,
 	}
 	return application, nil
 }
@@ -387,18 +390,19 @@ var StructSet = wire.NewSet(wire.Struct(new(router.Repositories), "*"), wire.Str
 
 // Application holds all initialized components
 type Application struct {
-	Config     *configs.Config
-	Logger     *zap.Logger
-	Router     *gin.Engine
-	HTTPServer *http.Server
-	Redis      *database.RedisClient
-	ClickHouse *database.ClickHouseClient
-	I18n       *i18n.I18n
-	Repos      *router.Repositories
-	Services   *router.Services
-	Handlers   *router.Handlers
-	OAuth2     fosite.OAuth2Provider
-	EntClient  *generated.Client // Ent ORM client
+	Config        *configs.Config
+	Logger        *zap.Logger
+	Router        *gin.Engine
+	HTTPServer    *http.Server
+	Redis         *database.RedisClient
+	ClickHouse    *database.ClickHouseClient
+	I18n          *i18n.I18n
+	Repos         *router.Repositories
+	Services      *router.Services
+	Handlers      *router.Handlers
+	OAuth2        fosite.OAuth2Provider
+	EntClient     *generated.Client     // Ent ORM client
+	WorkerManager *worker.WorkerManager // Background workers manager
 }
 
 // ProvideHTTPServer creates the HTTP server
@@ -431,5 +435,5 @@ var MasterSet = wire.NewSet(
 	HandlerSet,
 	StructSet,
 	ProvideRouter,
-	ProvideHTTPServer, wire.Struct(new(Application), "*"),
+	ProvideHTTPServer, worker.NewWorkerManager, wire.Struct(new(Application), "*"),
 )

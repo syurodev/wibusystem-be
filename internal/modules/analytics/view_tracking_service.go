@@ -286,11 +286,15 @@ func (s *ViewTrackingService) TrackChapterView(ctx context.Context, chapterID uu
 // SyncBuffersToPostgreSQL syncs Redis buffers sang PostgreSQL.
 // Method này được gọi bởi background worker mỗi 5-10 phút.
 //
-// Flow:
-//  1. Get all buffers from Redis (atomic clear)
+// Flow (peek-process-acknowledge pattern):
+//  1. PeekBuffers - read all buffers WITHOUT deleting
 //  2. Separate chapter vs novel increments
 //  3. Batch update chapters using BatchIncrementViewCount
 //  4. Batch update novels using BatchIncrementViewCount
+//  5. Update genre view counts
+//  6. ClearBuffers - delete ONLY after ALL updates succeed
+//
+// If any step fails, buffers remain in Redis for retry.
 //
 // Parameters:
 //   - ctx: Context
@@ -300,10 +304,10 @@ func (s *ViewTrackingService) TrackChapterView(ctx context.Context, chapterID uu
 func (s *ViewTrackingService) SyncBuffersToPostgreSQL(ctx context.Context) error {
 	s.logger.Info("Starting buffer sync to PostgreSQL...")
 
-	// 1. Get all buffers from Redis (atomically clears them)
-	buffers, err := s.viewTrackingRepo.GetAllBuffers(ctx)
+	// 1. Peek all buffers WITHOUT clearing (safe read)
+	buffers, err := s.viewTrackingRepo.PeekBuffers(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to get buffers: %w", err)
+		return fmt.Errorf("failed to peek buffers: %w", err)
 	}
 
 	if len(buffers) == 0 {
@@ -329,8 +333,7 @@ func (s *ViewTrackingService) SyncBuffersToPostgreSQL(ctx context.Context) error
 	// 3. Batch update chapters
 	if len(chapterIncrements) > 0 {
 		if err := s.chapterRepo.BatchIncrementViewCount(ctx, chapterIncrements); err != nil {
-			s.logger.Error("Failed to batch update chapter view counts", zap.Error(err))
-			// TODO: Implement retry/dead-letter-queue logic
+			s.logger.Error("Failed to batch update chapter view counts, keeping Redis data for retry", zap.Error(err))
 			return fmt.Errorf("failed to update chapters: %w", err)
 		}
 		s.logger.Info("Updated chapter view counts",
@@ -340,7 +343,7 @@ func (s *ViewTrackingService) SyncBuffersToPostgreSQL(ctx context.Context) error
 	// 4. Batch update novels
 	if len(novelIncrements) > 0 {
 		if err := s.novelRepo.BatchIncrementViewCount(ctx, novelIncrements); err != nil {
-			s.logger.Error("Failed to batch update novel view counts", zap.Error(err))
+			s.logger.Error("Failed to batch update novel view counts, keeping Redis data for retry", zap.Error(err))
 			return fmt.Errorf("failed to update novels: %w", err)
 		}
 		s.logger.Info("Updated novel view counts",
@@ -356,7 +359,7 @@ func (s *ViewTrackingService) SyncBuffersToPostgreSQL(ctx context.Context) error
 		novelGenres, err := s.genreRepo.GetGenresByNovelIDs(ctx, novelIDs)
 		if err != nil {
 			s.logger.Error("Failed to get genres for view count update", zap.Error(err))
-			// Continue, don't break the whole sync
+			// Continue, don't break the whole sync - genre update is non-critical
 		} else {
 			// Aggregate view increments by genre
 			genreIncrements := make(map[uuid.UUID]int64)
@@ -372,12 +375,22 @@ func (s *ViewTrackingService) SyncBuffersToPostgreSQL(ctx context.Context) error
 			if len(genreIncrements) > 0 {
 				if err := s.genreRepo.BatchIncrementTotalViews(ctx, genreIncrements); err != nil {
 					s.logger.Error("Failed to batch update genre view counts", zap.Error(err))
+					// Continue - genre update failure is non-critical
 				} else {
 					s.logger.Info("Updated genre view counts",
 						zap.Int("genre_count", len(genreIncrements)))
 				}
 			}
 		}
+	}
+
+	// 6. ALL critical updates succeeded - now clear the buffers
+	if err := s.viewTrackingRepo.ClearBuffers(ctx); err != nil {
+		s.logger.Error("Failed to clear buffers after successful processing", zap.Error(err))
+		// Data is already processed, but buffers weren't cleared
+		// On next sync, same data will be processed again (idempotent since we're incrementing)
+		// This is acceptable - better than data loss
+		return fmt.Errorf("failed to clear buffers: %w", err)
 	}
 
 	s.logger.Info("Buffer sync to PostgreSQL completed successfully",
@@ -389,9 +402,12 @@ func (s *ViewTrackingService) SyncBuffersToPostgreSQL(ctx context.Context) error
 // SyncEventsToClickHouse syncs events from Redis queue to ClickHouse.
 // Method này được gọi bởi background worker.
 //
-// Flow:
-//  1. Dequeue events batch from Redis queue
+// Flow (peek-process-acknowledge pattern):
+//  1. PeekEvents - read events WITHOUT removing from queue
 //  2. Batch insert to ClickHouse
+//  3. AcknowledgeEvents - remove from queue ONLY after successful insert
+//
+// If ClickHouse insert fails, events remain in Redis for retry.
 //
 // Parameters:
 //   - ctx: Context
@@ -401,10 +417,10 @@ func (s *ViewTrackingService) SyncBuffersToPostgreSQL(ctx context.Context) error
 func (s *ViewTrackingService) SyncEventsToClickHouse(ctx context.Context) error {
 	s.logger.Debug("Starting event sync to ClickHouse...")
 
-	// 1. Dequeue events from Redis
-	events, err := s.viewTrackingRepo.DequeueEvents(ctx, s.config.ClickHouseBatchSize)
+	// 1. Peek events WITHOUT removing from queue (safe read)
+	events, err := s.viewTrackingRepo.PeekEvents(ctx, s.config.ClickHouseBatchSize)
 	if err != nil {
-		return fmt.Errorf("failed to dequeue events: %w", err)
+		return fmt.Errorf("failed to peek events: %w", err)
 	}
 
 	if len(events) == 0 {
@@ -417,9 +433,16 @@ func (s *ViewTrackingService) SyncEventsToClickHouse(ctx context.Context) error 
 
 	// 2. Batch insert to ClickHouse
 	if err := s.viewAnalyticsRepo.BatchInsertEvents(ctx, events); err != nil {
-		s.logger.Error("Failed to batch insert events to ClickHouse", zap.Error(err))
-		// TODO: Re-enqueue events or send to DLQ
+		s.logger.Error("Failed to batch insert events to ClickHouse, keeping Redis data for retry", zap.Error(err))
 		return fmt.Errorf("failed to insert events: %w", err)
+	}
+
+	// 3. Insert succeeded - acknowledge (remove) events from Redis
+	if err := s.viewTrackingRepo.AcknowledgeEvents(ctx, len(events)); err != nil {
+		s.logger.Error("Failed to acknowledge events after successful insert", zap.Error(err))
+		// Events are already in ClickHouse - next sync may insert duplicates
+		// This is acceptable for analytics (better duplicate than loss)
+		return fmt.Errorf("failed to acknowledge events: %w", err)
 	}
 
 	s.logger.Info("Successfully synced events to ClickHouse",
@@ -460,13 +483,18 @@ func (s *ViewTrackingService) SyncActiveReaders(ctx context.Context) error {
 }
 
 // SyncActivitiesToClickHouse syncs content activities from Redis queue to ClickHouse.
+//
+// Flow (peek-process-acknowledge pattern):
+//  1. PeekActivities - read WITHOUT removing
+//  2. Batch insert to ClickHouse
+//  3. AcknowledgeActivities - remove after successful insert
 func (s *ViewTrackingService) SyncActivitiesToClickHouse(ctx context.Context) error {
 	s.logger.Debug("Starting activity sync to ClickHouse...")
 
-	// 1. Dequeue activities from Redis
-	activities, err := s.viewTrackingRepo.DequeueActivities(ctx, s.config.ClickHouseBatchSize)
+	// 1. Peek activities WITHOUT removing
+	activities, err := s.viewTrackingRepo.PeekActivities(ctx, s.config.ClickHouseBatchSize)
 	if err != nil {
-		return fmt.Errorf("failed to dequeue activities: %w", err)
+		return fmt.Errorf("failed to peek activities: %w", err)
 	}
 
 	if len(activities) == 0 {
@@ -479,9 +507,14 @@ func (s *ViewTrackingService) SyncActivitiesToClickHouse(ctx context.Context) er
 
 	// 2. Batch insert to ClickHouse
 	if err := s.viewAnalyticsRepo.BatchInsertActivities(ctx, activities); err != nil {
-		s.logger.Error("Failed to batch insert activities to ClickHouse", zap.Error(err))
-		// TODO: Re-enqueue activities or send to DLQ
+		s.logger.Error("Failed to batch insert activities to ClickHouse, keeping Redis data for retry", zap.Error(err))
 		return fmt.Errorf("failed to insert activities: %w", err)
+	}
+
+	// 3. Acknowledge activities
+	if err := s.viewTrackingRepo.AcknowledgeActivities(ctx, len(activities)); err != nil {
+		s.logger.Error("Failed to acknowledge activities after successful insert", zap.Error(err))
+		return fmt.Errorf("failed to acknowledge activities: %w", err)
 	}
 
 	s.logger.Info("Successfully synced activities to ClickHouse",

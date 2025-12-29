@@ -286,6 +286,77 @@ func (r *viewTrackingRedisRepo) GetAllBuffers(ctx context.Context) ([]domain.Vie
 	return buffers, nil
 }
 
+// PeekBuffers retrieves all buffered counts WITHOUT clearing them.
+// Use ClearBuffers after successful processing to remove the data.
+//
+// Redis operation: HGETALL (read only, no delete)
+func (r *viewTrackingRedisRepo) PeekBuffers(ctx context.Context) ([]domain.ViewBuffer, error) {
+	var buffers []domain.ViewBuffer
+
+	// Get chapter buffers (read only)
+	chapterCounts, err := r.rdb.Client.HGetAll(ctx, keyBufferChapter).Result()
+	if err != nil && err != redis.Nil {
+		return nil, fmt.Errorf("failed to peek chapter buffers: %w", err)
+	}
+
+	for entityIDStr, countStr := range chapterCounts {
+		entityID, err := uuid.FromString(entityIDStr)
+		if err != nil {
+			continue
+		}
+
+		count, err := strconv.ParseInt(countStr, 10, 64)
+		if err != nil {
+			continue
+		}
+
+		buffers = append(buffers, domain.ViewBuffer{
+			EntityType: "chapter",
+			EntityID:   entityID,
+			Count:      count,
+		})
+	}
+
+	// Get novel buffers (read only)
+	novelCounts, err := r.rdb.Client.HGetAll(ctx, keyBufferNovel).Result()
+	if err != nil && err != redis.Nil {
+		return nil, fmt.Errorf("failed to peek novel buffers: %w", err)
+	}
+
+	for entityIDStr, countStr := range novelCounts {
+		entityID, err := uuid.FromString(entityIDStr)
+		if err != nil {
+			continue
+		}
+
+		count, err := strconv.ParseInt(countStr, 10, 64)
+		if err != nil {
+			continue
+		}
+
+		buffers = append(buffers, domain.ViewBuffer{
+			EntityType: "novel",
+			EntityID:   entityID,
+			Count:      count,
+		})
+	}
+
+	return buffers, nil
+}
+
+// ClearBuffers removes all buffer data from Redis.
+// Call this ONLY after successful processing (PostgreSQL updates complete).
+//
+// Redis operation: DEL view:buffer:chapter view:buffer:novel
+func (r *viewTrackingRedisRepo) ClearBuffers(ctx context.Context) error {
+	// Delete both buffer keys
+	_, err := r.rdb.Client.Del(ctx, keyBufferChapter, keyBufferNovel).Result()
+	if err != nil {
+		return fmt.Errorf("failed to clear buffers: %w", err)
+	}
+	return nil
+}
+
 // EnqueueEvent adds một view event vào ClickHouse queue.
 // Event được serialize thành JSON và pushed vào Redis list.
 //
@@ -435,4 +506,89 @@ func (r *viewTrackingRedisRepo) DequeueActivities(ctx context.Context, batchSize
 	}
 
 	return activities, nil
+}
+
+// PeekEvents reads N events from queue WITHOUT removing them.
+// Use LRANGE to read from head of list without modifying.
+//
+// Redis operation: LRANGE view:events 0 (batchSize-1)
+func (r *viewTrackingRedisRepo) PeekEvents(ctx context.Context, batchSize int) ([]*domain.ViewEvent, error) {
+	// LRANGE reads elements without removing (0-indexed, inclusive end)
+	eventJSONs, err := r.rdb.Client.LRange(ctx, keyEventQueue, 0, int64(batchSize-1)).Result()
+	if err != nil && err != redis.Nil {
+		return nil, fmt.Errorf("failed to peek events: %w", err)
+	}
+
+	if len(eventJSONs) == 0 {
+		return nil, nil
+	}
+
+	// Unmarshal events
+	var events []*domain.ViewEvent
+	for _, eventJSON := range eventJSONs {
+		var event domain.ViewEvent
+		if err := json.Unmarshal([]byte(eventJSON), &event); err != nil {
+			continue
+		}
+		events = append(events, &event)
+	}
+
+	return events, nil
+}
+
+// AcknowledgeEvents removes N events from the head of queue after successful processing.
+// Use LTRIM to remove processed elements from head.
+//
+// Redis operation: LTRIM view:events N -1 (keeps elements from index N to end)
+func (r *viewTrackingRedisRepo) AcknowledgeEvents(ctx context.Context, count int) error {
+	if count <= 0 {
+		return nil
+	}
+
+	// LTRIM keeps elements from 'count' to end, effectively removing first 'count' elements
+	_, err := r.rdb.Client.LTrim(ctx, keyEventQueue, int64(count), -1).Result()
+	if err != nil {
+		return fmt.Errorf("failed to acknowledge events: %w", err)
+	}
+	return nil
+}
+
+// PeekActivities reads N activities from queue WITHOUT removing them.
+//
+// Redis operation: LRANGE activity:queue 0 (batchSize-1)
+func (r *viewTrackingRedisRepo) PeekActivities(ctx context.Context, batchSize int) ([]*domain.ContentActivity, error) {
+	activityJSONs, err := r.rdb.Client.LRange(ctx, keyActivityQueue, 0, int64(batchSize-1)).Result()
+	if err != nil && err != redis.Nil {
+		return nil, fmt.Errorf("failed to peek activities: %w", err)
+	}
+
+	if len(activityJSONs) == 0 {
+		return nil, nil
+	}
+
+	var activities []*domain.ContentActivity
+	for _, activityJSON := range activityJSONs {
+		var activity domain.ContentActivity
+		if err := json.Unmarshal([]byte(activityJSON), &activity); err != nil {
+			continue
+		}
+		activities = append(activities, &activity)
+	}
+
+	return activities, nil
+}
+
+// AcknowledgeActivities removes N activities from the head of queue after successful processing.
+//
+// Redis operation: LTRIM activity:queue N -1
+func (r *viewTrackingRedisRepo) AcknowledgeActivities(ctx context.Context, count int) error {
+	if count <= 0 {
+		return nil
+	}
+
+	_, err := r.rdb.Client.LTrim(ctx, keyActivityQueue, int64(count), -1).Result()
+	if err != nil {
+		return fmt.Errorf("failed to acknowledge activities: %w", err)
+	}
+	return nil
 }

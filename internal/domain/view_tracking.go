@@ -241,6 +241,7 @@ type ViewTrackingRepository interface {
 	// GetAllBuffers retrieves tất cả buffered counts và clears them atomically.
 	// Method này được gọi bởi background worker để sync sang PostgreSQL.
 	// Sử dụng Redis pipeline để ensure atomic read-and-clear.
+	// DEPRECATED: Use PeekBuffers + ClearBuffers for safer processing.
 	//
 	// Parameters:
 	//   - ctx: Context
@@ -249,6 +250,27 @@ type ViewTrackingRepository interface {
 	//   - []ViewBuffer: List các buffered counts
 	//   - error: Lỗi nếu có
 	GetAllBuffers(ctx context.Context) ([]ViewBuffer, error)
+
+	// PeekBuffers retrieves tất cả buffered counts WITHOUT clearing them.
+	// Use this followed by ClearBuffers after successful processing.
+	//
+	// Parameters:
+	//   - ctx: Context
+	//
+	// Returns:
+	//   - []ViewBuffer: List các buffered counts
+	//   - error: Lỗi nếu có
+	PeekBuffers(ctx context.Context) ([]ViewBuffer, error)
+
+	// ClearBuffers removes all buffered counts from Redis.
+	// Call this ONLY after successful processing to acknowledge.
+	//
+	// Parameters:
+	//   - ctx: Context
+	//
+	// Returns:
+	//   - error: Lỗi nếu có
+	ClearBuffers(ctx context.Context) error
 
 	// EnqueueEvent adds một view event vào ClickHouse queue (Redis List).
 	// Events sẽ được consumed bởi background worker và inserted vào ClickHouse.
@@ -263,6 +285,7 @@ type ViewTrackingRepository interface {
 
 	// DequeueEvents retrieves và removes một batch events từ queue.
 	// Returns nil nếu queue empty.
+	// DEPRECATED: Use PeekEvents + AcknowledgeEvents for safer processing.
 	//
 	// Parameters:
 	//   - ctx: Context
@@ -273,11 +296,40 @@ type ViewTrackingRepository interface {
 	//   - error: Lỗi nếu có
 	DequeueEvents(ctx context.Context, batchSize int) ([]*ViewEvent, error)
 
+	// PeekEvents reads events from queue WITHOUT removing them.
+	// Use this followed by AcknowledgeEvents after successful processing.
+	//
+	// Parameters:
+	//   - ctx: Context
+	//   - batchSize: Số lượng events tối đa cần peek
+	//
+	// Returns:
+	//   - []*ViewEvent: List events, nil nếu queue empty
+	//   - error: Lỗi nếu có
+	PeekEvents(ctx context.Context, batchSize int) ([]*ViewEvent, error)
+
+	// AcknowledgeEvents removes N events from the head of queue after successful processing.
+	//
+	// Parameters:
+	//   - ctx: Context
+	//   - count: Number of events to remove (should match PeekEvents count)
+	//
+	// Returns:
+	//   - error: Lỗi nếu có
+	AcknowledgeEvents(ctx context.Context, count int) error
+
 	// EnqueueActivity adds a content activity to the queue.
 	EnqueueActivity(ctx context.Context, activity *ContentActivity) error
 
 	// DequeueActivities retrieves and removes a batch of content activities from the queue.
+	// DEPRECATED: Use PeekActivities + AcknowledgeActivities for safer processing.
 	DequeueActivities(ctx context.Context, batchSize int) ([]*ContentActivity, error)
+
+	// PeekActivities reads activities from queue WITHOUT removing them.
+	PeekActivities(ctx context.Context, batchSize int) ([]*ContentActivity, error)
+
+	// AcknowledgeActivities removes N activities from the head of queue after successful processing.
+	AcknowledgeActivities(ctx context.Context, count int) error
 }
 
 // RankStat đại diện cho ranking với so sánh với kỳ trước
