@@ -92,6 +92,68 @@ func RequireAuth(provider OAuth2Provider, logger *zap.Logger) gin.HandlerFunc {
 	}
 }
 
+// OptionalAuth là middleware trích xuất thông tin user nếu có token, nhưng không block nếu không có.
+// Sử dụng cho các endpoints public nhưng cần biết user nếu đã login (ví dụ: view tracking).
+//
+// Usage:
+//
+//	publicRoutes.Use(middleware.OptionalAuth(oauth2Provider, logger))
+//	publicRoutes.POST("/view", viewHandler) // Works for both guests and authenticated users
+func OptionalAuth(provider OAuth2Provider, logger *zap.Logger) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		// Try to get Authorization header
+		authHeader := c.GetHeader("Authorization")
+
+		// Also try query parameters
+		if authHeader == "" {
+			token := c.Query("token")
+			if token == "" {
+				token = c.Query("access_token")
+			}
+			if token != "" {
+				authHeader = "Bearer " + token
+			}
+		}
+
+		// No auth header - continue as guest
+		if authHeader == "" {
+			c.Next()
+			return
+		}
+
+		// Parse Bearer token
+		token := strings.TrimPrefix(authHeader, "Bearer ")
+		if token == authHeader {
+			// Invalid format - continue as guest
+			c.Next()
+			return
+		}
+
+		// Try to introspect token
+		session := &fosite.DefaultSession{}
+		tokenUse, ar, err := provider.IntrospectToken(c.Request.Context(), token, fosite.AccessToken, session)
+		if err != nil {
+			// Invalid token - continue as guest (don't block)
+			logger.Debug("OptionalAuth: Token invalid, continuing as guest", zap.Error(err))
+			c.Next()
+			return
+		}
+
+		// Token valid - set user info in context
+		logger.Debug("OptionalAuth: User authenticated",
+			zap.String("subject", ar.GetSession().GetSubject()),
+		)
+
+		c.Set("oauth2_token_use", string(tokenUse))
+		c.Set("oauth2_client_id", ar.GetClient().GetID())
+		c.Set("oauth2_subject", ar.GetSession().GetSubject())
+		c.Set("oauth2_scopes", ar.GetGrantedScopes())
+		c.Set("oauth2_access_request", ar)
+
+		c.Next()
+	}
+}
+
 // RequireScope là middleware kiểm tra token có chứa scope cần thiết không.
 // Phải sử dụng sau RequireAuth middleware.
 //

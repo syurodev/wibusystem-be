@@ -5,13 +5,20 @@ import (
 )
 
 // RegisterRoutes registers chapter routes
-// authMiddleware is optional - if nil, protected routes won't be registered
-func (h *Handler) RegisterRoutes(router *gin.RouterGroup, authMiddleware gin.HandlerFunc) {
+// authMiddleware is for protected routes (require auth)
+// optionalAuthMiddleware is for routes that work for both guests and authenticated users
+func (h *Handler) RegisterRoutes(router *gin.RouterGroup, authMiddleware gin.HandlerFunc, optionalAuthMiddleware gin.HandlerFunc) {
 	// More specific routes MUST come before wildcard routes in Gin
 	// Public routes
 	router.GET("/:identifier/full", h.GetChapterFull) // Get full chapter with novel/volume/owner info
 	router.GET("/:identifier", h.GetChapter)
-	router.POST("/:identifier/view", h.IncrementViewCount)
+
+	// View tracking - use optional auth to capture user ID if logged in
+	if optionalAuthMiddleware != nil {
+		router.POST("/:identifier/view", optionalAuthMiddleware, h.IncrementViewCount)
+	} else {
+		router.POST("/:identifier/view", h.IncrementViewCount)
+	}
 
 	// Protected routes (require auth)
 	if authMiddleware != nil {

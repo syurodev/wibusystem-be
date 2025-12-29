@@ -136,6 +136,7 @@ func loadTemplates(router *gin.Engine, zapLogger *zap.Logger) {
 func registerAPIRoutes(router *gin.Engine, deps *Dependencies, zapLogger *zap.Logger) {
 	apiV1 := router.Group("/api/v1")
 	authMiddleware := middleware.RequireAuth(deps.OAuth2Provider, zapLogger)
+	optionalAuthMiddleware := middleware.OptionalAuth(deps.OAuth2Provider, zapLogger)
 
 	// Genre routes
 	genreGroup := apiV1.Group("/genres")
@@ -149,7 +150,7 @@ func registerAPIRoutes(router *gin.Engine, deps *Dependencies, zapLogger *zap.Lo
 	deps.Handlers.Artist.RegisterRoutes(apiV1, authMiddleware)
 
 	// Novel routes
-	registerNovelRoutes(apiV1, deps, authMiddleware)
+	registerNovelRoutes(apiV1, deps, authMiddleware, optionalAuthMiddleware)
 
 	// User routes
 	userGroup := apiV1.Group("/users/me")
@@ -197,7 +198,7 @@ func registerAPIRoutes(router *gin.Engine, deps *Dependencies, zapLogger *zap.Lo
 }
 
 // registerNovelRoutes đăng ký novel, volume, chapter routes
-func registerNovelRoutes(apiV1 *gin.RouterGroup, deps *Dependencies, authMiddleware gin.HandlerFunc) {
+func registerNovelRoutes(apiV1 *gin.RouterGroup, deps *Dependencies, authMiddleware gin.HandlerFunc, optionalAuthMiddleware gin.HandlerFunc) {
 	h := deps.Handlers
 
 	// Novel routes
@@ -223,7 +224,7 @@ func registerNovelRoutes(apiV1 *gin.RouterGroup, deps *Dependencies, authMiddlew
 
 	// Chapter routes (Namespace: /novels/chapters)
 	chapterGroup := apiV1.Group("/novels/chapters")
-	h.Chapter.RegisterRoutes(chapterGroup, authMiddleware)
+	h.Chapter.RegisterRoutes(chapterGroup, authMiddleware, optionalAuthMiddleware)
 }
 
 // registerAuthAPIRoutes đăng ký auth API routes

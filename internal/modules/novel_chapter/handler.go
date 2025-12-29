@@ -540,8 +540,17 @@ func (h *Handler) IncrementViewCount(c *gin.Context) {
 	// Get client IP address
 	ipAddress := c.ClientIP()
 
+	// Get User-Agent
+	userAgent := c.GetHeader("User-Agent")
+
+	// Get Platform from header (default: "web")
+	platform := c.GetHeader("X-Platform")
+	if platform == "" {
+		platform = "web"
+	}
+
 	// Track view using ViewTrackingService (Redis buffered + ClickHouse analytics)
-	_, err = h.viewTrackingSvc.TrackChapterView(c.Request.Context(), id, userID, ipAddress)
+	_, err = h.viewTrackingSvc.TrackChapterView(c.Request.Context(), id, userID, ipAddress, userAgent, platform)
 	if err != nil {
 		// Log but don't fail - view tracking should not block user experience
 		_ = err

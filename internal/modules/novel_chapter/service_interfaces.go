@@ -106,5 +106,5 @@ type OwnerData struct {
 type ViewTracker interface {
 	// TrackChapterView tracks a chapter view with deduplication
 	// Returns true if view was counted, false if duplicate
-	TrackChapterView(ctx context.Context, chapterID uuid.UUID, userID *uuid.UUID, ipAddress string) (bool, error)
+	TrackChapterView(ctx context.Context, chapterID uuid.UUID, userID *uuid.UUID, ipAddress string, userAgent string, platform string) (bool, error)
 }

@@ -53,6 +53,7 @@ import (
 	"time"
 
 	"github.com/gofrs/uuid/v5"
+	"github.com/mileusna/useragent"
 	"go.uber.org/zap"
 
 	"system/configs"
@@ -121,11 +122,13 @@ func NewViewTrackingService(
 //   - chapterID: ID của chapter được xem
 //   - userID: ID của user (nil nếu anonymous)
 //   - ipAddress: IP address của viewer
+//   - userAgentStr: User-Agent string từ browser
+//   - platform: Platform (web, mobile, ios, android)
 //
 // Returns:
 //   - bool: true nếu view được counted, false nếu duplicate
 //   - error: Lỗi nếu có
-func (s *ViewTrackingService) TrackChapterView(ctx context.Context, chapterID uuid.UUID, userID *uuid.UUID, ipAddress string) (bool, error) {
+func (s *ViewTrackingService) TrackChapterView(ctx context.Context, chapterID uuid.UUID, userID *uuid.UUID, ipAddress string, userAgentStr string, platform string) (bool, error) {
 	// 1. Get chapter để lấy novel_id cho dual tracking
 	chapter, err := s.chapterRepo.GetByID(ctx, chapterID)
 	if err != nil {
@@ -218,14 +221,24 @@ func (s *ViewTrackingService) TrackChapterView(ctx context.Context, chapterID uu
 		groupID = &novel.OwnerID
 	}
 
-	// Parse User Agent (Simple implementation)
-	// In a real app, use a library like uasurfer or user_agent
-	// Here we assume these are passed via context or we parse raw string if available
-	// Since TrackChapterView signature only has ipAddress, we can't get UA easily unless we change signature
-	// For now, we'll leave them empty or "unknown"
-	platform := "web"
-	os := "unknown"
-	browser := "unknown"
+	// Parse User Agent using mileusna/useragent library for OS/Browser
+	ua := useragent.Parse(userAgentStr)
+	
+	// Platform is passed from client via X-Platform header
+	// Default to "web" if not provided
+	if platform == "" {
+		platform = "web"
+	}
+	
+	os := ua.OS
+	if os == "" {
+		os = "unknown"
+	}
+	
+	browser := ua.Name
+	if browser == "" {
+		browser = "unknown"
+	}
 
 	// Determine User Status
 	isPremium := false

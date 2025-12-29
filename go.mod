@@ -15,6 +15,7 @@ require (
 	github.com/jackc/pgx/v5 v5.7.6
 	github.com/joho/godotenv v1.5.1
 	github.com/knights-analytics/hugot v0.5.10
+	github.com/mileusna/useragent v1.3.5
 	github.com/nicksnyder/go-i18n/v2 v2.6.0
 	github.com/ory/fosite v0.49.0
 	github.com/pgvector/pgvector-go v0.3.0
